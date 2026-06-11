@@ -19,29 +19,27 @@
 package appeng.blockentity.crafting;
 
 import java.util.EnumSet;
+import java.util.Objects;
+
+import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.core.Direction;
-import net.neoforged.neoforge.model.data.ModelData;
-import net.neoforged.neoforge.model.data.ModelProperty;
 
-import appeng.blockentity.AEModelData;
+import appeng.api.util.AEColor;
 
-public final class CraftingCubeModelData {
+/**
+ * Loader-neutral render data for blocks of the crafting cube multi-block.
+ *
+ * @param connections which sides of the block are connected to other parts of a formed crafting cube
+ * @param color       the color of the attached cable bus for crafting monitors, null for all other crafting cube blocks
+ */
+public record CraftingCubeModelData(EnumSet<Direction> connections, @Nullable AEColor color) {
 
-    // Contains information on which sides of the block are connected to other parts
-    // of a formed crafting cube
-    public static final ModelProperty<EnumSet<Direction>> CONNECTIONS = new ModelProperty<>();
-
-    private CraftingCubeModelData() {
+    public static CraftingCubeModelData create(EnumSet<Direction> connections) {
+        return new CraftingCubeModelData(connections, null);
     }
 
-    public static ModelData.Builder builder(EnumSet<Direction> connections) {
-        return AEModelData.builder()
-                .with(AEModelData.SKIP_CACHE, true)
-                .with(CONNECTIONS, connections);
-    }
-
-    public static ModelData create(EnumSet<Direction> connections) {
-        return builder(connections).build();
+    public static CraftingCubeModelData create(EnumSet<Direction> connections, AEColor color) {
+        return new CraftingCubeModelData(connections, Objects.requireNonNull(color));
     }
 }

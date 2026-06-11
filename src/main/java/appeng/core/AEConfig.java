@@ -22,55 +22,39 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.DoubleSupplier;
 
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.config.ModConfig;
-import net.neoforged.fml.event.config.ModConfigEvent;
-import net.neoforged.neoforge.common.ModConfigSpec;
-import net.neoforged.neoforge.common.ModConfigSpec.BooleanValue;
-import net.neoforged.neoforge.common.ModConfigSpec.DoubleValue;
-import net.neoforged.neoforge.common.ModConfigSpec.EnumValue;
-import net.neoforged.neoforge.common.ModConfigSpec.IntValue;
-
 import appeng.api.config.CondenserOutput;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.config.PowerUnit;
 import appeng.api.config.Settings;
 import appeng.api.config.TerminalStyle;
 import appeng.api.networking.pathing.ChannelMode;
+import appeng.core.config.ConfigStore;
 import appeng.core.settings.TickRates;
 import appeng.util.EnumCycler;
 import appeng.util.Platform;
 
 public final class AEConfig {
 
-    private final ClientConfig client = new ClientConfig();
-    private final CommonConfig common = new CommonConfig();
+    private final ClientConfig client;
+    private final CommonConfig common;
 
     // Default Energy Conversion Rates
     private static final double DEFAULT_FE_EXCHANGE = 0.5;
 
     private static AEConfig instance;
 
-    private AEConfig(ModContainer container) {
-        container.registerConfig(ModConfig.Type.CLIENT, client.spec);
-        container.registerConfig(ModConfig.Type.COMMON, common.spec);
-        container.getEventBus().addListener((ModConfigEvent.Loading evt) -> {
-            if (evt.getConfig().getSpec() == common.spec) {
-                common.sync();
-            }
-        });
-        container.getEventBus().addListener((ModConfigEvent.Reloading evt) -> {
-            if (evt.getConfig().getSpec() == common.spec) {
-                common.sync();
-            }
-        });
+    private AEConfig(ConfigStore clientStore, ConfigStore commonStore) {
+        this.client = new ClientConfig(clientStore);
+        this.common = new CommonConfig(commonStore);
+        commonStore.onLoadOrReload(common::sync);
     }
 
-    public static void register(ModContainer container) {
-        if (!container.getModId().equals(AppEng.MOD_ID)) {
-            throw new IllegalArgumentException();
-        }
-        instance = new AEConfig(container);
+    /**
+     * Builds the config structure into the given loader-provided stores. The caller is responsible for registering the
+     * stores with the loader's config machinery afterwards.
+     */
+    public static void register(ConfigStore clientStore, ConfigStore commonStore) {
+        instance = new AEConfig(clientStore, commonStore);
     }
 
     public static AEConfig instance() {
@@ -106,9 +90,9 @@ public final class AEConfig {
     }
 
     public void setSearchModNameInTooltips(boolean enable) {
-        if (enable != client.searchModNameInTooltips.getAsBoolean()) {
+        if (enable != client.searchModNameInTooltips.get()) {
             client.searchModNameInTooltips.set(enable);
-            client.spec.save();
+            client.store.save();
         }
     }
 
@@ -117,9 +101,9 @@ public final class AEConfig {
     }
 
     public void setUseExternalSearch(boolean enable) {
-        if (enable != client.useExternalSearch.getAsBoolean()) {
+        if (enable != client.useExternalSearch.get()) {
             client.useExternalSearch.set(enable);
-            client.spec.save();
+            client.store.save();
         }
     }
 
@@ -128,9 +112,9 @@ public final class AEConfig {
     }
 
     public void setClearExternalSearchOnOpen(boolean enable) {
-        if (enable != client.clearExternalSearchOnOpen.getAsBoolean()) {
+        if (enable != client.clearExternalSearchOnOpen.get()) {
             client.clearExternalSearchOnOpen.set(enable);
-            client.spec.save();
+            client.store.save();
         }
     }
 
@@ -139,9 +123,9 @@ public final class AEConfig {
     }
 
     public void setRememberLastSearch(boolean enable) {
-        if (enable != client.rememberLastSearch.getAsBoolean()) {
+        if (enable != client.rememberLastSearch.get()) {
             client.rememberLastSearch.set(enable);
-            client.spec.save();
+            client.store.save();
         }
     }
 
@@ -150,9 +134,9 @@ public final class AEConfig {
     }
 
     public void setAutoFocusSearch(boolean enable) {
-        if (enable != client.autoFocusSearch.getAsBoolean()) {
+        if (enable != client.autoFocusSearch.get()) {
             client.autoFocusSearch.set(enable);
-            client.spec.save();
+            client.store.save();
         }
     }
 
@@ -161,9 +145,9 @@ public final class AEConfig {
     }
 
     public void setSyncWithExternalSearch(boolean enable) {
-        if (enable != client.syncWithExternalSearch.getAsBoolean()) {
+        if (enable != client.syncWithExternalSearch.get()) {
             client.syncWithExternalSearch.set(enable);
-            client.spec.save();
+            client.store.save();
         }
     }
 
@@ -174,7 +158,7 @@ public final class AEConfig {
     public void setTerminalStyle(TerminalStyle setting) {
         if (setting != client.terminalStyle.get()) {
             client.terminalStyle.set(setting);
-            client.spec.save();
+            client.store.save();
         }
     }
 
@@ -194,7 +178,7 @@ public final class AEConfig {
         var selected = EnumCycler.rotateEnum(getSelectedEnergyUnit(), backwards,
                 Settings.POWER_UNITS.getValues());
         client.selectedPowerUnit.set(selected);
-        client.spec.save();
+        client.store.save();
     }
 
     // Getters
@@ -207,31 +191,31 @@ public final class AEConfig {
     }
 
     public boolean isEnableEffects() {
-        return client.enableEffects.getAsBoolean();
+        return client.enableEffects.get();
     }
 
     public boolean isUseLargeFonts() {
-        return client.useLargeFonts.getAsBoolean();
+        return client.useLargeFonts.get();
     }
 
     public boolean isUseColoredCraftingStatus() {
-        return client.useColoredCraftingStatus.getAsBoolean();
+        return client.useColoredCraftingStatus.get();
     }
 
     public boolean isDisableColoredCableRecipesInRecipeViewer() {
-        return client.disableColoredCableRecipesInRecipeViewer.getAsBoolean();
+        return client.disableColoredCableRecipesInRecipeViewer.get();
     }
 
     public boolean isEnableFacadesInRecipeViewer() {
-        return client.enableFacadesInRecipeViewer.getAsBoolean();
+        return client.enableFacadesInRecipeViewer.get();
     }
 
     public boolean isEnableFacadeRecipesInRecipeViewer() {
-        return client.enableFacadeRecipesInRecipeViewer.getAsBoolean();
+        return client.enableFacadeRecipesInRecipeViewer.get();
     }
 
     public boolean isExposeNetworkInventoryToEmi() {
-        return client.exposeNetworkInventoryToEmi.getAsBoolean();
+        return client.exposeNetworkInventoryToEmi.get();
     }
 
     public int getCraftingCalculationTimePerTick() {
@@ -283,9 +267,9 @@ public final class AEConfig {
     }
 
     public void setShowDebugGuiOverlays(boolean enable) {
-        if (enable != client.debugGuiOverlays.getAsBoolean()) {
+        if (enable != client.debugGuiOverlays.get()) {
             client.debugGuiOverlays.set(enable);
-            client.spec.save();
+            client.store.save();
         }
     }
 
@@ -328,7 +312,7 @@ public final class AEConfig {
     public void setChannelModel(ChannelMode mode) {
         if (mode != common.channels.get()) {
             common.channels.set(mode);
-            client.spec.save();
+            client.store.save();
         }
     }
 
@@ -367,9 +351,9 @@ public final class AEConfig {
     }
 
     public void setPinAutoCraftedItems(boolean enabled) {
-        if (enabled != client.pinAutoCraftedItems.getAsBoolean()) {
+        if (enabled != client.pinAutoCraftedItems.get()) {
             client.pinAutoCraftedItems.set(enabled);
-            client.spec.save();
+            client.store.save();
         }
     }
 
@@ -378,9 +362,9 @@ public final class AEConfig {
     }
 
     public void setNotifyForFinishedCraftingJobs(boolean enabled) {
-        if (enabled != client.notifyForFinishedCraftingJobs.getAsBoolean()) {
+        if (enabled != client.notifyForFinishedCraftingJobs.get()) {
             client.notifyForFinishedCraftingJobs.set(enabled);
-            client.spec.save();
+            client.store.save();
         }
     }
 
@@ -389,9 +373,9 @@ public final class AEConfig {
     }
 
     public void setClearGridOnClose(boolean enabled) {
-        if (enabled != client.clearGridOnClose.getAsBoolean()) {
+        if (enabled != client.clearGridOnClose.get()) {
             client.clearGridOnClose.set(enabled);
-            client.spec.save();
+            client.store.save();
         }
     }
 
@@ -412,288 +396,284 @@ public final class AEConfig {
     }
 
     public void save() {
-        common.spec.save();
-        client.spec.save();
+        common.store.save();
+        client.store.save();
     }
 
     private static class ClientConfig {
-        private final ModConfigSpec spec;
+        private final ConfigStore store;
 
         // Misc
-        public final BooleanValue enableEffects;
-        public final BooleanValue useLargeFonts;
-        public final BooleanValue useColoredCraftingStatus;
-        public final BooleanValue disableColoredCableRecipesInRecipeViewer;
-        public final BooleanValue enableFacadesInRecipeViewer;
-        public final BooleanValue enableFacadeRecipesInRecipeViewer;
-        public final BooleanValue exposeNetworkInventoryToEmi;
-        public final EnumValue<PowerUnit> selectedPowerUnit;
-        public final BooleanValue debugGuiOverlays;
-        public final BooleanValue showPlacementPreview;
-        public final BooleanValue notifyForFinishedCraftingJobs;
+        public final ConfigStore.Value<Boolean> enableEffects;
+        public final ConfigStore.Value<Boolean> useLargeFonts;
+        public final ConfigStore.Value<Boolean> useColoredCraftingStatus;
+        public final ConfigStore.Value<Boolean> disableColoredCableRecipesInRecipeViewer;
+        public final ConfigStore.Value<Boolean> enableFacadesInRecipeViewer;
+        public final ConfigStore.Value<Boolean> enableFacadeRecipesInRecipeViewer;
+        public final ConfigStore.Value<Boolean> exposeNetworkInventoryToEmi;
+        public final ConfigStore.Value<PowerUnit> selectedPowerUnit;
+        public final ConfigStore.Value<Boolean> debugGuiOverlays;
+        public final ConfigStore.Value<Boolean> showPlacementPreview;
+        public final ConfigStore.Value<Boolean> notifyForFinishedCraftingJobs;
 
         // Terminal Settings
-        public final EnumValue<TerminalStyle> terminalStyle;
-        public final BooleanValue pinAutoCraftedItems;
-        public final BooleanValue clearGridOnClose;
-        public final IntValue terminalMargin;
+        public final ConfigStore.Value<TerminalStyle> terminalStyle;
+        public final ConfigStore.Value<Boolean> pinAutoCraftedItems;
+        public final ConfigStore.Value<Boolean> clearGridOnClose;
+        public final ConfigStore.Value<Integer> terminalMargin;
 
         // Search Settings
-        public final BooleanValue searchModNameInTooltips;
-        public final BooleanValue useExternalSearch;
-        public final BooleanValue clearExternalSearchOnOpen;
-        public final BooleanValue syncWithExternalSearch;
-        public final BooleanValue rememberLastSearch;
-        public final BooleanValue autoFocusSearch;
+        public final ConfigStore.Value<Boolean> searchModNameInTooltips;
+        public final ConfigStore.Value<Boolean> useExternalSearch;
+        public final ConfigStore.Value<Boolean> clearExternalSearchOnOpen;
+        public final ConfigStore.Value<Boolean> syncWithExternalSearch;
+        public final ConfigStore.Value<Boolean> rememberLastSearch;
+        public final ConfigStore.Value<Boolean> autoFocusSearch;
 
         // Tooltip settings
-        public final BooleanValue tooltipShowCellUpgrades;
-        public final BooleanValue tooltipShowCellContent;
-        public final IntValue tooltipMaxCellContentShown;
+        public final ConfigStore.Value<Boolean> tooltipShowCellUpgrades;
+        public final ConfigStore.Value<Boolean> tooltipShowCellContent;
+        public final ConfigStore.Value<Integer> tooltipMaxCellContentShown;
 
-        public ClientConfig() {
-            var builder = new ModConfigSpec.Builder();
+        public ClientConfig(ConfigStore store) {
+            this.store = store;
 
-            builder.push("recipeViewers");
-            this.disableColoredCableRecipesInRecipeViewer = define(builder, "disableColoredCableRecipesInRecipeViewer",
+            store.push("recipeViewers");
+            this.disableColoredCableRecipesInRecipeViewer = define(store, "disableColoredCableRecipesInRecipeViewer",
                     true);
-            this.enableFacadesInRecipeViewer = define(builder, "enableFacadesInRecipeViewer", false,
+            this.enableFacadesInRecipeViewer = define(store, "enableFacadesInRecipeViewer", false,
                     "Show facades in REI/JEI/EMI item list");
-            this.enableFacadeRecipesInRecipeViewer = define(builder, "enableFacadeRecipesInRecipeViewer", true,
+            this.enableFacadeRecipesInRecipeViewer = define(store, "enableFacadeRecipesInRecipeViewer", true,
                     "Show facade recipes in REI/JEI/EMI for supported blocks");
-            this.exposeNetworkInventoryToEmi = define(builder, "provideNetworkInventoryToEmi", false,
+            this.exposeNetworkInventoryToEmi = define(store, "provideNetworkInventoryToEmi", false,
                     "Expose the full network inventory to EMI, which might cause performance problems.");
-            builder.pop();
+            store.pop();
 
-            builder.push("client");
-            this.enableEffects = define(builder, "enableEffects", true);
-            this.useLargeFonts = define(builder, "useTerminalUseLargeFont", false);
-            this.useColoredCraftingStatus = define(builder, "useColoredCraftingStatus", true);
-            this.selectedPowerUnit = defineEnum(builder, "powerUnit", PowerUnit.AE, "Unit of power shown in AE UIs");
-            this.debugGuiOverlays = define(builder, "showDebugGuiOverlays", false, "Show debugging GUI overlays");
-            this.showPlacementPreview = define(builder, "showPlacementPreview", true,
+            store.push("client");
+            this.enableEffects = define(store, "enableEffects", true);
+            this.useLargeFonts = define(store, "useTerminalUseLargeFont", false);
+            this.useColoredCraftingStatus = define(store, "useColoredCraftingStatus", true);
+            this.selectedPowerUnit = defineEnum(store, "powerUnit", PowerUnit.AE, "Unit of power shown in AE UIs");
+            this.debugGuiOverlays = define(store, "showDebugGuiOverlays", false, "Show debugging GUI overlays");
+            this.showPlacementPreview = define(store, "showPlacementPreview", true,
                     "Show a preview of part and facade placement");
-            this.notifyForFinishedCraftingJobs = define(builder, "notifyForFinishedCraftingJobs", true,
+            this.notifyForFinishedCraftingJobs = define(store, "notifyForFinishedCraftingJobs", true,
                     "Show toast when long-running crafting jobs finish.");
-            builder.pop();
+            store.pop();
 
-            var terminals = builder.push("terminals");
-            this.terminalStyle = defineEnum(terminals, "terminalStyle", TerminalStyle.SMALL);
-            this.pinAutoCraftedItems = define(builder, "pinAutoCraftedItems", true,
+            store.push("terminals");
+            this.terminalStyle = defineEnum(store, "terminalStyle", TerminalStyle.SMALL);
+            this.pinAutoCraftedItems = define(store, "pinAutoCraftedItems", true,
                     "Pin items that the player auto-crafts to the top of the terminal");
-            this.clearGridOnClose = define(builder, "clearGridOnClose", false,
+            this.clearGridOnClose = define(store, "clearGridOnClose", false,
                     "Automatically clear the crafting/encoding grid when closing the terminal");
-            this.terminalMargin = define(builder, "terminalMargin", 25,
+            this.terminalMargin = define(store, "terminalMargin", 25,
                     "The vertical margin to apply when sizing terminals. Used to make room for centered item mod search bars");
-            builder.pop();
+            store.pop();
 
             // Search Settings
-            builder.push("search");
-            this.searchModNameInTooltips = define(builder, "searchModNameInTooltips", false,
+            store.push("search");
+            this.searchModNameInTooltips = define(store, "searchModNameInTooltips", false,
                     "Should the mod name be included when searching in tooltips.");
-            this.useExternalSearch = define(builder, "useExternalSearch", false,
+            this.useExternalSearch = define(store, "useExternalSearch", false,
                     "Replaces AEs own search with the search of REI or JEI");
-            this.clearExternalSearchOnOpen = define(builder, "clearExternalSearchOnOpen", true,
+            this.clearExternalSearchOnOpen = define(store, "clearExternalSearchOnOpen", true,
                     "When using useExternalSearch, clears the search when the terminal opens");
-            this.syncWithExternalSearch = define(builder, "syncWithExternalSearch", true,
+            this.syncWithExternalSearch = define(store, "syncWithExternalSearch", true,
                     "When REI/JEI is installed, automatically set the AE or REI/JEI search text when either is changed while the terminal is open");
-            this.rememberLastSearch = define(builder, "rememberLastSearch", true,
+            this.rememberLastSearch = define(store, "rememberLastSearch", true,
                     "Remembers the last search term and restores it when the terminal opens");
-            this.autoFocusSearch = define(builder, "autoFocusSearch", false,
+            this.autoFocusSearch = define(store, "autoFocusSearch", false,
                     "Automatically focuses the search field when the terminal opens");
-            builder.pop();
+            store.pop();
 
-            builder.push("tooltips");
-            this.tooltipShowCellUpgrades = define(builder, "showCellUpgrades", true,
+            store.push("tooltips");
+            this.tooltipShowCellUpgrades = define(store, "showCellUpgrades", true,
                     "Show installed upgrades in the tooltips of storage cells, color applicators and matter cannons");
-            this.tooltipShowCellContent = define(builder, "showCellContent", true,
+            this.tooltipShowCellContent = define(store, "showCellContent", true,
                     "Show a preview of the content in the tooltips of storage cells, color applicators and matter cannons");
-            this.tooltipMaxCellContentShown = define(builder, "maxCellContentShown", 5, 1, 32,
+            this.tooltipMaxCellContentShown = define(store, "maxCellContentShown", 5, 1, 32,
                     "The maximum number of content entries to show in the tooltip of storage cells, color applicators and matter cannons");
-            builder.pop();
-
-            this.spec = builder.build();
+            store.pop();
         }
 
     }
 
     private static class CommonConfig {
-        private final ModConfigSpec spec;
+        private final ConfigStore store;
 
         // Misc
-        public final IntValue formationPlaneEntityLimit;
-        public final IntValue craftingCalculationTimePerTick;
-        public final BooleanValue debugTools;
-        public final BooleanValue matterCannonBlockDamage;
-        public final BooleanValue tinyTntBlockDamage;
-        public final EnumValue<ChannelMode> channels;
-        public final BooleanValue spatialAnchorEnableRandomTicks;
+        public final ConfigStore.Value<Integer> formationPlaneEntityLimit;
+        public final ConfigStore.Value<Integer> craftingCalculationTimePerTick;
+        public final ConfigStore.Value<Boolean> debugTools;
+        public final ConfigStore.Value<Boolean> matterCannonBlockDamage;
+        public final ConfigStore.Value<Boolean> tinyTntBlockDamage;
+        public final ConfigStore.Value<ChannelMode> channels;
+        public final ConfigStore.Value<Boolean> spatialAnchorEnableRandomTicks;
 
-        public final IntValue growthAcceleratorSpeed;
-        public final BooleanValue annihilationPlaneSkyDustGeneration;
+        public final ConfigStore.Value<Integer> growthAcceleratorSpeed;
+        public final ConfigStore.Value<Boolean> annihilationPlaneSkyDustGeneration;
 
         // Spatial IO/Dimension
-        public final DoubleValue spatialPowerExponent;
-        public final DoubleValue spatialPowerMultiplier;
+        public final ConfigStore.Value<Double> spatialPowerExponent;
+        public final ConfigStore.Value<Double> spatialPowerMultiplier;
 
         // Logging
-        public final BooleanValue blockUpdateLog;
-        public final BooleanValue craftingLog;
-        public final BooleanValue debugLog;
-        public final BooleanValue gridLog;
-        public final BooleanValue chunkLoggerTrace;
+        public final ConfigStore.Value<Boolean> blockUpdateLog;
+        public final ConfigStore.Value<Boolean> craftingLog;
+        public final ConfigStore.Value<Boolean> debugLog;
+        public final ConfigStore.Value<Boolean> gridLog;
+        public final ConfigStore.Value<Boolean> chunkLoggerTrace;
 
         // Batteries
-        public final DoubleValue chargerChargeRate;
-        public final IntValue wirelessTerminalBattery;
-        public final IntValue entropyManipulatorBattery;
-        public final IntValue matterCannonBattery;
-        public final IntValue portableCellBattery;
-        public final IntValue colorApplicatorBattery;
-        public final IntValue chargedStaffBattery;
+        public final ConfigStore.Value<Double> chargerChargeRate;
+        public final ConfigStore.Value<Integer> wirelessTerminalBattery;
+        public final ConfigStore.Value<Integer> entropyManipulatorBattery;
+        public final ConfigStore.Value<Integer> matterCannonBattery;
+        public final ConfigStore.Value<Integer> portableCellBattery;
+        public final ConfigStore.Value<Integer> colorApplicatorBattery;
+        public final ConfigStore.Value<Integer> chargedStaffBattery;
 
         // Meteors
-        public final BooleanValue spawnPressesInMeteorites;
-        public final BooleanValue spawnFlawlessOnly;
+        public final ConfigStore.Value<Boolean> spawnPressesInMeteorites;
+        public final ConfigStore.Value<Boolean> spawnFlawlessOnly;
 
         // Wireless
-        public final DoubleValue wirelessBaseCost;
-        public final DoubleValue wirelessCostMultiplier;
-        public final DoubleValue wirelessTerminalDrainMultiplier;
-        public final DoubleValue wirelessBaseRange;
-        public final DoubleValue wirelessBoosterRangeMultiplier;
-        public final DoubleValue wirelessBoosterExp;
-        public final DoubleValue wirelessHighWirelessCount;
+        public final ConfigStore.Value<Double> wirelessBaseCost;
+        public final ConfigStore.Value<Double> wirelessCostMultiplier;
+        public final ConfigStore.Value<Double> wirelessTerminalDrainMultiplier;
+        public final ConfigStore.Value<Double> wirelessBaseRange;
+        public final ConfigStore.Value<Double> wirelessBoosterRangeMultiplier;
+        public final ConfigStore.Value<Double> wirelessBoosterExp;
+        public final ConfigStore.Value<Double> wirelessHighWirelessCount;
 
         // Power Ratios
-        public final DoubleValue powerRatioForgeEnergy;
-        public final DoubleValue powerUsageMultiplier;
-        public final DoubleValue gridEnergyStoragePerNode;
-        public final DoubleValue crystalResonanceGeneratorRate;
-        public final DoubleValue p2pTunnelEnergyTax;
-        public final DoubleValue p2pTunnelTransportTax;
+        public final ConfigStore.Value<Double> powerRatioForgeEnergy;
+        public final ConfigStore.Value<Double> powerUsageMultiplier;
+        public final ConfigStore.Value<Double> gridEnergyStoragePerNode;
+        public final ConfigStore.Value<Double> crystalResonanceGeneratorRate;
+        public final ConfigStore.Value<Double> p2pTunnelEnergyTax;
+        public final ConfigStore.Value<Double> p2pTunnelTransportTax;
 
         // Vibration Chamber
-        public final DoubleValue vibrationChamberBaseEnergyPerFuelTick;
-        public final IntValue vibrationChamberMinEnergyPerTick;
-        public final IntValue vibrationChamberMaxEnergyPerTick;
+        public final ConfigStore.Value<Double> vibrationChamberBaseEnergyPerFuelTick;
+        public final ConfigStore.Value<Integer> vibrationChamberMinEnergyPerTick;
+        public final ConfigStore.Value<Integer> vibrationChamberMaxEnergyPerTick;
 
         // Condenser Power Requirement
-        public final IntValue condenserMatterBallsPower;
-        public final IntValue condenserSingularityPower;
+        public final ConfigStore.Value<Integer> condenserMatterBallsPower;
+        public final ConfigStore.Value<Integer> condenserSingularityPower;
 
-        public final Map<TickRates, IntValue> tickRateMin = new HashMap<>();
-        public final Map<TickRates, IntValue> tickRateMax = new HashMap<>();
+        public final Map<TickRates, ConfigStore.Value<Integer>> tickRateMin = new HashMap<>();
+        public final Map<TickRates, ConfigStore.Value<Integer>> tickRateMax = new HashMap<>();
 
-        public CommonConfig() {
-            var builder = new ModConfigSpec.Builder();
+        public CommonConfig(ConfigStore store) {
+            this.store = store;
 
-            builder.push("general");
-            debugTools = define(builder, "unsupportedDeveloperTools", Platform.isDevelopmentEnvironment());
-            matterCannonBlockDamage = define(builder, "matterCannonBlockDamage", true,
+            store.push("general");
+            debugTools = define(store, "unsupportedDeveloperTools", Platform.isDevelopmentEnvironment());
+            matterCannonBlockDamage = define(store, "matterCannonBlockDamage", true,
                     "Enables the ability of the Matter Cannon to break blocks.");
-            tinyTntBlockDamage = define(builder, "tinyTntBlockDamage", true,
+            tinyTntBlockDamage = define(store, "tinyTntBlockDamage", true,
                     "Enables the ability of Tiny TNT to break blocks.");
-            channels = defineEnum(builder, "channels", ChannelMode.DEFAULT,
+            channels = defineEnum(store, "channels", ChannelMode.DEFAULT,
                     "Changes the channel capacity that cables provide in AE2.");
-            spatialAnchorEnableRandomTicks = define(builder, "spatialAnchorEnableRandomTicks", true,
+            spatialAnchorEnableRandomTicks = define(store, "spatialAnchorEnableRandomTicks", true,
                     "Whether Spatial Anchors should force random chunk ticks and entity spawning.");
-            builder.pop();
+            store.pop();
 
-            builder.push("automation");
-            formationPlaneEntityLimit = define(builder, "formationPlaneEntityLimit", 128);
-            builder.pop();
+            store.push("automation");
+            formationPlaneEntityLimit = define(store, "formationPlaneEntityLimit", 128);
+            store.pop();
 
-            builder.push("craftingCPU");
-            this.craftingCalculationTimePerTick = define(builder, "craftingCalculationTimePerTick", 5);
-            builder.pop();
+            store.push("craftingCPU");
+            this.craftingCalculationTimePerTick = define(store, "craftingCalculationTimePerTick", 5);
+            store.pop();
 
-            builder.push("crafting");
-            growthAcceleratorSpeed = define(builder, "growthAccelerator", 10, 1, 100,
+            store.push("crafting");
+            growthAcceleratorSpeed = define(store, "growthAccelerator", 10, 1, 100,
                     "Number of ticks between two crystal growth accelerator ticks");
-            annihilationPlaneSkyDustGeneration = define(builder, "annihilationPlaneSkyDustGeneration", true,
+            annihilationPlaneSkyDustGeneration = define(store, "annihilationPlaneSkyDustGeneration", true,
                     "If enabled, an annihilation placed face up at the maximum world height will generate sky stone passively.");
-            builder.pop();
+            store.pop();
 
-            builder.push("spatialio");
-            this.spatialPowerMultiplier = define(builder, "spatialPowerMultiplier", 1250.0);
-            this.spatialPowerExponent = define(builder, "spatialPowerExponent", 1.35);
-            builder.pop();
+            store.push("spatialio");
+            this.spatialPowerMultiplier = define(store, "spatialPowerMultiplier", 1250.0);
+            this.spatialPowerExponent = define(store, "spatialPowerExponent", 1.35);
+            store.pop();
 
-            builder.push("logging");
-            blockUpdateLog = define(builder, "blockUpdateLog", false);
-            craftingLog = define(builder, "craftingLog", false);
-            debugLog = define(builder, "debugLog", false);
-            gridLog = define(builder, "gridLog", false);
-            chunkLoggerTrace = define(builder, "chunkLoggerTrace", false,
+            store.push("logging");
+            blockUpdateLog = define(store, "blockUpdateLog", false);
+            craftingLog = define(store, "craftingLog", false);
+            debugLog = define(store, "debugLog", false);
+            gridLog = define(store, "gridLog", false);
+            chunkLoggerTrace = define(store, "chunkLoggerTrace", false,
                     "Enable stack trace logging for the chunk loading debug command");
-            builder.pop();
+            store.pop();
 
-            builder.push("battery");
-            this.chargerChargeRate = define(builder, "chargerChargeRate", 1.0,
+            store.push("battery");
+            this.chargerChargeRate = define(store, "chargerChargeRate", 1.0,
                     0.1, 10.0,
                     "The chargers charging rate factor, which is applied to the charged items charge rate. 2 means it charges everything twice as fast. 0.5 half as fast.");
-            this.wirelessTerminalBattery = define(builder, "wirelessTerminal", 1600000);
-            this.chargedStaffBattery = define(builder, "chargedStaff", 8000);
-            this.entropyManipulatorBattery = define(builder, "entropyManipulator", 200000);
-            this.portableCellBattery = define(builder, "portableCell", 20000);
-            this.colorApplicatorBattery = define(builder, "colorApplicator", 20000);
-            this.matterCannonBattery = define(builder, "matterCannon", 200000);
-            builder.pop();
+            this.wirelessTerminalBattery = define(store, "wirelessTerminal", 1600000);
+            this.chargedStaffBattery = define(store, "chargedStaff", 8000);
+            this.entropyManipulatorBattery = define(store, "entropyManipulator", 200000);
+            this.portableCellBattery = define(store, "portableCell", 20000);
+            this.colorApplicatorBattery = define(store, "colorApplicator", 20000);
+            this.matterCannonBattery = define(store, "matterCannon", 200000);
+            store.pop();
 
-            builder.push("worldGen");
-            this.spawnPressesInMeteorites = define(builder, "spawnPressesInMeteorites", true);
-            this.spawnFlawlessOnly = define(builder, "spawnFlawlessOnly", false);
-            builder.pop();
+            store.push("worldGen");
+            this.spawnPressesInMeteorites = define(store, "spawnPressesInMeteorites", true);
+            this.spawnFlawlessOnly = define(store, "spawnFlawlessOnly", false);
+            store.pop();
 
-            builder.push("wireless");
-            this.wirelessBaseCost = define(builder, "wirelessBaseCost", 8.0);
-            this.wirelessCostMultiplier = define(builder, "wirelessCostMultiplier", 1.0);
-            this.wirelessBaseRange = define(builder, "wirelessBaseRange", 16.0);
-            this.wirelessBoosterRangeMultiplier = define(builder, "wirelessBoosterRangeMultiplier", 1.0);
-            this.wirelessBoosterExp = define(builder, "wirelessBoosterExp", 1.5);
-            this.wirelessHighWirelessCount = define(builder, "wirelessHighWirelessCount", 64.0);
-            this.wirelessTerminalDrainMultiplier = define(builder, "wirelessTerminalDrainMultiplier", 1.0);
-            builder.pop();
+            store.push("wireless");
+            this.wirelessBaseCost = define(store, "wirelessBaseCost", 8.0);
+            this.wirelessCostMultiplier = define(store, "wirelessCostMultiplier", 1.0);
+            this.wirelessBaseRange = define(store, "wirelessBaseRange", 16.0);
+            this.wirelessBoosterRangeMultiplier = define(store, "wirelessBoosterRangeMultiplier", 1.0);
+            this.wirelessBoosterExp = define(store, "wirelessBoosterExp", 1.5);
+            this.wirelessHighWirelessCount = define(store, "wirelessHighWirelessCount", 64.0);
+            this.wirelessTerminalDrainMultiplier = define(store, "wirelessTerminalDrainMultiplier", 1.0);
+            store.pop();
 
-            builder.push("powerRatios");
-            powerRatioForgeEnergy = define(builder, "forgeEnergy", DEFAULT_FE_EXCHANGE);
-            powerUsageMultiplier = define(builder, "usageMultiplier", 1.0, 0.01, Double.MAX_VALUE);
-            gridEnergyStoragePerNode = define(builder, "gridEnergyStoragePerNode", 25.0, 1.0, 1000000.0,
+            store.push("powerRatios");
+            powerRatioForgeEnergy = define(store, "forgeEnergy", DEFAULT_FE_EXCHANGE);
+            powerUsageMultiplier = define(store, "usageMultiplier", 1.0, 0.01, Double.MAX_VALUE);
+            gridEnergyStoragePerNode = define(store, "gridEnergyStoragePerNode", 25.0, 1.0, 1000000.0,
                     "How much energy can the internal grid buffer storage per node attached to the grid.");
-            crystalResonanceGeneratorRate = define(builder, "crystalResonanceGeneratorRate", 20.0, 0.0, 1000000.0,
+            crystalResonanceGeneratorRate = define(store, "crystalResonanceGeneratorRate", 20.0, 0.0, 1000000.0,
                     "How much energy a crystal resonance generator generates per tick.");
-            p2pTunnelEnergyTax = define(builder, "p2pTunnelEnergyTax", 0.025, 0.0, 1.0,
+            p2pTunnelEnergyTax = define(store, "p2pTunnelEnergyTax", 0.025, 0.0, 1.0,
                     "The cost to transport energy through an energy P2P tunnel expressed as a factor of the transported energy.");
-            p2pTunnelTransportTax = define(builder, "p2pTunnelTransportTax", 0.025, 0.0, 1.0,
+            p2pTunnelTransportTax = define(store, "p2pTunnelTransportTax", 0.025, 0.0, 1.0,
                     "The cost to transport items/fluids/etc. through P2P tunnels, expressed in AE energy per equivalent I/O bus operation for the transported object type (i.e. items=per 1 item, fluids=per 125mb).");
-            builder.pop();
+            store.pop();
 
-            builder.push("condenser");
-            condenserMatterBallsPower = define(builder, "matterBalls", 256);
-            condenserSingularityPower = define(builder, "singularity", 256000);
-            builder.pop();
+            store.push("condenser");
+            condenserMatterBallsPower = define(store, "matterBalls", 256);
+            condenserSingularityPower = define(store, "singularity", 256000);
+            store.pop();
 
-            builder.comment(
+            store.comment(
                     " Min / Max Tickrates for dynamic ticking, most of these components also use sleeping, to prevent constant ticking, adjust with care, non standard rates are not supported or tested.");
-            builder.push("tickRates");
+            store.push("tickRates");
             for (TickRates tickRate : TickRates.values()) {
-                tickRateMin.put(tickRate, define(builder, tickRate.name() + "Min", tickRate.getDefaultMin()));
-                tickRateMax.put(tickRate, define(builder, tickRate.name() + "Max", tickRate.getDefaultMax()));
+                tickRateMin.put(tickRate, define(store, tickRate.name() + "Min", tickRate.getDefaultMin()));
+                tickRateMax.put(tickRate, define(store, tickRate.name() + "Max", tickRate.getDefaultMax()));
             }
-            builder.pop();
+            store.pop();
 
-            builder.comment("Settings for the Vibration Chamber");
-            builder.push("vibrationChamber");
-            vibrationChamberBaseEnergyPerFuelTick = define(builder, "baseEnergyPerFuelTick", 5.0, 0.1, 1000.0,
+            store.comment("Settings for the Vibration Chamber");
+            store.push("vibrationChamber");
+            vibrationChamberBaseEnergyPerFuelTick = define(store, "baseEnergyPerFuelTick", 5.0, 0.1, 1000.0,
                     "AE energy produced per fuel burn tick (reminder: coal = 1600, block of coal = 16000, lava bucket = 20000 burn ticks)");
-            vibrationChamberMinEnergyPerTick = define(builder, "minEnergyPerGameTick", 4, 0, 1000,
+            vibrationChamberMinEnergyPerTick = define(store, "minEnergyPerGameTick", 4, 0, 1000,
                     "Minimum amount of AE/t the vibration chamber can slow down to when energy is being wasted.");
-            vibrationChamberMaxEnergyPerTick = define(builder, "baseMaxEnergyPerGameTick", 40, 1, 1000,
+            vibrationChamberMaxEnergyPerTick = define(store, "baseMaxEnergyPerGameTick", 40, 1, 1000,
                     "Maximum amount of AE/t the vibration chamber can speed up to when generated energy is being fully consumed.");
-            builder.pop();
-
-            spec = builder.build();
+            store.pop();
         }
 
         public void sync() {
@@ -714,64 +694,67 @@ public final class AEConfig {
         }
     }
 
-    private static BooleanValue define(ModConfigSpec.Builder builder, String name, boolean defaultValue,
+    private static ConfigStore.Value<Boolean> define(ConfigStore store, String name, boolean defaultValue,
             String comment) {
-        builder.comment(comment);
-        return define(builder, name, defaultValue);
+        store.comment(comment);
+        return define(store, name, defaultValue);
     }
 
-    private static BooleanValue define(ModConfigSpec.Builder builder, String name, boolean defaultValue) {
-        return builder.define(name, defaultValue);
+    private static ConfigStore.Value<Boolean> define(ConfigStore store, String name, boolean defaultValue) {
+        return store.defineBoolean(name, defaultValue);
     }
 
-    private static IntValue define(ModConfigSpec.Builder builder, String name, int defaultValue, String comment) {
-        builder.comment(comment);
-        return define(builder, name, defaultValue);
+    private static ConfigStore.Value<Integer> define(ConfigStore store, String name, int defaultValue,
+            String comment) {
+        store.comment(comment);
+        return define(store, name, defaultValue);
     }
 
-    private static DoubleValue define(ModConfigSpec.Builder builder, String name, double defaultValue) {
-        return define(builder, name, defaultValue, Double.MIN_VALUE, Double.MAX_VALUE);
+    private static ConfigStore.Value<Double> define(ConfigStore store, String name, double defaultValue) {
+        return define(store, name, defaultValue, Double.MIN_VALUE, Double.MAX_VALUE);
     }
 
-    private static DoubleValue define(ModConfigSpec.Builder builder, String name, double defaultValue, String comment) {
-        builder.comment(comment);
-        return define(builder, name, defaultValue);
+    private static ConfigStore.Value<Double> define(ConfigStore store, String name, double defaultValue,
+            String comment) {
+        store.comment(comment);
+        return define(store, name, defaultValue);
     }
 
-    private static DoubleValue define(ModConfigSpec.Builder builder, String name, double defaultValue, double min,
+    private static ConfigStore.Value<Double> define(ConfigStore store, String name, double defaultValue, double min,
             double max, String comment) {
-        builder.comment(comment);
-        return define(builder, name, defaultValue, min, max);
+        store.comment(comment);
+        return define(store, name, defaultValue, min, max);
     }
 
-    private static DoubleValue define(ModConfigSpec.Builder builder, String name, double defaultValue, double min,
+    private static ConfigStore.Value<Double> define(ConfigStore store, String name, double defaultValue, double min,
             double max) {
-        return builder.defineInRange(name, defaultValue, min, max);
+        return store.defineDouble(name, defaultValue, min, max);
     }
 
-    private static IntValue define(ModConfigSpec.Builder builder, String name, int defaultValue, int min, int max,
-            String comment) {
-        builder.comment(comment);
-        return define(builder, name, defaultValue, min, max);
+    private static ConfigStore.Value<Integer> define(ConfigStore store, String name, int defaultValue, int min,
+            int max, String comment) {
+        store.comment(comment);
+        return define(store, name, defaultValue, min, max);
     }
 
-    private static IntValue define(ModConfigSpec.Builder builder, String name, int defaultValue, int min, int max) {
-        return builder.defineInRange(name, defaultValue, min, max);
+    private static ConfigStore.Value<Integer> define(ConfigStore store, String name, int defaultValue, int min,
+            int max) {
+        return store.defineInt(name, defaultValue, min, max);
     }
 
-    private static IntValue define(ModConfigSpec.Builder builder, String name, int defaultValue) {
-        return define(builder, name, defaultValue, Integer.MIN_VALUE, Integer.MAX_VALUE);
+    private static ConfigStore.Value<Integer> define(ConfigStore store, String name, int defaultValue) {
+        return define(store, name, defaultValue, Integer.MIN_VALUE, Integer.MAX_VALUE);
     }
 
-    private static <T extends Enum<T>> EnumValue<T> defineEnum(ModConfigSpec.Builder builder, String name,
+    private static <T extends Enum<T>> ConfigStore.Value<T> defineEnum(ConfigStore store, String name,
             T defaultValue) {
-        return builder.defineEnum(name, defaultValue);
+        return store.defineEnum(name, defaultValue);
     }
 
-    private static <T extends Enum<T>> EnumValue<T> defineEnum(ModConfigSpec.Builder builder, String name,
+    private static <T extends Enum<T>> ConfigStore.Value<T> defineEnum(ConfigStore store, String name,
             T defaultValue, String comment) {
-        builder.comment(comment);
-        return defineEnum(builder, name, defaultValue);
+        store.comment(comment);
+        return defineEnum(store, name, defaultValue);
     }
 
 }

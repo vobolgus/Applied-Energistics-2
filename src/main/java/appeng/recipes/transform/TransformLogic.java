@@ -12,7 +12,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.minecraft.core.HolderSet;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.packs.resources.PreparableReloadListener;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
@@ -22,16 +24,13 @@ import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.AABB;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.event.AddServerReloadListenersEvent;
-import net.neoforged.neoforge.event.server.ServerStartedEvent;
-import net.neoforged.neoforge.registries.holdersets.OrHolderSet;
 
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 
 import appeng.core.AppEng;
 import appeng.recipes.AERecipeTypes;
+import appeng.util.LoaderPlatform;
 
 public final class TransformLogic {
     private static final Logger LOG = LoggerFactory.getLogger(TransformLogic.class);
@@ -67,7 +66,7 @@ public final class TransformLogic {
         List<ItemEntity> itemEntities = level.getEntities(null, region).stream()
                 .filter(e -> e instanceof ItemEntity && !e.isRemoved()).map(e -> (ItemEntity) e).toList();
 
-        for (var holder : level.recipeAccess().recipeMap().byType(AERecipeTypes.TRANSFORM)) {
+        for (var holder : LoaderPlatform.get().getRecipeMap(level.recipeAccess()).byType(AERecipeTypes.TRANSFORM)) {
             var recipe = holder.value();
             if (!circumstancePredicate.test(recipe.circumstance))
                 continue;
@@ -145,7 +144,7 @@ public final class TransformLogic {
     private static HolderSet<Item> getTransformableItems(ServerLevel level, Fluid fluid) {
         return fluidCache.computeIfAbsent(fluid, f -> {
             List<HolderSet<Item>> holderSets = new ArrayList<>();
-            for (var holder : level.recipeAccess().recipeMap().byType(AERecipeTypes.TRANSFORM)) {
+            for (var holder : LoaderPlatform.get().getRecipeMap(level.recipeAccess()).byType(AERecipeTypes.TRANSFORM)) {
                 var recipe = holder.value();
                 if (!(recipe.circumstance.isFluid(fluid)))
                     continue;
@@ -157,7 +156,7 @@ public final class TransformLogic {
             if (holderSets.size() == 1) {
                 return holderSets.getFirst();
             }
-            return new OrHolderSet<>(holderSets);
+            return unionOf(holderSets);
         });
     }
 
@@ -165,7 +164,7 @@ public final class TransformLogic {
         HolderSet<Item> ret = anyFluidCache;
         if (ret == null) {
             List<HolderSet<Item>> holderSets = new ArrayList<>();
-            for (var holder : level.recipeAccess().recipeMap().byType(AERecipeTypes.TRANSFORM)) {
+            for (var holder : LoaderPlatform.get().getRecipeMap(level.recipeAccess()).byType(AERecipeTypes.TRANSFORM)) {
                 var recipe = holder.value();
                 if (!recipe.circumstance.isFluid())
                     continue;
@@ -177,7 +176,7 @@ public final class TransformLogic {
             if (holderSets.size() == 1) {
                 ret = holderSets.getFirst();
             } else {
-                ret = new OrHolderSet<>(holderSets);
+                ret = unionOf(holderSets);
             }
             anyFluidCache = ret;
         }
@@ -188,13 +187,14 @@ public final class TransformLogic {
         HolderSet<Item> ret = explosionCache;
         if (ret == null) {
             List<HolderSet<Item>> holderSets = new ArrayList<>();
-            for (var holder : level.recipeAccess().recipeMap().byType(AERecipeTypes.TRANSFORM)) {
+            for (var holder : LoaderPlatform.get().getRecipeMap(level.recipeAccess()).byType(AERecipeTypes.TRANSFORM)) {
                 var recipe = holder.value();
                 if (!recipe.circumstance.isExplosion())
                     continue;
                 for (var ingredient : recipe.ingredients) {
-                    if (!ingredient.isCustom()) {
-                        holderSets.add(ingredient.getValues());
+                    if (!LoaderPlatform.get().isCustomIngredient(ingredient)) {
+                        // was Neo's ingredient.getValues(); items() is the vanilla equivalent
+                        holderSets.add(HolderSet.direct(ingredient.items().toList()));
                     } else {
                         LOG.warn("Custom ingredient {} does not work in explosion transform recipe {}", ingredient,
                                 holder.id());
@@ -205,21 +205,41 @@ public final class TransformLogic {
             if (holderSets.size() == 1) {
                 ret = holderSets.getFirst();
             } else {
-                ret = new OrHolderSet<>(holderSets);
+                ret = unionOf(holderSets);
             }
             explosionCache = ret;
         }
         return ret;
     }
 
-    @SubscribeEvent
-    public static void onServerStarted(ServerStartedEvent e) {
+    /**
+     * Replacement for NeoForge's {@code OrHolderSet}: a flattened, distinct union. Equivalent because
+     * CompositeHolderSet also flattens into a cached union set, holder equality is identity in both, and the caches
+     * containing these sets are rebuilt whenever recipes change.
+     */
+    private static HolderSet<Item> unionOf(List<HolderSet<Item>> holderSets) {
+        return HolderSet.direct(holderSets.stream().flatMap(HolderSet::stream).distinct().toList());
+    }
+
+    /**
+     * Was {@code @SubscribeEvent} for {@code ServerStartedEvent}. NOTE: upstream never registered this class to any
+     * event bus, so the listener never ran (dead code). Kept loader-neutral and deliberately NOT wired by the
+     * entrypoints (bug-for-bug compatibility); see PORTING_NOTES.
+     */
+    public static void onServerStarted() {
         clearCache();
     }
 
-    @SubscribeEvent
-    public static void onReloadServerResources(AddServerReloadListenersEvent e) {
-        e.addListener(AppEng.makeId("transform_logic_cache_invalidation"), new SimplePreparableReloadListener<Void>() {
+    public static final Identifier CACHE_INVALIDATION_RELOAD_LISTENER_ID = AppEng
+            .makeId("transform_logic_cache_invalidation");
+
+    /**
+     * Was {@code @SubscribeEvent} for {@code AddServerReloadListenersEvent} (registered under
+     * {@link #CACHE_INVALIDATION_RELOAD_LISTENER_ID}). NOTE: never registered upstream either; see
+     * {@link #onServerStarted()}.
+     */
+    public static PreparableReloadListener createCacheInvalidationReloadListener() {
+        return new SimplePreparableReloadListener<Void>() {
             @Override
             protected Void prepare(ResourceManager resourceManager, ProfilerFiller profiler) {
                 return null;
@@ -229,7 +249,7 @@ public final class TransformLogic {
             protected void apply(Void object, ResourceManager resourceManager, ProfilerFiller profiler) {
                 clearCache();
             }
-        });
+        };
     }
 
     private TransformLogic() {
@@ -238,8 +258,10 @@ public final class TransformLogic {
     private static boolean collectFirstNonCustomIngredient(TransformRecipe recipe, List<HolderSet<Item>> holderSets) {
         boolean hadAnyWorkingIngredient = false;
         for (var ingredient : recipe.ingredients) {
-            if (!ingredient.isCustom()) {
-                holderSets.add(ingredient.getValues());
+            // was Neo's ingredient.isCustom(); loader seam
+            if (!LoaderPlatform.get().isCustomIngredient(ingredient)) {
+                // was Neo's ingredient.getValues(); items() is the vanilla equivalent
+                holderSets.add(HolderSet.direct(ingredient.items().toList()));
                 hadAnyWorkingIngredient = true;
                 break; // only process first ingredient (they're all required anyway)
             }

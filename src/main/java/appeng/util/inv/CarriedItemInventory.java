@@ -22,9 +22,6 @@ import com.google.common.base.Preconditions;
 
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.transfer.ResourceHandler;
-import net.neoforged.neoforge.transfer.item.CarriedSlotWrapper;
-import net.neoforged.neoforge.transfer.item.ItemResource;
 
 import appeng.api.inventories.InternalInventory;
 
@@ -55,8 +52,7 @@ public class CarriedItemInventory implements InternalInventory {
         menu.setCarried(stack);
     }
 
-    @Override
-    public ResourceHandler<ItemResource> toResourceHandler() {
-        return CarriedSlotWrapper.of(menu);
+    public AbstractContainerMenu getMenu() {
+        return menu;
     }
 }

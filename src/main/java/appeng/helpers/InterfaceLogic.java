@@ -36,6 +36,7 @@ import net.minecraft.world.level.storage.ValueOutput;
 import appeng.api.config.Actionable;
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.Settings;
+import appeng.api.lookup.AEApiLookups;
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IManagedGridNode;
@@ -222,7 +223,7 @@ public class InterfaceLogic implements ICraftingRequester, IUpgradeableObject, I
             });
         }
 
-        this.host.getBlockEntity().invalidateCapabilities();
+        AEApiLookups.get().invalidateApis(this.host.getBlockEntity());
     }
 
     public void gridChanged() {

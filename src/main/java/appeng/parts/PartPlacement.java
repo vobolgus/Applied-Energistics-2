@@ -22,8 +22,9 @@ import net.minecraft.world.phys.Vec3;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.PartHelper;
-import appeng.core.definitions.AEAttachmentTypes;
+import appeng.core.PlayerCtrlAttachment;
 import appeng.parts.networking.CablePart;
+import appeng.util.LoaderPlatform;
 import appeng.util.Platform;
 import appeng.util.SettingsFrom;
 
@@ -116,7 +117,7 @@ public class PartPlacement {
         }
 
         var state = level.getBlockState(pos);
-        var ss = state.getSoundType(level, pos, player);
+        var ss = LoaderPlatform.get().getSoundType(state, level, pos, player);
         level.playSound(null, pos, ss.getPlaceSound(), SoundSource.BLOCKS, (ss.getVolume() + 1.0F) / 2.0F,
                 ss.getPitch() * 0.8F);
         return addedPart;
@@ -140,7 +141,7 @@ public class PartPlacement {
         }
 
         if (player != null) {
-            side = player.getData(AEAttachmentTypes.HOLDING_CTRL) ? side.getOpposite() : side;
+            side = PlayerCtrlAttachment.get().isHoldingCtrl(player) ? side.getOpposite() : side;
         }
 
         if (canPlacePartOnBlock(player, level, partStack, pos, side)) {

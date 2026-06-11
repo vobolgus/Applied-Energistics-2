@@ -8,11 +8,12 @@ import net.minecraft.world.item.crafting.RecipeHolder;
 
 import appeng.recipes.AERecipeTypes;
 import appeng.recipes.handlers.ChargerRecipe;
+import appeng.util.LoaderPlatform;
 
 public class ChargerRecipes {
 
     public static Iterable<RecipeHolder<ChargerRecipe>> getRecipes(ServerLevel level) {
-        return level.recipeAccess().recipeMap().byType(AERecipeTypes.CHARGER);
+        return LoaderPlatform.get().getRecipeMap(level.recipeAccess()).byType(AERecipeTypes.CHARGER);
     }
 
     @Nullable

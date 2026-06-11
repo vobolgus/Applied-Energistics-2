@@ -20,11 +20,11 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import appeng.core.network.NetworkAdapter;
 import appeng.core.network.ServerboundPacket;
 import appeng.core.network.serverbound.InventoryActionPacket;
 import appeng.helpers.InventoryAction;
@@ -85,7 +85,7 @@ public final class EncodingHelper {
                     : ItemStack.EMPTY;
             ServerboundPacket message = new InventoryActionPacket(
                     InventoryAction.SET_FILTER, slot.index, stack);
-            ClientPacketDistributor.sendToServer(message);
+            NetworkAdapter.get().sendToServer(message);
         }
     }
 
@@ -174,14 +174,14 @@ public final class EncodingHelper {
             ItemStack encodedInput = encodedInputs.get(i);
             ServerboundPacket message = new InventoryActionPacket(
                     InventoryAction.SET_FILTER, menu.getCraftingGridSlots()[i].index, encodedInput);
-            ClientPacketDistributor.sendToServer(message);
+            NetworkAdapter.get().sendToServer(message);
         }
 
         // Clear out the processing outputs
         for (var outputSlot : menu.getProcessingOutputSlots()) {
             ServerboundPacket message = new InventoryActionPacket(
                     InventoryAction.SET_FILTER, outputSlot.index, ItemStack.EMPTY);
-            ClientPacketDistributor.sendToServer(message);
+            NetworkAdapter.get().sendToServer(message);
         }
 
     }

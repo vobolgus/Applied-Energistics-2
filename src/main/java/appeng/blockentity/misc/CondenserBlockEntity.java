@@ -24,24 +24,17 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.neoforged.neoforge.transfer.ResourceHandler;
-import net.neoforged.neoforge.transfer.fluid.FluidResource;
-import net.neoforged.neoforge.transfer.resource.Resource;
-import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 
 import appeng.api.config.CondenserOutput;
 import appeng.api.config.Settings;
 import appeng.api.implementations.items.IStorageComponent;
 import appeng.api.inventories.BaseInternalInventory;
 import appeng.api.inventories.InternalInventory;
-import appeng.api.stacks.AEFluidKey;
-import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.MEStorage;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
 import appeng.blockentity.AEBaseInvBlockEntity;
 import appeng.core.definitions.AEItems;
-import appeng.util.InsertionOnlyResourceHandlerWithJournal;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.CombinedInternalInventory;
 import appeng.util.inv.FilteredInternalInventory;
@@ -61,10 +54,6 @@ public class CondenserBlockEntity extends AEBaseInvBlockEntity implements IConfi
     private final AppEngInternalInventory outputSlot = new AppEngInternalInventory(this, 1);
     private final AppEngInternalInventory storageSlot = new AppEngInternalInventory(this, 1);
     private final InternalInventory inputSlot = new CondenseItemHandler();
-    private final ResourceHandler<FluidResource> fluidHandler = new CondenseResourceHandler<>(
-            FluidResource.EMPTY,
-            1.0 / AEKeyType.fluids().getAmountPerOperation(),
-            AEFluidKey.AMOUNT_BUCKET);
 
     /**
      * This is used to expose a fake ME subnetwork that is only composed of this condenser. The purpose of this is to
@@ -183,10 +172,6 @@ public class CondenserBlockEntity extends AEBaseInvBlockEntity implements IConfi
         return externalInv;
     }
 
-    public ResourceHandler<FluidResource> getFluidHandler() {
-        return fluidHandler;
-    }
-
     public MEStorage getMEStorage() {
         return meStorage;
     }
@@ -233,31 +218,4 @@ public class CondenserBlockEntity extends AEBaseInvBlockEntity implements IConfi
         }
     }
 
-    private class CondenseResourceHandler<T extends Resource>
-            extends InsertionOnlyResourceHandlerWithJournal<T, Double> {
-        private final double energyFactor;
-        private final int maxAmountPerOperation;
-
-        public CondenseResourceHandler(T emptyResource, double energyFactor, int maxAmountPerOperation) {
-            super(emptyResource);
-            this.energyFactor = energyFactor;
-            this.maxAmountPerOperation = maxAmountPerOperation;
-            this.pendingSideEffect = 0D;
-        }
-
-        @Override
-        public int insert(T resource, int maxAmount, TransactionContext transaction) {
-            // Clamp the amount per operation
-            var amount = Math.min(maxAmountPerOperation, maxAmount);
-            updateSnapshots(transaction);
-            pendingSideEffect += amount * energyFactor;
-            return amount;
-        }
-
-        @Override
-        protected void onRootCommit(Double originalState) {
-            CondenserBlockEntity.this.addPower(pendingSideEffect);
-            pendingSideEffect = 0.0;
-        }
-    }
 }

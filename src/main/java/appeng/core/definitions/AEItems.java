@@ -26,6 +26,7 @@ import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import com.google.common.base.Preconditions;
 
@@ -38,7 +39,6 @@ import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.ToolMaterial;
-import net.neoforged.neoforge.registries.DeferredRegister;
 
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.ids.AECreativeTabIds;
@@ -50,6 +50,8 @@ import appeng.core.AEConfig;
 import appeng.core.AppEng;
 import appeng.core.ConventionTags;
 import appeng.core.MainCreativeTab;
+import appeng.core.registration.AEItemEntry;
+import appeng.core.registration.AERegistries;
 import appeng.crafting.pattern.AECraftingPattern;
 import appeng.crafting.pattern.AEProcessingPattern;
 import appeng.crafting.pattern.AESmithingTablePattern;
@@ -99,8 +101,6 @@ import appeng.menu.me.common.MEStorageMenu;
  * Internal implementation for the API items
  */
 public final class AEItems {
-    public static final DeferredRegister.Items DR = DeferredRegister.createItems(AppEng.MOD_ID);
-
     // spotless:off
     private static final List<ItemDefinition<?>> ITEMS = new ArrayList<>();
 
@@ -291,6 +291,20 @@ public final class AEItems {
         return Collections.unmodifiableList(ITEMS);
     }
 
+    /**
+     * Forces the class to be loaded, ensuring all registration entries above were collected into {@link AERegistries}.
+     */
+    public static void init() {
+    }
+
+    /**
+     * Used by {@link AEBlocks} to register block items. Routing the registration through this class forces its
+     * initialization first, preserving the item registration order of the previous DeferredRegister-based code.
+     */
+    static <T extends Item> AEItemEntry<T> registerBlockItem(Identifier id, Supplier<? extends T> factory) {
+        return AERegistries.registerItem(id, factory);
+    }
+
     private static <T extends Item> ColoredItemDefinition<T> createColoredItems(String name,
             Map<AEColor, Identifier> ids,
             BiFunction<Item.Properties, AEColor, T> factory) {
@@ -327,7 +341,8 @@ public final class AEItems {
             @Nullable ResourceKey<CreativeModeTab> group) {
 
         Preconditions.checkArgument(id.getNamespace().equals(AppEng.MOD_ID), "Can only register for AE2");
-        var definition = new ItemDefinition<>(name, DR.registerItem(id.getPath(), factory));
+        // was DeferredRegister: DR.registerItem(id.getPath(), factory)
+        var definition = new ItemDefinition<>(name, AERegistries.registerItem(id, factory));
 
         if (Objects.equals(group, AECreativeTabIds.MAIN)) {
             MainCreativeTab.add(definition);

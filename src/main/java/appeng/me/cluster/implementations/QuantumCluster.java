@@ -19,15 +19,15 @@
 package appeng.me.cluster.implementations;
 
 import java.util.Iterator;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.level.LevelEvent;
 
 import appeng.api.features.Locatables;
 import appeng.api.networking.GridHelper;
@@ -41,6 +41,13 @@ import appeng.me.service.helpers.ConnectionWrapper;
 import appeng.util.iterators.ChainedIterator;
 
 public class QuantumCluster implements IAECluster, IActionHost {
+
+    /**
+     * The clusters that are currently listening for level unloads (previously: clusters registered to the NeoForge game
+     * bus). The loader entrypoint must wire {@link #onLevelUnload} to its level-unload event, <em>before</em>
+     * {@link appeng.hooks.ticking.TickHandler#onUnloadLevel} runs.
+     */
+    private static final List<QuantumCluster> ACTIVE_CLUSTERS = new CopyOnWriteArrayList<>();
 
     private final BlockPos boundsMin;
     private final BlockPos boundsMax;
@@ -59,9 +66,18 @@ public class QuantumCluster implements IAECluster, IActionHost {
         this.setRing(new QuantumBridgeBlockEntity[8]);
     }
 
-    @SubscribeEvent
-    public void onUnload(final LevelEvent.Unload e) {
-        if (this.center != null && this.center.getLevel() == e.getLevel()) {
+    /**
+     * Destroys all active clusters that live in the given level. Called by the loader entrypoint when a level is
+     * unloaded.
+     */
+    public static void onLevelUnload(LevelAccessor level) {
+        for (var cluster : ACTIVE_CLUSTERS) {
+            cluster.onUnload(level);
+        }
+    }
+
+    private void onUnload(LevelAccessor level) {
+        if (this.center != null && this.center.getLevel() == level) {
             this.setUpdateStatus(false);
             this.destroy();
         }
@@ -198,7 +214,7 @@ public class QuantumCluster implements IAECluster, IActionHost {
         MBCalculator.setModificationInProgress(this);
         try {
             if (this.registered) {
-                NeoForge.EVENT_BUS.unregister(this);
+                ACTIVE_CLUSTERS.remove(this);
                 this.registered = false;
             }
 
@@ -241,7 +257,7 @@ public class QuantumCluster implements IAECluster, IActionHost {
 
     void setCenter(QuantumBridgeBlockEntity c) {
         this.registered = true;
-        NeoForge.EVENT_BUS.register(this);
+        ACTIVE_CLUSTERS.add(this);
         this.center = c;
     }
 

@@ -29,9 +29,11 @@ public final class InscriberTestPlots {
                 .template(patch -> patch.set(AEComponents.NAME_PRESS_NAME, Component.literal("HELLO WORLD")));
         ;
         var ironIngots = new ItemStackTemplate(Items.IRON_INGOT, 2);
-        var namedIngots = new ItemStackTemplate(Items.IRON_INGOT, 2, DataComponentPatch.builder()
-                .set(DataComponents.CUSTOM_NAME, Component.literal("HELLO WORLD"))
-                .build());
+        // was Neo's (Item, int, DataComponentPatch) convenience ctor
+        var namedIngots = new ItemStackTemplate(Items.IRON_INGOT.builtInRegistryHolder(), 2,
+                DataComponentPatch.builder()
+                        .set(DataComponents.CUSTOM_NAME, Component.literal("HELLO WORLD"))
+                        .build());
 
         addTest(
                 "nameplate", tests,
@@ -93,19 +95,19 @@ public final class InscriberTestPlots {
                         var inscriber = plotTestHelper.getBlockEntity(BlockPos.ZERO, InscriberBlockEntity.class);
                         var inv = inscriber.getInternalInventory();
                         plotTestHelper.check(
-                                ItemStack.isSameItemSameComponents(inv.getStackInSlot(0), expectedTopSlot),
+                                isSameItemSameComponents(inv.getStackInSlot(0), expectedTopSlot),
                                 "Top slot is not as expected",
                                 BlockPos.ZERO);
                         plotTestHelper.check(
-                                ItemStack.isSameItemSameComponents(inv.getStackInSlot(1), expectedBottomSlot),
+                                isSameItemSameComponents(inv.getStackInSlot(1), expectedBottomSlot),
                                 "Bottom slot is not as expected",
                                 BlockPos.ZERO);
                         plotTestHelper.check(
-                                ItemStack.isSameItemSameComponents(inv.getStackInSlot(2), expectedMiddleSlot),
+                                isSameItemSameComponents(inv.getStackInSlot(2), expectedMiddleSlot),
                                 "Middle slot is not as expected",
                                 BlockPos.ZERO);
                         plotTestHelper.check(
-                                ItemStack.isSameItemSameComponents(inv.getStackInSlot(3), expectedResult),
+                                isSameItemSameComponents(inv.getStackInSlot(3), expectedResult),
                                 "Result slot is not as expected",
                                 BlockPos.ZERO);
                     })
@@ -113,4 +115,14 @@ public final class InscriberTestPlots {
         });
     }
 
+    /**
+     * Replacement for NeoForge's {@code ItemStack.isSameItemSameComponents(ItemStack, @Nullable ItemStackTemplate)}
+     * overload (a Neo patch), with the same null/empty semantics.
+     */
+    private static boolean isSameItemSameComponents(ItemStack stack, @Nullable ItemStackTemplate template) {
+        if (stack.isEmpty() || template == null) {
+            return stack.isEmpty() == (template == null);
+        }
+        return ItemStack.isSameItemSameComponents(stack, template.create());
+    }
 }

@@ -20,6 +20,7 @@ import net.minecraft.world.level.Level;
 import appeng.api.stacks.AEFluidKey;
 import appeng.client.api.AEKeyRenderer;
 import appeng.client.gui.style.FluidBlitter;
+import appeng.neoforge.transfer.NeoForgeResources;
 import appeng.util.Platform;
 
 public class FluidKeyRenderer implements AEKeyRenderer<AEFluidKey, FluidKeyRenderer.RenderState> {
@@ -42,7 +43,7 @@ public class FluidKeyRenderer implements AEKeyRenderer<AEFluidKey, FluidKeyRende
 
     @Override
     public void extract(RenderState state, AEFluidKey what, @Nullable Level level, int seed) {
-        var fluidStack = what.toStack(1);
+        var fluidStack = NeoForgeResources.toFluidStack(what, 1);
         var fluidModel = Minecraft.getInstance().getModelManager().getFluidStateModelSet()
                 .get(what.getFluid().defaultFluidState());
         var tintSource = fluidModel.fluidTintSource();
@@ -105,7 +106,7 @@ public class FluidKeyRenderer implements AEKeyRenderer<AEFluidKey, FluidKeyRende
     @Override
     public List<Component> getTooltip(AEFluidKey stack) {
         var tooltip = new ArrayList<Component>();
-        tooltip.add(stack.toStack(1).getHoverName());
+        tooltip.add(NeoForgeResources.toFluidStack(stack, 1).getHoverName());
 
         // Heuristic: If the last line doesn't include the modname, add it ourselves
         var modName = Platform.formatModName(stack.getModId());

@@ -61,19 +61,25 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.neoforged.neoforge.model.data.ModelData;
 
 import appeng.api.parts.IFacadeContainer;
 import appeng.api.parts.IFacadePart;
 import appeng.api.util.AEColor;
 import appeng.block.AEBaseEntityBlock;
+import appeng.blockentity.AEBaseBlockEntity;
 import appeng.blockentity.networking.CableBusBlockEntity;
+import appeng.hooks.extensions.CloneItemStackHook;
+import appeng.hooks.extensions.LadderHook;
+import appeng.hooks.extensions.NeighborChangeHook;
+import appeng.hooks.extensions.RedstoneConnectHook;
 import appeng.integration.abstraction.IAEFacade;
 import appeng.parts.ICableBusContainer;
 import appeng.parts.NullCableBusContainer;
 import appeng.util.InteractionUtil;
+import appeng.util.LoaderPlatform;
 
-public class CableBusBlock extends AEBaseEntityBlock<CableBusBlockEntity> implements IAEFacade, SimpleWaterloggedBlock {
+public class CableBusBlock extends AEBaseEntityBlock<CableBusBlockEntity> implements IAEFacade,
+        SimpleWaterloggedBlock, LadderHook, RedstoneConnectHook, CloneItemStackHook, NeighborChangeHook {
 
     private static final ICableBusContainer NULL_CABLE_BUS = new NullCableBusContainer();
 
@@ -350,17 +356,16 @@ public class CableBusBlock extends AEBaseEntityBlock<CableBusBlockEntity> implem
     @Override
     public BlockState getAppearance(BlockState state, BlockAndLightGetter renderView, BlockPos pos, Direction side,
             @Nullable BlockState sourceState, @Nullable BlockPos sourcePos) {
-        ModelData modelData;
+        Object renderData;
         if (renderView instanceof ServerLevel) {
             // We're on the server, use BE directly
             BlockEntity be = renderView.getBlockEntity(pos);
-            modelData = be != null ? be.getModelData() : ModelData.EMPTY;
+            renderData = be instanceof AEBaseBlockEntity aeBe ? aeBe.getRenderData() : null;
         } else {
-            modelData = renderView.getModelData(pos);
+            renderData = LoaderPlatform.get().getCachedBlockEntityRenderData(renderView, pos);
         }
 
-        var cableBusRenderState = modelData.get(CableBusRenderState.PROPERTY);
-        if (cableBusRenderState != null) {
+        if (renderData instanceof CableBusRenderState cableBusRenderState) {
             var renderingFacadeDir = RENDERING_FACADE_DIRECTION.get();
 
             if (side.getOpposite() != renderingFacadeDir) {

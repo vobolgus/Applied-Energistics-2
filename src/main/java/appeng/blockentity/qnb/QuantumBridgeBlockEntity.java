@@ -29,8 +29,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.model.data.ModelData;
-import net.neoforged.neoforge.model.data.ModelProperty;
 
 import appeng.api.ids.AEComponents;
 import appeng.api.inventories.InternalInventory;
@@ -52,8 +50,6 @@ import appeng.util.inv.filter.IAEItemFilter;
 
 public class QuantumBridgeBlockEntity extends AENetworkedInvBlockEntity
         implements IAEMultiBlock<QuantumCluster>, ServerTickingBlockEntity {
-
-    public static final ModelProperty<QnbFormedState> FORMED_STATE = new ModelProperty<>();
 
     private static int singularitySeed = 0;
 
@@ -298,11 +294,8 @@ public class QuantumBridgeBlockEntity extends AENetworkedInvBlockEntity
     }
 
     @Override
-    public ModelData getModelData() {
-        return ModelData.builder()
-                .with(FORMED_STATE, new QnbFormedState(getAdjacentQuantumBridges(), isCorner(), isPowered()))
-                .build();
-
+    public QnbFormedState getRenderData() {
+        return new QnbFormedState(getAdjacentQuantumBridges(), isCorner(), isPowered());
     }
 
     /**

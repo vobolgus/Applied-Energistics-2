@@ -20,9 +20,11 @@ package appeng.blockentity.powersink;
 
 import java.util.EnumSet;
 import java.util.Set;
+import java.util.function.Function;
 
 import com.google.common.collect.ImmutableSet;
 
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
@@ -31,7 +33,6 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.neoforged.neoforge.transfer.energy.EnergyHandler;
 
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
@@ -40,7 +41,6 @@ import appeng.api.config.PowerUnit;
 import appeng.api.networking.energy.IAEPowerStorage;
 import appeng.api.networking.events.GridPowerStorageStateChanged.PowerEventType;
 import appeng.blockentity.AEBaseInvBlockEntity;
-import appeng.helpers.ForgeEnergyAdapter;
 import appeng.me.energy.StoredEnergyAmount;
 
 public abstract class AEBasePoweredBlockEntity extends AEBaseInvBlockEntity
@@ -51,12 +51,12 @@ public abstract class AEBasePoweredBlockEntity extends AEBaseInvBlockEntity
     private final StoredEnergyAmount stored = new StoredEnergyAmount(0, 10000, this::emitPowerStateEvent);
     private static final Set<Direction> ALL_SIDES = ImmutableSet.copyOf(EnumSet.allOf(Direction.class));
     private Set<Direction> internalPowerSides = ALL_SIDES;
-    private final EnergyHandler forgeEnergyAdapter;
-    // Cache the optional to not continuously re-allocate it or the supplier
+    // Cached loader-specific energy adapter (e.g. a NeoForge EnergyHandler), see getOrCreateEnergyAdapter
+    @Nullable
+    private Object energyAdapter;
 
     public AEBasePoweredBlockEntity(BlockEntityType<?> blockEntityType, BlockPos pos, BlockState blockState) {
         super(blockEntityType, pos, blockState);
-        this.forgeEnergyAdapter = new ForgeEnergyAdapter(this);
     }
 
     protected final Set<Direction> getPowerSides() {
@@ -168,15 +168,26 @@ public abstract class AEBasePoweredBlockEntity extends AEBaseInvBlockEntity
         this.internalPowerFlow = internalPowerFlow;
     }
 
-    @Nullable
-    public EnergyHandler getEnergyStorage(@Nullable Direction side) {
-        if (side == null && getPowerSides().equals(ALL_SIDES)) {
-            return forgeEnergyAdapter;
-        } else if (side != null && getPowerSides().contains(side)) {
-            return forgeEnergyAdapter;
-        } else {
-            return null;
+    /**
+     * @return Whether this block entity accepts external power from the given side.
+     */
+    public final boolean isExternalPowerSide(@Nullable Direction side) {
+        if (side == null) {
+            return getPowerSides().equals(ALL_SIDES);
         }
+        return getPowerSides().contains(side);
+    }
+
+    /**
+     * Returns the cached loader-specific energy adapter for this block entity (e.g. a NeoForge EnergyHandler), creating
+     * it via the given factory on first use. Caching it here maintains referential equality of the adapter over time.
+     */
+    @ApiStatus.Internal
+    public final Object getOrCreateEnergyAdapter(Function<? super IExternalPowerSink, ?> factory) {
+        if (energyAdapter == null) {
+            energyAdapter = factory.apply(this);
+        }
+        return energyAdapter;
     }
 
 }

@@ -7,12 +7,12 @@ import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponentMap;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.material.Fluids;
-import net.neoforged.neoforge.common.util.FakePlayer;
 
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.RedstoneMode;
@@ -160,7 +160,7 @@ public final class MemoryCardTestPlots {
             var from = helper.getBlockEntity(BlockPos.ZERO.east(), PatternProviderBlockEntity.class);
             var to = helper.getPart(BlockPos.ZERO, Direction.WEST, PatternProviderPart.class);
 
-            var player = (FakePlayer) Platform.getFakePlayer(helper.getLevel(), null);
+            var player = (ServerPlayer) Platform.getFakePlayer(helper.getLevel(), null);
             player.getInventory().placeItemBackInInventory(AEItems.BLANK_PATTERN.stack(64));
             // In a creative world the player would be in creative too, and we dont give blank patterns back in creative
             player.gameMode.changeGameModeForPlayer(GameType.SURVIVAL);

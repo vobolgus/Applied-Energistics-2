@@ -37,6 +37,7 @@ import appeng.helpers.ICraftingGridMenu;
 import appeng.items.storage.ViewCellItem;
 import appeng.me.storage.NullInventory;
 import appeng.util.CraftingRecipeUtil;
+import appeng.util.LoaderPlatform;
 import appeng.util.prioritylist.IPartitionList;
 
 /**
@@ -74,7 +75,9 @@ public record FillCraftingGridFromRecipePacket(
             NonNullList<ItemStack> ingredientTemplates,
             boolean craftMissing) {
         this.recipeId = recipeId;
-        this.ingredientTemplates = NonNullList.copyOf(ingredientTemplates.stream().map(ItemStack::copy).toList());
+        // was Neo's NonNullList.copyOf (vanilla has no copy factory)
+        this.ingredientTemplates = NonNullList.create();
+        ingredientTemplates.stream().map(ItemStack::copy).forEach(this.ingredientTemplates::add);
         this.craftMissing = craftMissing;
     }
 
@@ -295,8 +298,9 @@ public record FillCraftingGridFromRecipePacket(
      */
     private List<AEItemKey> findBestMatchingItemStack(Ingredient ingredient, IPartitionList filter,
             KeyCounter storage) {
-        if (!ingredient.isCustom()) {
-            return ingredient.getValues().stream()
+        if (!LoaderPlatform.get().isCustomIngredient(ingredient)) {
+            // was Neo's ingredient.getValues().stream(); items() is the vanilla equivalent for non-custom ingredients
+            return ingredient.items()
                     .map(Holder::value)
                     .map(AEItemKey::of)
                     .filter(r -> r != null && (filter == null || filter.isListed(r)))

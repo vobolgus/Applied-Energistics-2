@@ -18,25 +18,47 @@
 
 package appeng.server.subcommands;
 
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+
 import com.mojang.brigadier.context.CommandContext;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.levelgen.Heightmap;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.level.ChunkEvent;
 
 import appeng.core.AEConfig;
 import appeng.core.AELog;
 import appeng.server.ISubCommand;
 
+/**
+ * The loader entrypoint must wire {@link #chunkLoaded} and {@link #chunkUnloaded} to its chunk load/unload events; they
+ * are no-ops unless logging has been enabled via the command.
+ */
 public class ChunkLogger implements ISubCommand {
 
+    /**
+     * The loggers that are currently enabled (previously: loggers registered to the NeoForge game bus).
+     */
+    private static final List<ChunkLogger> ACTIVE_LOGGERS = new CopyOnWriteArrayList<>();
+
     private boolean enabled = false;
+
+    public static void chunkLoaded(LevelAccessor level, ChunkAccess chunk) {
+        for (var logger : ACTIVE_LOGGERS) {
+            logger.onChunkLoadEvent(level, chunk);
+        }
+    }
+
+    public static void chunkUnloaded(LevelAccessor level, ChunkAccess chunk) {
+        for (var logger : ACTIVE_LOGGERS) {
+            logger.onChunkUnloadEvent(level, chunk);
+        }
+    }
 
     private void displayStack() {
         if (AEConfig.instance().isChunkLoggerTraceEnabled()) {
@@ -52,10 +74,8 @@ public class ChunkLogger implements ISubCommand {
         }
     }
 
-    @SubscribeEvent
-    public void onChunkLoadEvent(final ChunkEvent.Load event) {
-        if (event.getLevel() instanceof ServerLevel level) {
-            var chunk = event.getChunk();
+    private void onChunkLoadEvent(LevelAccessor eventLevel, ChunkAccess chunk) {
+        if (eventLevel instanceof ServerLevel level) {
             var chunkPos = chunk.getPos();
             var center = getCenter(chunk);
             AELog.info("Loaded chunk " + chunkPos.x() + "," + chunkPos.z() + " [center: " + center + "] in "
@@ -64,10 +84,8 @@ public class ChunkLogger implements ISubCommand {
         }
     }
 
-    @SubscribeEvent
-    public void onChunkUnloadEvent(final ChunkEvent.Unload event) {
-        if (event.getLevel() instanceof ServerLevel level) {
-            var chunk = event.getChunk();
+    private void onChunkUnloadEvent(LevelAccessor eventLevel, ChunkAccess chunk) {
+        if (eventLevel instanceof ServerLevel level) {
             var chunkPos = chunk.getPos();
             var center = getCenter(chunk);
             AELog.info("Unloaded chunk " + chunkPos.x() + "," + chunkPos.z() + " [center: " + center + "] in "
@@ -90,10 +108,10 @@ public class ChunkLogger implements ISubCommand {
         this.enabled = !this.enabled;
 
         if (this.enabled) {
-            NeoForge.EVENT_BUS.register(this);
+            ACTIVE_LOGGERS.add(this);
             sender.sendSuccess(() -> Component.translatable("commands.ae2.ChunkLoggerOn"), true);
         } else {
-            NeoForge.EVENT_BUS.unregister(this);
+            ACTIVE_LOGGERS.remove(this);
             sender.sendSuccess(() -> Component.translatable("commands.ae2.ChunkLoggerOff"), true);
         }
     }

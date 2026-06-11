@@ -26,7 +26,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.neoforged.neoforge.model.data.ModelData;
 
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.GridHelper;
@@ -39,6 +38,7 @@ import appeng.api.parts.IPartItem;
 import appeng.api.util.AECableType;
 import appeng.parts.AEBasePart;
 import appeng.parts.automation.PartModelData;
+import appeng.util.render.AERenderData;
 
 public class ToggleBusPart extends AEBasePart {
     private final IManagedGridNode outerNode = GridHelper
@@ -177,8 +177,8 @@ public class ToggleBusPart extends AEBasePart {
     }
 
     @Override
-    public void collectModelData(ModelData.Builder builder) {
-        super.collectModelData(builder);
+    public void collectRenderData(AERenderData.Builder builder) {
+        super.collectRenderData(builder);
 
         // Overwrite the original state
         if (isEnabled() && this.isActive() && this.isPowered()) {

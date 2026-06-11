@@ -35,12 +35,9 @@ public final class StackWorldBehaviors {
     private static final CowMap<AEKeyType, PickupStrategy.Factory> pickupStrategies = CowMap.identityHashMap();
 
     static {
-        registerImportStrategy(AEKeyType.items(), StorageImportStrategy::createItem);
-        registerImportStrategy(AEKeyType.fluids(), StorageImportStrategy::createFluid);
-        registerExportStrategy(AEKeyType.items(), StorageExportStrategy::createItem);
-        registerExportStrategy(AEKeyType.fluids(), StorageExportStrategy::createFluid);
-        registerExternalStorageStrategy(AEKeyType.items(), ForgeExternalStorageStrategy::createItem);
-        registerExternalStorageStrategy(AEKeyType.fluids(), ForgeExternalStorageStrategy::createFluid);
+        // The default item/fluid strategies adapt the loader transfer API and are loader-duplicated
+        // (NeoForge: ResourceHandler-based, Fabric: Storage-based).
+        DefaultStorageStrategies.register();
         registerPlacementStrategy(AEKeyType.fluids(), FluidPlacementStrategy::new);
         registerPlacementStrategy(AEKeyType.items(), ItemPlacementStrategy::new);
         registerPickupStrategy(AEKeyType.fluids(), (level, pos, side, host, enchantments,

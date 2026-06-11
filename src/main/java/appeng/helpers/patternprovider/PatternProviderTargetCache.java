@@ -9,11 +9,11 @@ import org.jetbrains.annotations.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
-import net.neoforged.neoforge.capabilities.BlockCapabilityCache;
 
 import appeng.api.AECapabilities;
 import appeng.api.behaviors.ExternalStorageStrategy;
 import appeng.api.config.Actionable;
+import appeng.api.lookup.AEApiCache;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
@@ -22,12 +22,12 @@ import appeng.me.storage.CompositeStorage;
 import appeng.parts.automation.StackWorldBehaviors;
 
 class PatternProviderTargetCache {
-    private final BlockCapabilityCache<MEStorage, Direction> cache;
+    private final AEApiCache<MEStorage> cache;
     private final IActionSource src;
     private final Map<AEKeyType, ExternalStorageStrategy> strategies;
 
     PatternProviderTargetCache(ServerLevel l, BlockPos pos, Direction direction, IActionSource src) {
-        this.cache = BlockCapabilityCache.create(AECapabilities.ME_STORAGE, l, pos, direction);
+        this.cache = AECapabilities.ME_STORAGE.createCache(l, pos, direction);
         this.src = src;
         this.strategies = StackWorldBehaviors.createExternalStorageStrategies(l, pos, direction);
     }
@@ -35,7 +35,7 @@ class PatternProviderTargetCache {
     @Nullable
     PatternProviderTarget find() {
         // our capability first: allows any storage channel
-        var meStorage = cache.getCapability();
+        var meStorage = cache.get();
         if (meStorage != null) {
             return wrapMeStorage(meStorage);
         }

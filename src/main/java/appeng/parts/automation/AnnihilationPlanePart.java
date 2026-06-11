@@ -33,7 +33,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.neoforged.neoforge.model.data.ModelData;
 
 import appeng.api.behaviors.PickupStrategy;
 import appeng.api.config.Actionable;
@@ -56,6 +55,7 @@ import appeng.core.settings.TickRates;
 import appeng.me.helpers.MachineSource;
 import appeng.parts.AEBasePart;
 import appeng.util.SettingsFrom;
+import appeng.util.render.AERenderData;
 
 public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
 
@@ -320,8 +320,8 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
     }
 
     @Override
-    public void collectModelData(ModelData.Builder builder) {
-        super.collectModelData(builder);
+    public void collectRenderData(AERenderData.Builder builder) {
+        super.collectRenderData(builder);
         builder.with(PartModelData.CONNECTIONS, getConnections());
     }
 

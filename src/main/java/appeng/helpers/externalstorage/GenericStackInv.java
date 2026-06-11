@@ -31,7 +31,6 @@ import org.jetbrains.annotations.Nullable;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.neoforged.neoforge.transfer.transaction.SnapshotJournal;
 
 import it.unimi.dsi.fastutil.objects.Reference2LongArrayMap;
 import it.unimi.dsi.fastutil.objects.Reference2LongMap;
@@ -49,9 +48,10 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.AEKeySlotFilter;
 import appeng.api.storage.MEStorage;
 import appeng.core.AELog;
+import appeng.util.AESnapshotJournal;
 import appeng.util.ConfigMenuInventory;
 
-public class GenericStackInv extends SnapshotJournal<GenericStack[]> implements MEStorage, GenericInternalInventory {
+public class GenericStackInv extends AESnapshotJournal<GenericStack[]> implements MEStorage, GenericInternalInventory {
     protected final GenericStack[] stacks;
     private final Runnable listener;
     private boolean suppressOnChange;

@@ -18,67 +18,62 @@
 
 package appeng.client;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.serialization.MapCodec;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.color.block.BlockTintSource;
+import net.minecraft.client.color.item.ItemTintSource;
+import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
+import net.minecraft.client.model.geom.ModelLayerLocation;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.particle.ParticleEngine;
+import net.minecraft.client.particle.ParticleGroup;
+import net.minecraft.client.particle.ParticleRenderType;
+import net.minecraft.client.particle.ParticleResources;
+import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
+import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.client.renderer.item.ItemModel;
+import net.minecraft.client.renderer.item.properties.numeric.RangeSelectItemModelProperty;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.world.item.crafting.RecipeMap;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.phys.HitResult;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.InterModComms;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
-import net.neoforged.fml.event.lifecycle.InterModEnqueueEvent;
-import net.neoforged.neoforge.client.event.AddClientReloadListenersEvent;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.EntityRenderersEvent;
-import net.neoforged.neoforge.client.event.InitializeClientRegistriesEvent;
-import net.neoforged.neoforge.client.event.InputEvent;
-import net.neoforged.neoforge.client.event.ModelEvent;
-import net.neoforged.neoforge.client.event.RecipesReceivedEvent;
-import net.neoforged.neoforge.client.event.RegisterBlockStateModels;
-import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
-import net.neoforged.neoforge.client.event.RegisterClientTooltipComponentFactoriesEvent;
-import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
-import net.neoforged.neoforge.client.event.RegisterCustomEnvironmentEffectRendererEvent;
-import net.neoforged.neoforge.client.event.RegisterItemModelsEvent;
-import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
-import net.neoforged.neoforge.client.event.RegisterParticleGroupsEvent;
-import net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent;
-import net.neoforged.neoforge.client.event.RegisterPictureInPictureRenderersEvent;
-import net.neoforged.neoforge.client.event.RegisterRangeSelectItemModelPropertyEvent;
-import net.neoforged.neoforge.client.event.RegisterRenderPipelinesEvent;
-import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
-import net.neoforged.neoforge.client.gui.ConfigurationScreen;
-import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
-import net.neoforged.neoforge.client.model.standalone.SimpleUnbakedStandaloneModel;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
-import net.neoforged.neoforge.client.resources.VanillaClientListeners;
-import net.neoforged.neoforge.client.settings.KeyConflictContext;
-import net.neoforged.neoforge.common.NeoForge;
 
 import guideme.Guide;
 import guideme.compiler.TagCompiler;
@@ -88,29 +83,24 @@ import guideme.siteexport.RecipeExporter;
 
 import appeng.api.client.StorageCellModels;
 import appeng.api.parts.CableRenderMode;
+import appeng.api.parts.IPart;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.util.AEColor;
 import appeng.client.api.AEKeyRendering;
 import appeng.client.api.model.parts.CompositePartModel;
-import appeng.client.api.model.parts.RegisterPartModelsEvent;
+import appeng.client.api.model.parts.PartModel;
 import appeng.client.api.model.parts.StaticPartModel;
-import appeng.client.api.renderer.parts.RegisterPartRendererEvent;
-import appeng.client.areaoverlay.AreaOverlayRenderer;
-import appeng.client.block.cablebus.CableBusBlockClientExtensions;
+import appeng.client.api.renderer.parts.PartRenderer;
 import appeng.client.block.cablebus.CableBusColor;
 import appeng.client.commands.ClientCommands;
 import appeng.client.gui.me.common.PendingCraftingJobs;
 import appeng.client.gui.me.common.PinnedKeys;
-import appeng.client.gui.style.StyleManager;
 import appeng.client.guidebook.AEAdditionalExportData;
 import appeng.client.guidebook.AERecipeExporter;
 import appeng.client.guidebook.ConfigValueTagExtension;
 import appeng.client.guidebook.PartAnnotationStrategy;
-import appeng.client.hooks.BlockAttackHook;
-import appeng.client.hooks.RenderBlockOutlineHook;
-import appeng.client.integrations.itemlists.FluidBlockPictureInPictureRenderer;
 import appeng.client.item.ColorApplicatorItemModel;
 import appeng.client.item.EnergyFillLevelProperty;
 import appeng.client.item.PortableCellColorTintSource;
@@ -119,11 +109,8 @@ import appeng.client.model.CableAnchorPartModel;
 import appeng.client.model.LevelEmitterPartModel;
 import appeng.client.model.LockableMonitorPartModel;
 import appeng.client.model.P2PFrequencyPartModel;
-import appeng.client.model.PaintSplotchesModel;
 import appeng.client.model.PartModels;
 import appeng.client.model.PlanePartModel;
-import appeng.client.model.QnbFormedModel;
-import appeng.client.model.SpatialPylonModel;
 import appeng.client.model.StatusIndicatorPartModel;
 import appeng.client.render.AEColorItemTintSource;
 import appeng.client.render.AERenderPipelines;
@@ -131,8 +118,6 @@ import appeng.client.render.ColorableBlockEntityBlockColor;
 import appeng.client.render.FacadeItemModel;
 import appeng.client.render.StaticBlockColor;
 import appeng.client.render.StorageCellClientTooltipComponent;
-import appeng.client.render.cablebus.CableBusModel;
-import appeng.client.render.crafting.CraftingCubeModel;
 import appeng.client.render.effects.CraftingParticle;
 import appeng.client.render.effects.EnergyFx;
 import appeng.client.render.effects.LightningArcFX;
@@ -140,11 +125,8 @@ import appeng.client.render.effects.LightningFX;
 import appeng.client.render.effects.LightningFXGroup;
 import appeng.client.render.effects.MatterCannonFX;
 import appeng.client.render.effects.VibrantFX;
-import appeng.client.render.model.DriveModel;
 import appeng.client.render.model.MemoryCardItemModel;
 import appeng.client.render.model.MeteoriteCompassModel;
-import appeng.client.render.model.QuartzGlassModel;
-import appeng.client.render.model.SingleSpinnableVariant;
 import appeng.client.renderer.blockentity.CableBusRenderer;
 import appeng.client.renderer.blockentity.ChargerRenderer;
 import appeng.client.renderer.blockentity.CraftingMonitorRenderer;
@@ -161,17 +143,15 @@ import appeng.client.renderer.keytypes.FluidKeyRenderer;
 import appeng.client.renderer.keytypes.ItemKeyRenderer;
 import appeng.client.renderer.part.MonitorRenderer;
 import appeng.client.renderer.parts.PartRendererDispatcher;
-import appeng.client.renderer.spatialstorage.SpatialStorageCloudsRenderer;
-import appeng.client.renderer.spatialstorage.SpatialStorageSkyRenderer;
-import appeng.client.renderer.spatialstorage.SpatialStorageWeatherEffectsRenderer;
 import appeng.core.AEConfig;
 import appeng.core.AppEng;
 import appeng.core.AppEngBase;
-import appeng.core.definitions.AEAttachmentTypes;
+import appeng.core.PlayerCtrlAttachment;
 import appeng.core.definitions.AEBlockEntities;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEEntities;
 import appeng.core.definitions.AEItems;
+import appeng.core.network.NetworkAdapter;
 import appeng.core.network.ServerboundPacket;
 import appeng.core.network.serverbound.MouseWheelPacket;
 import appeng.core.network.serverbound.UpdateHoldingCtrlPacket;
@@ -180,13 +160,13 @@ import appeng.helpers.IMouseWheelItem;
 import appeng.items.storage.StorageCellTooltipComponent;
 import appeng.parts.reporting.ConversionMonitorPart;
 import appeng.parts.reporting.StorageMonitorPart;
-import appeng.spatial.SpatialStorageDimensionIds;
 import appeng.util.Platform;
 
 /**
- * Client-specific functionality.
+ * Client-specific functionality. This class is loader-free; the loader-specific client entrypoint (NeoForge:
+ * {@code appeng.neoforge.client.AppEngNeoForgeClient}) extends it and wires the lifecycle/registration methods exposed
+ * here to its own event system.
  */
-@Mod(value = AppEng.MOD_ID, dist = Dist.CLIENT)
 public class AppEngClient extends AppEngBase {
     private static final Logger LOG = LoggerFactory.getLogger(AppEngClient.class);
     public static final Identifier MODEL_CELL_ITEMS_1K = Identifier.parse(
@@ -212,18 +192,15 @@ public class AppEngClient extends AppEngBase {
     public static final Identifier MODEL_CELL_CREATIVE = Identifier.parse(
             "ae2:block/drive_creative_cell");
 
-    /**
-     * This modifier key has to be held to activate mouse wheel items.
-     */
-    private static final KeyMapping MOUSE_WHEEL_ITEM_MODIFIER = new KeyMapping(
-            "key.ae2.mouse_wheel_item_modifier", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM,
-            InputConstants.KEY_LSHIFT, Hotkeys.CATEGORY);
-
-    private static final KeyMapping PART_PLACEMENT_OPPOSITE = new KeyMapping(
-            "key.ae2.part_placement_opposite", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM,
-            InputConstants.KEY_LCONTROL, Hotkeys.CATEGORY);
-
     private static AppEngClient INSTANCE;
+
+    /**
+     * This modifier key has to be held to activate mouse wheel items. Created by the loader-specific subclass (e.g.
+     * with NeoForge's key conflict context attached).
+     */
+    protected final KeyMapping mouseWheelItemModifier;
+
+    protected final KeyMapping partPlacementOpposite;
 
     /**
      * Last known cable render mode. Used to update all rendered blocks once at the end of the tick when the mode is
@@ -239,84 +216,33 @@ public class AppEngClient extends AppEngBase {
     private RecipeMap recipeMap = RecipeMap.EMPTY;
     private final Set<RecipeType<?>> knownRecipeTypes = Collections.newSetFromMap(new IdentityHashMap<>());
 
-    private final Guide guide;
+    private Guide guide;
 
-    private SpatialStorageSkyRenderer spatialStorageSkyRenderer;
-
-    public AppEngClient(IEventBus modEventBus, ModContainer container) {
-        super(modEventBus, container);
+    public AppEngClient(KeyMapping mouseWheelItemModifier, KeyMapping partPlacementOpposite) {
+        this.mouseWheelItemModifier = mouseWheelItemModifier;
+        this.partPlacementOpposite = partPlacementOpposite;
 
         INSTANCE = this;
-
-        this.registerClientCommands();
-
-        modEventBus.addListener(this::registerClientTooltipComponents);
-        modEventBus.addListener(this::registerHotkeys);
-        modEventBus.addListener(InitScreens::init);
-        modEventBus.addListener(this::registerReloadListeners);
-
-        BlockAttackHook.install();
-        guide = createGuide();
-
-        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, (ClientTickEvent.Pre e) -> {
-            updateCableRenderMode();
-        });
-
-        modEventBus.addListener(this::clientSetup);
-
-        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingIn evt) -> {
-            PendingCraftingJobs.clearPendingJobs();
-            PinnedKeys.clearPinnedKeys();
-        });
-
-        NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e) -> {
-            tickPinnedKeys(Minecraft.getInstance());
-            Hotkeys.checkHotkeys();
-        });
-
-        container.registerExtensionPoint(IConfigScreenFactory.class,
-                (mc, parent) -> new ConfigurationScreen(container, parent));
-
-        modEventBus.addListener(new AEClientboundPacketHandler()::register);
-        modEventBus.addListener(this::registerEntityRenderers);
-        modEventBus.addListener(this::registerEntityLayerDefinitions);
-        modEventBus.addListener(this::registerClientExtensions);
-        modEventBus.addListener(this::enqueueImcMessages);
-        modEventBus.addListener(this::registerParticleFactories);
-        modEventBus.addListener(this::registerParticleGroups);
-        modEventBus.addListener(this::registerBlockStateModels);
-        modEventBus.addListener(this::registerStandaloneModels);
-        modEventBus.addListener(this::registerRenderPipelines);
-        modEventBus.addListener(this::registerItemModelProperties);
-        modEventBus.addListener(this::registerItemModels);
-        modEventBus.addListener(this::registerEnvironmentalEffectRenderers);
-        modEventBus.addListener(this::registerItemTintSources);
-        modEventBus.addListener(this::registerBlockTintSources);
-        modEventBus.addListener(this::registerPipRenderers);
-
-        RenderBlockOutlineHook.install();
-
-        var areaOverlayRenderer = new AreaOverlayRenderer();
-        NeoForge.EVENT_BUS.register(areaOverlayRenderer);
-
-        modEventBus.addListener(this::registerPartRenderers);
-        modEventBus.addListener(this::registerPartModelTypes);
-        modEventBus.addListener(this::initCustomClientRegistries);
-        NeoForge.EVENT_BUS.addListener(this::receiveRecipes);
     }
 
-    private void registerClientCommands() {
-        NeoForge.EVENT_BUS.addListener((RegisterClientCommandsEvent evt) -> {
-            var dispatcher = evt.getDispatcher();
-
-            LiteralArgumentBuilder<CommandSourceStack> builder = Commands.literal("ae2client");
-            if (AEConfig.instance().isDebugToolsEnabled()) {
-                for (var commandBuilder : ClientCommands.DEBUG_COMMANDS) {
-                    commandBuilder.build(builder);
-                }
+    /**
+     * Registers the AE2 client debug commands with the given client command dispatcher.
+     */
+    public void registerClientCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
+        LiteralArgumentBuilder<CommandSourceStack> builder = Commands.literal("ae2client");
+        if (AEConfig.instance().isDebugToolsEnabled()) {
+            for (var commandBuilder : ClientCommands.DEBUG_COMMANDS) {
+                commandBuilder.build(builder);
             }
-            dispatcher.register(builder);
-        });
+        }
+        dispatcher.register(builder);
+    }
+
+    /**
+     * Creates the in-game guide. Must be called once by the loader-specific entrypoint during mod construction.
+     */
+    protected final void initGuide() {
+        this.guide = createGuide();
     }
 
     private Guide createGuide() {
@@ -347,77 +273,107 @@ public class AppEngClient extends AppEngBase {
         Hotkeys.registerHotkey(id);
     }
 
-    private void registerHotkeys(RegisterKeyMappingsEvent e) {
-        e.registerCategory(Hotkeys.CATEGORY);
-        e.register(MOUSE_WHEEL_ITEM_MODIFIER);
-        e.register(PART_PLACEMENT_OPPOSITE);
-        Hotkeys.finalizeRegistration(e::register);
-    }
-
     public static AppEngClient instance() {
         return Objects.requireNonNull(INSTANCE, "AppEngClient is not initialized");
     }
 
-    private void registerClientTooltipComponents(RegisterClientTooltipComponentFactoriesEvent event) {
-        event.register(StorageCellTooltipComponent.class, StorageCellClientTooltipComponent::new);
+    /**
+     * Registers the client-side counterparts of AE2's tooltip components.
+     */
+    public void registerClientTooltipComponents(ClientTooltipComponentRegistrar registrar) {
+        registrar.register(StorageCellTooltipComponent.class, StorageCellClientTooltipComponent::new);
     }
 
-    private void clientSetup(FMLClientSetupEvent event) {
-        event.enqueueWork(() -> {
-            try {
-                AEKeyRendering.register(AEKeyType.items(), AEItemKey.class, new ItemKeyRenderer());
-                AEKeyRendering.register(AEKeyType.fluids(), AEFluidKey.class, new FluidKeyRenderer());
-            } catch (Throwable e) {
-                LOG.error("AE2 failed postClientSetup", e);
-                throw new RuntimeException(e);
-            }
-        });
-
-        NeoForge.EVENT_BUS.addListener(this::wheelEvent);
-        NeoForge.EVENT_BUS.addListener(this::ctrlEvent);
+    /**
+     * Registers AE2's key mappings (including the dynamically created hotkeys, whose registration this finalizes).
+     */
+    public void registerKeyMappings(Consumer<KeyMapping> registrar) {
+        registrar.accept(mouseWheelItemModifier);
+        registrar.accept(partPlacementOpposite);
+        Hotkeys.finalizeRegistration(registrar);
     }
 
-    private void registerReloadListeners(AddClientReloadListenersEvent event) {
-        event.addListener(PartRendererDispatcher.ID, partRendererDispatcher);
-        // The block entity render for parts needs access to the formed PartRendererDispatcher
-        event.addDependency(VanillaClientListeners.BLOCK_ENTITY_RENDERER, PartRendererDispatcher.ID);
-
-        event.addListener(AppEng.makeId("styles"), StyleManager.getReloadListener());
+    /**
+     * Client setup that must run on the client main thread after registration completes.
+     */
+    public void clientSetup() {
+        try {
+            AEKeyRendering.register(AEKeyType.items(), AEItemKey.class, new ItemKeyRenderer());
+            AEKeyRendering.register(AEKeyType.fluids(), AEFluidKey.class, new FluidKeyRenderer());
+        } catch (Throwable e) {
+            LOG.error("AE2 failed postClientSetup", e);
+            throw new RuntimeException(e);
+        }
     }
 
-    private void wheelEvent(InputEvent.MouseScrollingEvent me) {
-        if (me.getScrollDeltaY() == 0) {
-            return;
+    /**
+     * Handles mouse-wheel input for {@link IMouseWheelItem}s.
+     *
+     * @return true if the scroll was consumed and the loader must cancel further processing of the input event.
+     */
+    public boolean onMouseWheel(double scrollDeltaY) {
+        if (scrollDeltaY == 0) {
+            return false;
         }
 
         final Minecraft mc = Minecraft.getInstance();
         final Player player = mc.player;
-        if (MOUSE_WHEEL_ITEM_MODIFIER.isDown()) {
+        if (mouseWheelItemModifier.isDown()) {
             var mainHand = player.getItemInHand(InteractionHand.MAIN_HAND)
                     .getItem() instanceof IMouseWheelItem;
             var offHand = player.getItemInHand(InteractionHand.OFF_HAND).getItem() instanceof IMouseWheelItem;
 
             if (mainHand || offHand) {
-                ServerboundPacket message = new MouseWheelPacket(me.getScrollDeltaY() > 0);
-                ClientPacketDistributor.sendToServer(message);
-                me.setCanceled(true);
+                ServerboundPacket message = new MouseWheelPacket(scrollDeltaY > 0);
+                NetworkAdapter.get().sendToServer(message);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Handles raw keyboard input to track the part-placement modifier key.
+     *
+     * @param action a GLFW input action ({@link InputConstants#PRESS}, {@link InputConstants#REPEAT} or release)
+     */
+    public void onKeyInput(int key, int action) {
+        if (key == partPlacementOpposite.getKey().getValue()) {
+            var player = Minecraft.getInstance().player;
+
+            if (player != null) {
+                var isDown = action == InputConstants.PRESS || action == InputConstants.REPEAT;
+                var previousIsDown = PlayerCtrlAttachment.get().isHoldingCtrl(player);
+                if (previousIsDown != isDown) {
+                    PlayerCtrlAttachment.get().setHoldingCtrl(player, isDown);
+                    NetworkAdapter.get().sendToServer(new UpdateHoldingCtrlPacket(isDown));
+                }
             }
         }
     }
 
-    private void ctrlEvent(InputEvent.Key event) {
-        if (event.getKey() == PART_PLACEMENT_OPPOSITE.getKey().getValue()) {
-            var player = Minecraft.getInstance().player;
+    /**
+     * Called at the start of every client tick (the loader should call this as late as possible within the tick start).
+     */
+    public void clientTickStart() {
+        updateCableRenderMode();
+    }
 
-            if (player != null) {
-                var isDown = event.getAction() == InputConstants.PRESS || event.getAction() == InputConstants.REPEAT;
-                var previousIsDown = player.getData(AEAttachmentTypes.HOLDING_CTRL);
-                if (previousIsDown != isDown) {
-                    player.setData(AEAttachmentTypes.HOLDING_CTRL, isDown);
-                    ClientPacketDistributor.sendToServer(new UpdateHoldingCtrlPacket(isDown));
-                }
-            }
-        }
+    /**
+     * Called at the end of every client tick.
+     */
+    public void clientTickEnd() {
+        tickPinnedKeys(Minecraft.getInstance());
+        Hotkeys.checkHotkeys();
+    }
+
+    /**
+     * Called when the client player logs into a (local or remote) server.
+     */
+    public void onPlayerLoggingIn() {
+        PendingCraftingJobs.clearPendingJobs();
+        PinnedKeys.clearPinnedKeys();
     }
 
     @Override
@@ -472,7 +428,7 @@ public class AppEngClient extends AppEngBase {
     }
 
     public Guide getGuide() {
-        return guide;
+        return Objects.requireNonNull(guide, "The guide has not been initialized yet");
     }
 
     @Override
@@ -497,18 +453,35 @@ public class AppEngClient extends AppEngBase {
         return super.getRecipeMapForType(level, recipeType);
     }
 
-    private void registerPartModelTypes(RegisterPartModelsEvent event) {
-        event.registerModelType(StaticPartModel.Unbaked.ID, StaticPartModel.Unbaked.MAP_CODEC);
-        event.registerModelType(CompositePartModel.Unbaked.ID, CompositePartModel.Unbaked.MAP_CODEC);
-        event.registerModelType(P2PFrequencyPartModel.Unbaked.ID, P2PFrequencyPartModel.Unbaked.MAP_CODEC);
-        event.registerModelType(StatusIndicatorPartModel.Unbaked.ID, StatusIndicatorPartModel.Unbaked.MAP_CODEC);
-        event.registerModelType(LevelEmitterPartModel.Unbaked.ID, LevelEmitterPartModel.Unbaked.MAP_CODEC);
-        event.registerModelType(CableAnchorPartModel.Unbaked.ID, CableAnchorPartModel.Unbaked.MAP_CODEC);
-        event.registerModelType(LockableMonitorPartModel.Unbaked.ID, LockableMonitorPartModel.Unbaked.MAP_CODEC);
-        event.registerModelType(PlanePartModel.Unbaked.ID, PlanePartModel.Unbaked.MAP_CODEC);
+    /**
+     * Receives the recipes synchronized from the server.
+     */
+    public void receiveRecipes(RecipeMap recipeMap, Collection<RecipeType<?>> recipeTypes) {
+        this.recipeMap = recipeMap;
+        knownRecipeTypes.clear();
+        knownRecipeTypes.addAll(recipeTypes);
     }
 
-    private void initCustomClientRegistries(InitializeClientRegistriesEvent event) {
+    /**
+     * Registers AE2's own part model types. The loader forwards this through the same addon-facing mechanism it exposes
+     * via {@link ClientLoaderHooks#postRegisterPartModels}.
+     */
+    public void registerPartModelTypes(BiConsumer<Identifier, MapCodec<? extends PartModel.Unbaked>> registrar) {
+        registrar.accept(StaticPartModel.Unbaked.ID, StaticPartModel.Unbaked.MAP_CODEC);
+        registrar.accept(CompositePartModel.Unbaked.ID, CompositePartModel.Unbaked.MAP_CODEC);
+        registrar.accept(P2PFrequencyPartModel.Unbaked.ID, P2PFrequencyPartModel.Unbaked.MAP_CODEC);
+        registrar.accept(StatusIndicatorPartModel.Unbaked.ID, StatusIndicatorPartModel.Unbaked.MAP_CODEC);
+        registrar.accept(LevelEmitterPartModel.Unbaked.ID, LevelEmitterPartModel.Unbaked.MAP_CODEC);
+        registrar.accept(CableAnchorPartModel.Unbaked.ID, CableAnchorPartModel.Unbaked.MAP_CODEC);
+        registrar.accept(LockableMonitorPartModel.Unbaked.ID, LockableMonitorPartModel.Unbaked.MAP_CODEC);
+        registrar.accept(PlanePartModel.Unbaked.ID, PlanePartModel.Unbaked.MAP_CODEC);
+    }
+
+    /**
+     * Initializes the custom client-side registries (part models, storage cell models). Must run before models are
+     * baked.
+     */
+    public void initCustomClientRegistries() {
         partModels = new PartModels();
 
         StorageCellModels.registerModel(AEItems.ITEM_CELL_1K, AppEngClient.MODEL_CELL_ITEMS_1K);
@@ -535,9 +508,13 @@ public class AppEngClient extends AppEngBase {
         StorageCellModels.registerModel(AEItems.PORTABLE_FLUID_CELL256K, AppEngClient.MODEL_CELL_FLUIDS_256K);
     }
 
-    private void registerPartRenderers(RegisterPartRendererEvent event) {
-        event.register(ConversionMonitorPart.class, new MonitorRenderer());
-        event.register(StorageMonitorPart.class, new MonitorRenderer());
+    /**
+     * Registers AE2's own part renderers. The loader forwards this through the same addon-facing mechanism it exposes
+     * via {@link ClientLoaderHooks#collectPartRenderers}.
+     */
+    public void registerPartRenderers(PartRendererRegistrar registrar) {
+        registrar.register(ConversionMonitorPart.class, new MonitorRenderer());
+        registrar.register(StorageMonitorPart.class, new MonitorRenderer());
     }
 
     public PartModels getPartModels() {
@@ -551,119 +528,149 @@ public class AppEngClient extends AppEngBase {
         return partRendererDispatcher;
     }
 
-    private void registerRenderPipelines(RegisterRenderPipelinesEvent event) {
-        event.registerPipeline(AERenderPipelines.LINES_BEHIND_BLOCK);
-        event.registerPipeline(AERenderPipelines.LIGHTNING_FX);
+    /**
+     * Registers AE2's custom render pipelines.
+     */
+    public void registerRenderPipelines(Consumer<RenderPipeline> registrar) {
+        registrar.accept(AERenderPipelines.LINES_BEHIND_BLOCK);
+        registrar.accept(AERenderPipelines.LIGHTNING_FX);
     }
 
-    private void registerBlockStateModels(RegisterBlockStateModels event) {
-        event.registerModel(SingleSpinnableVariant.Unbaked.ID, SingleSpinnableVariant.Unbaked.MAP_CODEC);
-        event.registerModel(CableBusModel.Unbaked.ID, CableBusModel.Unbaked.MAP_CODEC);
-        event.registerModel(QuartzGlassModel.Unbaked.ID, QuartzGlassModel.Unbaked.MAP_CODEC);
-        event.registerModel(AppEng.makeId("drive"), DriveModel.Unbaked.MAP_CODEC);
-        event.registerModel(AppEng.makeId("spatial_pylon"), SpatialPylonModel.Unbaked.MAP_CODEC);
-        event.registerModel(AppEng.makeId("paint"), PaintSplotchesModel.Unbaked.MAP_CODEC);
-        event.registerModel(AppEng.makeId("qnb_formed"), QnbFormedModel.Unbaked.MAP_CODEC);
-        event.registerModel(CraftingCubeModel.Unbaked.ID, CraftingCubeModel.Unbaked.MAP_CODEC);
+    /**
+     * Registers AE2's entity renderers.
+     */
+    public void registerEntityRenderers(EntityRendererRegistrar registrar) {
+        registrar.register(AEEntities.TINY_TNT_PRIMED.get(), TinyTNTPrimedRenderer::new);
     }
 
-    private void registerClientExtensions(RegisterClientExtensionsEvent event) {
-        event.registerBlock(new CableBusBlockClientExtensions(AEBlocks.CABLE_BUS.block()), AEBlocks.CABLE_BUS.block());
+    /**
+     * Registers AE2's block entity renderers.
+     */
+    public void registerBlockEntityRenderers(BlockEntityRendererRegistrar registrar) {
+        registrar.register(AEBlockEntities.CRANK.get(), CrankRenderer::new);
+        registrar.register(AEBlockEntities.INSCRIBER.get(), InscriberRenderer::new);
+        registrar.register(AEBlockEntities.SKY_CHEST.get(), SkyStoneChestRenderer::new);
+        registrar.register(AEBlockEntities.CHARGER.get(), ChargerRenderer::new);
+        registrar.register(AEBlockEntities.DRIVE.get(), DriveRenderer::new);
+        registrar.register(AEBlockEntities.ME_CHEST.get(), MEChestRenderer::new);
+        registrar.register(AEBlockEntities.CRAFTING_MONITOR.get(), CraftingMonitorRenderer::new);
+        registrar.register(AEBlockEntities.MOLECULAR_ASSEMBLER.get(), MolecularAssemblerRenderer::new);
+        registrar.register(AEBlockEntities.CABLE_BUS.get(), CableBusRenderer::new);
+        registrar.register(AEBlockEntities.SKY_STONE_TANK.get(), SkyStoneTankRenderer::new);
     }
 
-    private void registerEntityRenderers(EntityRenderersEvent.RegisterRenderers event) {
-        event.registerEntityRenderer(AEEntities.TINY_TNT_PRIMED.get(), TinyTNTPrimedRenderer::new);
-
-        event.registerBlockEntityRenderer(AEBlockEntities.CRANK.get(), CrankRenderer::new);
-        event.registerBlockEntityRenderer(AEBlockEntities.INSCRIBER.get(), InscriberRenderer::new);
-        event.registerBlockEntityRenderer(AEBlockEntities.SKY_CHEST.get(), SkyStoneChestRenderer::new);
-        event.registerBlockEntityRenderer(AEBlockEntities.CHARGER.get(), ChargerRenderer::new);
-        event.registerBlockEntityRenderer(AEBlockEntities.DRIVE.get(), DriveRenderer::new);
-        event.registerBlockEntityRenderer(AEBlockEntities.ME_CHEST.get(), MEChestRenderer::new);
-        event.registerBlockEntityRenderer(AEBlockEntities.CRAFTING_MONITOR.get(), CraftingMonitorRenderer::new);
-        event.registerBlockEntityRenderer(AEBlockEntities.MOLECULAR_ASSEMBLER.get(), MolecularAssemblerRenderer::new);
-        event.registerBlockEntityRenderer(AEBlockEntities.CABLE_BUS.get(), CableBusRenderer::new);
-        event.registerBlockEntityRenderer(AEBlockEntities.SKY_STONE_TANK.get(), SkyStoneTankRenderer::new);
+    /**
+     * Registers AE2's entity model layer definitions.
+     */
+    public void registerEntityLayerDefinitions(BiConsumer<ModelLayerLocation, Supplier<LayerDefinition>> registrar) {
+        registrar.accept(SkyStoneChestRenderer.MODEL_LAYER, SkyStoneChestModel::createSingleBodyLayer);
     }
 
-    private void registerEntityLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
-        event.registerLayerDefinition(SkyStoneChestRenderer.MODEL_LAYER, SkyStoneChestModel::createSingleBodyLayer);
+    /**
+     * Registers AE2's sprite-set particle providers.
+     */
+    public void registerParticleProviders(SpriteSetRegistrar registrar) {
+        registrar.register(ParticleTypes.CRAFTING, CraftingParticle.Factory::new);
+        registrar.register(ParticleTypes.ENERGY, EnergyFx.Factory::new);
+        registrar.register(ParticleTypes.LIGHTNING_ARC, LightningArcFX.Factory::new);
+        registrar.register(ParticleTypes.LIGHTNING, LightningFX.Factory::new);
+        registrar.register(ParticleTypes.MATTER_CANNON, MatterCannonFX.Factory::new);
+        registrar.register(ParticleTypes.VIBRANT, VibrantFX.Factory::new);
     }
 
-    public void registerParticleFactories(RegisterParticleProvidersEvent event) {
-        event.registerSpriteSet(ParticleTypes.CRAFTING, CraftingParticle.Factory::new);
-        event.registerSpriteSet(ParticleTypes.ENERGY, EnergyFx.Factory::new);
-        event.registerSpriteSet(ParticleTypes.LIGHTNING_ARC, LightningArcFX.Factory::new);
-        event.registerSpriteSet(ParticleTypes.LIGHTNING, LightningFX.Factory::new);
-        event.registerSpriteSet(ParticleTypes.MATTER_CANNON, MatterCannonFX.Factory::new);
-        event.registerSpriteSet(ParticleTypes.VIBRANT, VibrantFX.Factory::new);
+    /**
+     * Registers AE2's particle groups.
+     */
+    public void registerParticleGroups(
+            BiConsumer<ParticleRenderType, Function<ParticleEngine, ParticleGroup<?>>> registrar) {
+        registrar.accept(LightningFXGroup.GROUP, LightningFXGroup::new);
     }
 
-    public void registerParticleGroups(RegisterParticleGroupsEvent event) {
-        event.register(LightningFXGroup.GROUP, LightningFXGroup::new);
+    /**
+     * Registers AE2's range-select item model properties.
+     */
+    public void registerItemModelProperties(
+            BiConsumer<Identifier, MapCodec<? extends RangeSelectItemModelProperty>> registrar) {
+        registrar.accept(EnergyFillLevelProperty.ID, EnergyFillLevelProperty.CODEC);
     }
 
-    private void enqueueImcMessages(InterModEnqueueEvent event) {
-        // Our new light-mode UI doesn't play nice with darkmodeeverywhere
-        InterModComms.sendTo("darkmodeeverywhere", "dme-shaderblacklist", () -> "appeng.");
-        InterModComms.sendTo("framedblocks", "add_ct_property", () -> QuartzGlassModel.GLASS_STATE);
+    /**
+     * Registers AE2's custom item model types.
+     */
+    public void registerItemModels(BiConsumer<Identifier, MapCodec<? extends ItemModel.Unbaked>> registrar) {
+        registrar.accept(ColorApplicatorItemModel.Unbaked.ID, ColorApplicatorItemModel.Unbaked.MAP_CODEC);
+        registrar.accept(MemoryCardItemModel.Unbaked.ID, MemoryCardItemModel.Unbaked.MAP_CODEC);
+        registrar.accept(FacadeItemModel.Unbaked.ID, FacadeItemModel.Unbaked.MAP_CODEC);
+        registrar.accept(MeteoriteCompassModel.Unbaked.ID, MeteoriteCompassModel.Unbaked.MAP_CODEC);
     }
 
-    private void registerStandaloneModels(ModelEvent.RegisterStandalone event) {
-        event.register(CrankRenderer.HANDLE_MODEL,
-                SimpleUnbakedStandaloneModel.simpleModelWrapper(CrankRenderer.HANDLE_MODEL_ID));
-
-        // For rendering the ME chest we require the original storage cell models as standalone models
-        for (var cellModelKey : StorageCellModels.standaloneModels().values()) {
-            // TODO 1.21.8 Investigate what model debug name vs. model key vs. resource location is
-            event.register(cellModelKey,
-                    SimpleUnbakedStandaloneModel.blockStateModel(Identifier.parse(cellModelKey.getName())));
-        }
-        event.register(StorageCellModels.getDefaultStandaloneModel(), SimpleUnbakedStandaloneModel
-                .blockStateModel(Identifier.parse(StorageCellModels.getDefaultStandaloneModel().getName())));
+    /**
+     * Registers AE2's item tint sources.
+     */
+    public void registerItemTintSources(BiConsumer<Identifier, MapCodec<? extends ItemTintSource>> registrar) {
+        registrar.accept(PortableCellColorTintSource.ID, PortableCellColorTintSource.MAP_CODEC);
+        registrar.accept(StorageCellStateTintSource.ID, StorageCellStateTintSource.MAP_CODEC);
+        registrar.accept(AEColorItemTintSource.ID, AEColorItemTintSource.MAP_CODEC);
     }
 
-    private void registerItemModelProperties(RegisterRangeSelectItemModelPropertyEvent event) {
-        event.register(EnergyFillLevelProperty.ID, EnergyFillLevelProperty.CODEC);
+    /**
+     * Registers AE2's block tint sources.
+     */
+    public void registerBlockTintSources(BlockTintSourceRegistrar registrar) {
+        registrar.register(StaticBlockColor.createTintSources(AEColor.TRANSPARENT),
+                AEBlocks.WIRELESS_ACCESS_POINT.block());
+        registrar.register(CableBusColor.TINT_SOURCES, AEBlocks.CABLE_BUS.block());
+        registrar.register(ColorableBlockEntityBlockColor.TINT_SOURCES, AEBlocks.ME_CHEST.block());
     }
 
-    private void registerItemModels(RegisterItemModelsEvent event) {
-        event.register(ColorApplicatorItemModel.Unbaked.ID, ColorApplicatorItemModel.Unbaked.MAP_CODEC);
-        event.register(MemoryCardItemModel.Unbaked.ID, MemoryCardItemModel.Unbaked.MAP_CODEC);
-        event.register(FacadeItemModel.Unbaked.ID, FacadeItemModel.Unbaked.MAP_CODEC);
-        event.register(MeteoriteCompassModel.Unbaked.ID, MeteoriteCompassModel.Unbaked.MAP_CODEC);
+    /**
+     * Loader-neutral target for the client tooltip component registrations.
+     */
+    @FunctionalInterface
+    public interface ClientTooltipComponentRegistrar {
+        <T extends TooltipComponent> void register(Class<T> type,
+                Function<? super T, ? extends ClientTooltipComponent> factory);
     }
 
-    private void registerEnvironmentalEffectRenderers(RegisterCustomEnvironmentEffectRendererEvent event) {
-        if (spatialStorageSkyRenderer == null) {
-            spatialStorageSkyRenderer = new SpatialStorageSkyRenderer();
-        }
-
-        event.registerCloudRenderer(SpatialStorageDimensionIds.CUSTOM_RENDERER_ID, new SpatialStorageCloudsRenderer());
-        event.registerSkyboxRenderer(SpatialStorageDimensionIds.CUSTOM_RENDERER_ID, spatialStorageSkyRenderer);
-        event.registerWeatherEffectRenderer(SpatialStorageDimensionIds.CUSTOM_RENDERER_ID,
-                new SpatialStorageWeatherEffectsRenderer());
+    /**
+     * Loader-neutral target for the entity renderer registrations.
+     */
+    @FunctionalInterface
+    public interface EntityRendererRegistrar {
+        <T extends Entity> void register(EntityType<? extends T> type, EntityRendererProvider<T> provider);
     }
 
-    private void registerItemTintSources(RegisterColorHandlersEvent.ItemTintSources event) {
-        event.register(PortableCellColorTintSource.ID, PortableCellColorTintSource.MAP_CODEC);
-        event.register(StorageCellStateTintSource.ID, StorageCellStateTintSource.MAP_CODEC);
-        event.register(AEColorItemTintSource.ID, AEColorItemTintSource.MAP_CODEC);
+    /**
+     * Loader-neutral target for the block entity renderer registrations.
+     */
+    @FunctionalInterface
+    public interface BlockEntityRendererRegistrar {
+        <T extends BlockEntity, S extends BlockEntityRenderState> void register(BlockEntityType<? extends T> type,
+                BlockEntityRendererProvider<T, S> provider);
     }
 
-    public void registerBlockTintSources(RegisterColorHandlersEvent.BlockTintSources event) {
-        event.register(StaticBlockColor.createTintSources(AEColor.TRANSPARENT), AEBlocks.WIRELESS_ACCESS_POINT.block());
-        event.register(CableBusColor.TINT_SOURCES, AEBlocks.CABLE_BUS.block());
-        event.register(ColorableBlockEntityBlockColor.TINT_SOURCES, AEBlocks.ME_CHEST.block());
+    /**
+     * Loader-neutral target for the sprite-set particle provider registrations.
+     */
+    @FunctionalInterface
+    public interface SpriteSetRegistrar {
+        <T extends ParticleOptions> void register(ParticleType<T> type,
+                ParticleResources.SpriteParticleRegistration<T> registration);
     }
 
-    private void receiveRecipes(RecipesReceivedEvent event) {
-        recipeMap = event.getRecipeMap();
-        knownRecipeTypes.clear();
-        knownRecipeTypes.addAll(event.getRecipeTypes());
+    /**
+     * Loader-neutral target for the block tint source registrations.
+     */
+    @FunctionalInterface
+    public interface BlockTintSourceRegistrar {
+        void register(List<BlockTintSource> tintSources, Block... blocks);
     }
 
-    private void registerPipRenderers(RegisterPictureInPictureRenderersEvent event) {
-        event.register(FluidBlockPictureInPictureRenderer.State.class, FluidBlockPictureInPictureRenderer::new);
+    /**
+     * Loader-neutral target for the part renderer registrations.
+     */
+    @FunctionalInterface
+    public interface PartRendererRegistrar {
+        <T extends IPart> void register(Class<T> partClass, PartRenderer<? super T, ?> renderer);
     }
 }

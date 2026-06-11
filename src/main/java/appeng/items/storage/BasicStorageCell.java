@@ -43,6 +43,7 @@ import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.UpgradeInventories;
 import appeng.core.localization.PlayerMessages;
 import appeng.hooks.AEToolItem;
+import appeng.hooks.extensions.ItemUseFirstHook;
 import appeng.items.AEBaseItem;
 import appeng.items.contents.CellConfig;
 import appeng.recipes.game.StorageCellDisassemblyRecipe;
@@ -50,7 +51,7 @@ import appeng.util.ConfigInventory;
 import appeng.util.InteractionUtil;
 import appeng.util.Platform;
 
-public class BasicStorageCell extends AEBaseItem implements IBasicCellItem, AEToolItem {
+public class BasicStorageCell extends AEBaseItem implements IBasicCellItem, AEToolItem, ItemUseFirstHook {
     protected final double idleDrain;
     protected final int totalBytes;
     protected final int bytesPerType;

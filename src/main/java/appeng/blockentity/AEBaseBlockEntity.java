@@ -69,15 +69,13 @@ import net.minecraft.world.level.storage.TagValueOutput;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.BlockHitResult;
-import net.neoforged.neoforge.common.util.FriendlyByteBufUtil;
-import net.neoforged.neoforge.model.data.ModelData;
-import net.neoforged.neoforge.network.connection.ConnectionType;
 
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 
 import appeng.api.ids.AEComponents;
 import appeng.api.inventories.ISegmentedInventory;
 import appeng.api.inventories.InternalInventory;
+import appeng.api.lookup.AEApiLookups;
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridNode;
 import appeng.api.orientation.BlockOrientation;
@@ -93,7 +91,7 @@ import appeng.util.Platform;
 import appeng.util.SettingsFrom;
 import appeng.util.helpers.ItemComparisonHelper;
 
-public class AEBaseBlockEntity extends BlockEntity
+public class AEBaseBlockEntity extends AEBaseBlockEntityHooks
         implements Nameable, ISegmentedInventory, Clearable, IDebugExportable {
     private static final Logger LOG = LoggerFactory.getLogger(AEBaseBlockEntity.class);
 
@@ -156,11 +154,10 @@ public class AEBaseBlockEntity extends BlockEntity
             if (registryAccess == null) {
                 LOG.warn("Ignoring  update packet for {} since no registry is available.", this);
             } else if (readUpdateData(
-                    new RegistryFriendlyByteBuf(Unpooled.wrappedBuffer(decodedUpdateData), registryAccess,
-                            ConnectionType.NEOFORGE))) {
+                    new RegistryFriendlyByteBuf(Unpooled.wrappedBuffer(decodedUpdateData), registryAccess))) {
                 // Triggers a chunk re-render if the level is already loaded
                 if (level != null) {
-                    requestModelDataUpdate();
+                    requestRenderUpdate();
                     level.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), 0);
                 }
             }
@@ -215,9 +212,26 @@ public class AEBaseBlockEntity extends BlockEntity
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         var data = new CompoundTag();
-        var updateData = FriendlyByteBufUtil.writeCustomData(this::writeToStream, level.registryAccess());
+        var updateData = writeCustomData(level.registryAccess());
         data.putString("#upd", Base64.getEncoder().encodeToString(updateData));
         return data;
+    }
+
+    /**
+     * Writes the result of {@link #writeToStream} into a byte array. Inlined equivalent of the NeoForge
+     * {@code FriendlyByteBufUtil.writeCustomData} helper.
+     */
+    private byte[] writeCustomData(RegistryAccess registryAccess) {
+        var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), registryAccess);
+        try {
+            writeToStream(buf);
+            buf.readerIndex(0);
+            var data = new byte[buf.readableBytes()];
+            buf.readBytes(data);
+            return data;
+        } finally {
+            buf.release();
+        }
     }
 
     private boolean readUpdateData(RegistryFriendlyByteBuf stream) {
@@ -267,7 +281,7 @@ public class AEBaseBlockEntity extends BlockEntity
      * Mark this block to be updated for clients.
      */
     public void markForClientUpdate() {
-        this.requestModelDataUpdate();
+        this.requestRenderUpdate();
 
         if (this.level != null && !this.isRemoved() && !notLoaded()) {
             this.level.sendBlockUpdated(this.worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
@@ -276,7 +290,7 @@ public class AEBaseBlockEntity extends BlockEntity
 
     public void markForUpdate() {
         // Clearing the cached model-data is always harmless regardless of status
-        this.requestModelDataUpdate();
+        this.requestRenderUpdate();
 
         // TODO: Optimize Network Load
         if (this.level != null && !this.isRemoved() && !notLoaded()) {
@@ -316,7 +330,7 @@ public class AEBaseBlockEntity extends BlockEntity
      */
     @ApiStatus.OverrideOnly
     protected void onOrientationChanged(BlockOrientation orientation) {
-        invalidateCapabilities();
+        AEApiLookups.get().invalidateApis(this);
     }
 
     public final DataComponentMap exportSettings(SettingsFrom mode, @Nullable Player player) {
@@ -437,11 +451,6 @@ public class AEBaseBlockEntity extends BlockEntity
     @MustBeInvokedByOverriders
     public InternalInventory getSubInventory(Identifier id) {
         return null;
-    }
-
-    @Override
-    public ModelData getModelData() {
-        return AEModelData.create();
     }
 
     /**

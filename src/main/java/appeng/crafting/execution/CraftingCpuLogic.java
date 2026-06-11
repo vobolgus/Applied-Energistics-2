@@ -46,6 +46,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.core.AELog;
 import appeng.core.network.ClientboundPacket;
+import appeng.core.network.NetworkAdapter;
 import appeng.core.network.clientbound.CraftingJobStatusPacket;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
@@ -551,7 +552,7 @@ public class CraftingCpuLogic {
                     job.finalOutput.amount(),
                     job.remainingAmount,
                     status);
-            connectedPlayer.connection.send(message);
+            NetworkAdapter.get().sendToPlayer(connectedPlayer, message);
         }
     }
 }

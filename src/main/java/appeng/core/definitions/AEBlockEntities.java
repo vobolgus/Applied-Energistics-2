@@ -21,17 +21,18 @@ package appeng.core.definitions;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.google.common.base.Preconditions;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.registries.DeferredRegister;
 
 import appeng.block.AEBaseEntityBlock;
 import appeng.blockentity.AEBaseBlockEntity;
@@ -69,6 +70,7 @@ import appeng.blockentity.storage.MEChestBlockEntity;
 import appeng.blockentity.storage.SkyStoneChestBlockEntity;
 import appeng.blockentity.storage.SkyStoneTankBlockEntity;
 import appeng.core.AppEng;
+import appeng.core.registration.AERegistries;
 import appeng.debug.CubeGeneratorBlockEntity;
 import appeng.debug.EnergyGeneratorBlockEntity;
 import appeng.debug.ItemGenBlockEntity;
@@ -76,9 +78,6 @@ import appeng.debug.PhantomNodeBlockEntity;
 
 public final class AEBlockEntities {
     private static final List<DeferredBlockEntityType<?>> BLOCK_ENTITY_TYPES = new ArrayList<>();
-
-    public static final DeferredRegister<BlockEntityType<?>> DR = DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE,
-            AppEng.MOD_ID);
 
     public static final DeferredBlockEntityType<InscriberBlockEntity> INSCRIBER = create("inscriber",
             InscriberBlockEntity.class,
@@ -186,6 +185,12 @@ public final class AEBlockEntities {
     }
 
     /**
+     * Forces the class to be loaded, ensuring all registration entries above were collected into {@link AERegistries}.
+     */
+    public static void init() {
+    }
+
+    /**
      * Get all block entity types whose implementations extends the given base class.
      */
     @SuppressWarnings("unchecked")
@@ -220,42 +225,47 @@ public final class AEBlockEntities {
             BlockDefinition<? extends AEBaseEntityBlock<?>>... blockDefinitions) {
         Preconditions.checkArgument(blockDefinitions.length > 0);
 
-        var deferred = DR.register(shortId, () -> {
-            AtomicReference<BlockEntityType<T>> typeHolder = new AtomicReference<>();
-            BlockEntityType.BlockEntitySupplier<T> supplier = (blockPos, blockState) -> factory.create(typeHolder.get(),
-                    blockPos, blockState);
+        // was DeferredRegister: DR.register(shortId, () -> {...})
+        var deferred = AERegistries.<BlockEntityType<?>, BlockEntityType<T>>register(Registries.BLOCK_ENTITY_TYPE,
+                AppEng.makeId(shortId), () -> {
+                    AtomicReference<BlockEntityType<T>> typeHolder = new AtomicReference<>();
+                    BlockEntityType.BlockEntitySupplier<T> supplier = (blockPos, blockState) -> factory.create(
+                            typeHolder.get(),
+                            blockPos, blockState);
 
-            var blocks = Arrays.stream(blockDefinitions)
-                    .map(BlockDefinition::block)
-                    .toArray(AEBaseEntityBlock[]::new);
+                    var blocks = Arrays.stream(blockDefinitions)
+                            .map(BlockDefinition::block)
+                            .toArray(AEBaseEntityBlock[]::new);
 
-            var type = new BlockEntityType<>(supplier, blocks);
-            typeHolder.setPlain(type); // Makes it available to the supplier used above
+                    // was Neo's (supplier, Block...) overload; the vanilla Set ctor exists on both
+                    // (private in vanilla, widened via ae2.accesswidener)
+                    var type = new BlockEntityType<>(supplier, Set.<Block>of(blocks));
+                    typeHolder.setPlain(type); // Makes it available to the supplier used above
 
-            AEBaseBlockEntity.registerBlockEntityItem(type, blockDefinitions[0].asItem());
+                    AEBaseBlockEntity.registerBlockEntityItem(type, blockDefinitions[0].asItem());
 
-            // If the block entity classes implement specific interfaces, automatically register them
-            // as tickers with the blocks that create that entity.
-            BlockEntityTicker<T> serverTicker = null;
-            if (ServerTickingBlockEntity.class.isAssignableFrom(entityClass)) {
-                serverTicker = (level, pos, state, entity) -> {
-                    ((ServerTickingBlockEntity) entity).serverTick();
-                };
-            }
-            BlockEntityTicker<T> clientTicker = null;
-            if (ClientTickingBlockEntity.class.isAssignableFrom(entityClass)) {
-                clientTicker = (level, pos, state, entity) -> {
-                    ((ClientTickingBlockEntity) entity).clientTick();
-                };
-            }
+                    // If the block entity classes implement specific interfaces, automatically register them
+                    // as tickers with the blocks that create that entity.
+                    BlockEntityTicker<T> serverTicker = null;
+                    if (ServerTickingBlockEntity.class.isAssignableFrom(entityClass)) {
+                        serverTicker = (level, pos, state, entity) -> {
+                            ((ServerTickingBlockEntity) entity).serverTick();
+                        };
+                    }
+                    BlockEntityTicker<T> clientTicker = null;
+                    if (ClientTickingBlockEntity.class.isAssignableFrom(entityClass)) {
+                        clientTicker = (level, pos, state, entity) -> {
+                            ((ClientTickingBlockEntity) entity).clientTick();
+                        };
+                    }
 
-            for (var block : blocks) {
-                AEBaseEntityBlock<T> baseBlock = (AEBaseEntityBlock<T>) block;
-                baseBlock.setBlockEntity(entityClass, type, clientTicker, serverTicker);
-            }
+                    for (var block : blocks) {
+                        AEBaseEntityBlock<T> baseBlock = (AEBaseEntityBlock<T>) block;
+                        baseBlock.setBlockEntity(entityClass, type, clientTicker, serverTicker);
+                    }
 
-            return type;
-        });
+                    return type;
+                });
 
         var result = new DeferredBlockEntityType<>(entityClass, deferred);
         BLOCK_ENTITY_TYPES.add(result);

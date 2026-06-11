@@ -26,12 +26,11 @@ import net.minecraft.world.item.crafting.display.RecipeDisplay;
 import net.minecraft.world.item.crafting.display.ShapelessCraftingRecipeDisplay;
 import net.minecraft.world.item.crafting.display.SlotDisplay;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.common.CommonHooks;
-import net.neoforged.neoforge.common.util.RecipeMatcher;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
+import appeng.core.AppEng;
 import appeng.core.ConventionTags;
 import appeng.core.definitions.AEItems;
+import appeng.util.LoaderPlatform;
 
 public class QuartzCuttingRecipe extends NormalCraftingRecipe {
     public static final MapCodec<QuartzCuttingRecipe> CODEC = RecordCodecBuilder.mapCodec((builder) -> builder.group(
@@ -59,7 +58,7 @@ public class QuartzCuttingRecipe extends NormalCraftingRecipe {
         super(commonInfo, bookInfo);
         this.result = result;
         this.ingredients = ingredients;
-        this.isSimple = ingredients.stream().allMatch(Ingredient::isSimple);
+        this.isSimple = ingredients.stream().allMatch(LoaderPlatform.get()::isSimpleIngredient);
     }
 
     public RecipeSerializer<QuartzCuttingRecipe> getSerializer() {
@@ -85,7 +84,7 @@ public class QuartzCuttingRecipe extends NormalCraftingRecipe {
                 }
             }
 
-            return RecipeMatcher.findMatches(nonEmptyItems, this.ingredients) != null;
+            return LoaderPlatform.get().recipeInputsMatch(nonEmptyItems, this.ingredients);
         } else {
             if (input.size() == 1 && this.ingredients.size() == 1) {
                 return this.ingredients.getFirst().test(input.getItem(0));
@@ -127,10 +126,10 @@ public class QuartzCuttingRecipe extends NormalCraftingRecipe {
                 var result = item.copy();
 
                 var broken = new MutableBoolean(false);
-                if (CommonHooks.getCraftingPlayer() instanceof ServerPlayer serverPlayer) {
+                if (LoaderPlatform.get().getCraftingPlayer() instanceof ServerPlayer serverPlayer) {
                     result.hurtAndBreak(1, serverPlayer.level(), serverPlayer, ignored -> broken.setTrue());
                 } else {
-                    var currentServer = ServerLifecycleHooks.getCurrentServer();
+                    var currentServer = AppEng.instance().getCurrentServer();
                     if (currentServer != null) {
                         result.hurtAndBreak(1, currentServer.overworld(), null, ignored -> broken.setTrue());
                     }

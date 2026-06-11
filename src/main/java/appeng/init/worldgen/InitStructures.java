@@ -26,23 +26,16 @@ import net.minecraft.data.worldgen.BootstrapContext;
 import net.minecraft.world.level.levelgen.GenerationStep.Decoration;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructureSet;
-import net.minecraft.world.level.levelgen.structure.StructureType;
 import net.minecraft.world.level.levelgen.structure.TerrainAdjustment;
-import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType;
 import net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStructurePlacement;
 import net.minecraft.world.level.levelgen.structure.placement.RandomSpreadType;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.registries.DeferredRegister;
 
 import appeng.core.AppEng;
+import appeng.core.registration.AERegistries;
 import appeng.worldgen.meteorite.MeteoriteStructure;
 import appeng.worldgen.meteorite.MeteoriteStructurePiece;
 
 public final class InitStructures {
-    public static final DeferredRegister<StructureType<?>> STRUCTURE_TYPES = DeferredRegister
-            .create(Registries.STRUCTURE_TYPE, AppEng.MOD_ID);
-    public static final DeferredRegister<StructurePieceType> STRUCTURE_PIECES = DeferredRegister
-            .create(Registries.STRUCTURE_PIECE, AppEng.MOD_ID);
 
     private InitStructures() {
     }
@@ -72,11 +65,11 @@ public final class InitStructures {
         context.register(MeteoriteStructure.STRUCTURE_SET_KEY, structureSet);
     }
 
-    public static void register(IEventBus eventBus) {
-        STRUCTURE_PIECES.register("ae2mtrt", () -> MeteoriteStructurePiece.TYPE);
-        STRUCTURE_TYPES.register("ae2mtrt", () -> MeteoriteStructure.TYPE);
-
-        STRUCTURE_PIECES.register(eventBus);
-        STRUCTURE_TYPES.register(eventBus);
+    public static void register() {
+        // was DeferredRegister: STRUCTURE_PIECES.register("ae2mtrt", ...) / STRUCTURE_TYPES.register("ae2mtrt", ...)
+        AERegistries.register(Registries.STRUCTURE_PIECE, AppEng.makeId("ae2mtrt"),
+                () -> MeteoriteStructurePiece.TYPE);
+        AERegistries.register(Registries.STRUCTURE_TYPE, AppEng.makeId("ae2mtrt"),
+                () -> MeteoriteStructure.TYPE);
     }
 }

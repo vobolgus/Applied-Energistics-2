@@ -2,11 +2,10 @@ package appeng.parts;
 
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
-import net.neoforged.neoforge.capabilities.BlockCapability;
-import net.neoforged.neoforge.capabilities.BlockCapabilityCache;
 
+import appeng.api.lookup.AEApiCache;
+import appeng.api.lookup.AEApiLookup;
 import appeng.api.parts.IPartHost;
 import appeng.util.Platform;
 
@@ -15,17 +14,17 @@ import appeng.util.Platform;
  */
 public class PartAdjacentApi<T> {
     private final AEBasePart part;
-    private final BlockCapability<T, Direction> capability;
+    private final AEApiLookup<T> lookup;
     private final Runnable invalidationListener;
-    private BlockCapabilityCache<T, Direction> cache;
+    private AEApiCache<T> cache;
 
-    public PartAdjacentApi(AEBasePart part, BlockCapability<T, Direction> capability) {
-        this(part, capability, () -> {
+    public PartAdjacentApi(AEBasePart part, AEApiLookup<T> lookup) {
+        this(part, lookup, () -> {
         });
     }
 
-    public PartAdjacentApi(AEBasePart part, BlockCapability<T, Direction> capability, Runnable invalidationListener) {
-        this.capability = capability;
+    public PartAdjacentApi(AEBasePart part, AEApiLookup<T> lookup, Runnable invalidationListener) {
+        this.lookup = lookup;
         this.part = part;
         this.invalidationListener = invalidationListener;
     }
@@ -45,8 +44,7 @@ public class PartAdjacentApi<T> {
         }
 
         if (cache == null) {
-            cache = BlockCapabilityCache.create(
-                    capability,
+            cache = lookup.createCache(
                     serverLevel,
                     targetPos,
                     attachedSide.getOpposite(),
@@ -54,7 +52,7 @@ public class PartAdjacentApi<T> {
                     invalidationListener);
         }
 
-        return cache.getCapability();
+        return cache.get();
     }
 
     public static boolean isPartValid(AEBasePart part) {

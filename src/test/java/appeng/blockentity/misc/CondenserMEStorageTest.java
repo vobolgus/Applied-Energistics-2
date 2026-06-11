@@ -67,12 +67,13 @@ class CondenserMEStorageTest {
 
         // test Fluid insert via transfer API & rollback
         var water = FluidResource.of(Fluids.WATER);
+        var fluidHandler = new CondenserFluidHandler(be);
         try (var tx = Transaction.open(null)) {
-            be.getFluidHandler().insert(water, AEFluidKey.AMOUNT_BUCKET, tx);
+            fluidHandler.insert(water, AEFluidKey.AMOUNT_BUCKET, tx);
         }
         assertThat(be.getStoredPower()).isEqualTo(8 + 1);
         try (var tx = Transaction.open(null)) {
-            be.getFluidHandler().insert(water, AEFluidKey.AMOUNT_BUCKET, tx);
+            fluidHandler.insert(water, AEFluidKey.AMOUNT_BUCKET, tx);
             tx.commit();
         }
         assertThat(be.getStoredPower()).isEqualTo(8 + 1 + 8);

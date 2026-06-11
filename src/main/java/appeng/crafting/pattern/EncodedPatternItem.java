@@ -49,6 +49,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.core.AppEng;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
+import appeng.hooks.extensions.ItemUseFirstHook;
 import appeng.items.AEBaseItem;
 import appeng.items.misc.MissingContentItem;
 import appeng.items.misc.WrappedGenericStack;
@@ -59,7 +60,7 @@ import appeng.util.InteractionUtil;
  *
  * @param <T>
  */
-public class EncodedPatternItem<T extends IPatternDetails> extends AEBaseItem {
+public class EncodedPatternItem<T extends IPatternDetails> extends AEBaseItem implements ItemUseFirstHook {
     // rather simple client side caching.
     private static final Map<ItemStack, ItemStack> SIMPLE_CACHE = new WeakHashMap<>();
 

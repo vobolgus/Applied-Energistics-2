@@ -46,9 +46,10 @@ import appeng.api.parts.IFacadePart;
 import appeng.api.parts.IPartHost;
 import appeng.api.parts.PartHelper;
 import appeng.facade.FacadePart;
+import appeng.hooks.extensions.ItemUseFirstHook;
 import appeng.items.AEBaseItem;
 
-public class FacadeItem extends AEBaseItem implements IFacadeItem {
+public class FacadeItem extends AEBaseItem implements IFacadeItem, ItemUseFirstHook {
 
     public FacadeItem(Properties properties) {
         super(properties);

@@ -20,7 +20,6 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.ItemContainerContents;
-import net.neoforged.neoforge.registries.DeferredRegister;
 
 import appeng.api.components.ExportedUpgrades;
 import appeng.api.config.FuzzyMode;
@@ -31,6 +30,7 @@ import appeng.api.util.AEColor;
 import appeng.block.crafting.PushDirection;
 import appeng.core.AppEng;
 import appeng.core.definitions.AEItems;
+import appeng.core.registration.AERegistries;
 import appeng.crafting.pattern.EncodedCraftingPattern;
 import appeng.crafting.pattern.EncodedProcessingPattern;
 import appeng.crafting.pattern.EncodedSmithingTablePattern;
@@ -38,11 +38,15 @@ import appeng.crafting.pattern.EncodedStonecuttingPattern;
 import appeng.items.storage.SpatialPlotInfo;
 
 public final class AEComponents {
-    @ApiStatus.Internal
-    public static final DeferredRegister<DataComponentType<?>> DR = DeferredRegister
-            .create(Registries.DATA_COMPONENT_TYPE, AppEng.MOD_ID);
-
     private AEComponents() {
+    }
+
+    /**
+     * Forces the class to be loaded, ensuring all registration entries below were collected into {@link AERegistries}.
+     */
+    // was DeferredRegister: AEComponents.DR.register(modEventBus)
+    @ApiStatus.Internal
+    public static void init() {
     }
 
     /**
@@ -304,7 +308,7 @@ public final class AEComponents {
         var builder = DataComponentType.<T>builder();
         customizer.accept(builder);
         var componentType = builder.build();
-        DR.register(name, () -> componentType);
+        AERegistries.register(Registries.DATA_COMPONENT_TYPE, AppEng.makeId(name), () -> componentType);
         return componentType;
     }
 }

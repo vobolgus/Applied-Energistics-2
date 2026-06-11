@@ -40,7 +40,6 @@ import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
@@ -49,6 +48,7 @@ import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.storage.ITerminalHost;
+import appeng.core.network.NetworkAdapter;
 import appeng.core.network.serverbound.InventoryActionPacket;
 import appeng.helpers.ICraftingGridMenu;
 import appeng.helpers.InventoryAction;
@@ -174,7 +174,7 @@ public class CraftingTermMenu extends MEStorageMenu implements ICraftingGridMenu
         Preconditions.checkState(isClientSide());
         CraftingMatrixSlot slot = craftingSlots[0];
         var p = new InventoryActionPacket(InventoryAction.MOVE_REGION, slot.index, 0);
-        ClientPacketDistributor.sendToServer(p);
+        NetworkAdapter.get().sendToServer(p);
     }
 
     @Override

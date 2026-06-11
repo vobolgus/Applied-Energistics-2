@@ -33,7 +33,6 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button.OnPress;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import appeng.client.Point;
 import appeng.client.gui.style.ScreenStyle;
@@ -47,6 +46,7 @@ import appeng.client.gui.widgets.NumberEntryWidget;
 import appeng.client.gui.widgets.Scrollbar;
 import appeng.client.gui.widgets.TabButton;
 import appeng.core.localization.GuiText;
+import appeng.core.network.NetworkAdapter;
 import appeng.core.network.ServerboundPacket;
 import appeng.core.network.serverbound.SwitchGuisPacket;
 import appeng.menu.implementations.PriorityMenu;
@@ -335,7 +335,7 @@ public class WidgetContainer {
 
     private void openPriorityGui() {
         ServerboundPacket message = SwitchGuisPacket.openSubMenu(PriorityMenu.TYPE);
-        ClientPacketDistributor.sendToServer(message);
+        NetworkAdapter.get().sendToServer(message);
     }
 
     /**

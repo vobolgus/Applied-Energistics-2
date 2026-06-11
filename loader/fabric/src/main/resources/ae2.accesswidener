@@ -1,0 +1,112 @@
+accessWidener	v2	official
+
+# Translated 1:1 from src/main/resources/META-INF/accesstransformer.cfg — keep both files in sync.
+# Entries are added together with the shared-source flip at gate M1 (field descriptors are
+# derived from the resolved Minecraft 26.1.2 jar).
+#
+# Translation notes:
+# - AT `public-f`/`protected-f` => accessible/mutable. Where the member is already public
+#   (Slot.x/y) only `mutable` is emitted; where it is protected and only the final flag was
+#   stripped (imageWidth/imageHeight) only `mutable` is emitted to keep protected visibility,
+#   matching the AT exactly.
+# - AT `protected` on private methods that AE2 overrides or super-calls from subclasses
+#   (isHovering, getHoveredSlot, setUnderwaterMovement) => `extendable` (yields protected,
+#   non-final). `accessible` would make them public *final* and break AEBaseScreen's
+#   isHovering override.
+# - AW has no "protected" target for plain access widening; AT `protected` entries that are
+#   only *called* (not overridden) and AT `public` entries both map to `accessible`
+#   (=> public). protected->public is a strict widening and is safe.
+# - OMITTED: `protected AbstractContainerScreen.extractSlot(GuiGraphicsExtractor,Slot,II)V`
+#   — already protected in the vanilla 26.1.2 fabric jar (the AT entry is a no-op there);
+#   AE2's overrides in AEBaseScreen/MEStorageScreen are declared public and compile as-is.
+#   If a future MC version narrows it, re-add as `extendable method`.
+
+# GUI rendering
+mutable field net/minecraft/client/gui/screens/inventory/AbstractContainerScreen imageWidth I
+mutable field net/minecraft/client/gui/screens/inventory/AbstractContainerScreen imageHeight I
+accessible method net/minecraft/client/gui/components/EditBox getMaxLength ()I
+accessible method net/minecraft/client/gui/components/EditBox isEditable ()Z
+
+extendable method net/minecraft/client/gui/screens/inventory/AbstractContainerScreen isHovering (Lnet/minecraft/world/inventory/Slot;DD)Z
+extendable method net/minecraft/client/gui/screens/inventory/AbstractContainerScreen getHoveredSlot (DD)Lnet/minecraft/world/inventory/Slot;
+
+# Worldgen
+accessible method net/minecraft/data/worldgen/placement/OrePlacements commonOrePlacement (ILnet/minecraft/world/level/levelgen/placement/PlacementModifier;)Ljava/util/List;
+
+# Tests
+accessible field net/minecraft/gametest/framework/GameTestHelper testInfo Lnet/minecraft/gametest/framework/GameTestInfo;
+
+# Delay continued left clicks
+accessible field net/minecraft/client/multiplayer/MultiPlayerGameMode destroyDelay I
+
+# We need to change yPos of existing slots to resize the container
+mutable field net/minecraft/world/inventory/Slot x I
+mutable field net/minecraft/world/inventory/Slot y I
+
+# To disable water-bobbing of item entities (for growing crystals)
+extendable method net/minecraft/world/entity/item/ItemEntity setUnderwaterMovement ()V
+
+# GUI
+accessible field net/minecraft/world/inventory/AbstractContainerMenu stateId I
+accessible method net/minecraft/client/gui/screens/Screen setInitialFocus (Lnet/minecraft/client/gui/components/events/GuiEventListener;)V
+
+# Matter Cannon Damage Source
+accessible method net/minecraft/world/damagesource/DamageSources source (Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/Entity;)Lnet/minecraft/world/damagesource/DamageSource;
+accessible method net/minecraft/world/damagesource/DamageSources source (Lnet/minecraft/resources/ResourceKey;)Lnet/minecraft/world/damagesource/DamageSource;
+accessible method net/minecraft/world/damagesource/DamageSources source (Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/world/entity/Entity;)Lnet/minecraft/world/damagesource/DamageSource;
+
+accessible method net/minecraft/world/level/block/Blocks always (Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)Z
+accessible method net/minecraft/world/level/block/Blocks never (Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)Z
+
+accessible method net/minecraft/client/gui/GuiGraphicsExtractor item (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;III)V
+
+accessible method net/minecraft/client/renderer/texture/TextureAtlas getWidth ()I
+accessible method net/minecraft/client/renderer/texture/TextureAtlas getHeight ()I
+
+# Entity forceloading
+accessible field net/minecraft/server/level/ServerLevel entityManager Lnet/minecraft/world/level/entity/PersistentEntitySectionManager;
+accessible field net/minecraft/world/level/entity/PersistentEntitySectionManager permanentStorage Lnet/minecraft/world/level/entity/EntityPersistentStorage;
+accessible field net/minecraft/world/level/entity/PersistentEntitySectionManager chunkVisibility Lit/unimi/dsi/fastutil/longs/Long2ObjectMap;
+
+# Poi listing for spatial IO
+accessible method net/minecraft/world/level/chunk/storage/SectionStorage getOrLoad (J)Ljava/util/Optional;
+
+accessible method net/minecraft/core/cauldron/CauldronInteractions dyedItemIteration (Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/InteractionHand;Lnet/minecraft/world/item/ItemStack;)Lnet/minecraft/world/InteractionResult;
+
+accessible method net/minecraft/world/item/crafting/SingleItemRecipe result ()Lnet/minecraft/world/item/ItemStackTemplate;
+
+accessible field net/minecraft/client/renderer/texture/TextureAtlasSprite padding I
+
+# --- Silent NeoForge access patches (NOT in accesstransformer.cfg!) ---
+# The members below are public/protected on NeoForge because NeoForge patches vanilla directly;
+# the shared sources rely on that. Mirror the access level here for the vanilla (Fabric) jar.
+# See PORTING_NOTES "Phase 2a — silent NeoForge patches" for the full table.
+
+# SimpleParticleType's constructor is protected in vanilla (Neo: public); used by appeng.core.particles.ParticleTypes
+accessible method net/minecraft/core/particles/SimpleParticleType <init> (Z)V
+
+# CauldronInteraction.Dispatcher#put is package-private in vanilla (Neo: public); used by InitCauldronInteraction
+accessible method net/minecraft/core/cauldron/CauldronInteraction$Dispatcher put (Lnet/minecraft/world/item/Item;Lnet/minecraft/core/cauldron/CauldronInteraction;)V
+
+# BlockEntityType.BlockEntitySupplier is package-private in vanilla (Neo: public); used by AEBlockEntities
+accessible class net/minecraft/world/level/block/entity/BlockEntityType$BlockEntitySupplier
+
+# BlockEntityType's constructor is private in vanilla (Neo: public, plus varargs overloads); used by AEBlockEntities
+accessible method net/minecraft/world/level/block/entity/BlockEntityType <init> (Lnet/minecraft/world/level/block/entity/BlockEntityType$BlockEntitySupplier;Ljava/util/Set;)V
+
+# ItemStackLinkedSet.TYPE_AND_TAG is private in vanilla (Neo: public); used by MemoryCardItem
+accessible field net/minecraft/world/item/ItemStackLinkedSet TYPE_AND_TAG Lit/unimi/dsi/fastutil/Hash$Strategy;
+
+# Player#closeContainer is protected in vanilla (Neo: public; the ServerPlayer override is already public); used by ConversionMonitorPart
+accessible method net/minecraft/world/entity/player/Player closeContainer ()V
+
+# PrimedTnt#explode is private in vanilla (Neo: protected); overridden by TinyTNTPrimedEntity
+extendable method net/minecraft/world/entity/item/PrimedTnt explode ()V
+
+# TntBlock's igniter-aware prime overload is private in vanilla (Neo replaces it with onCaughtFire);
+# used by FabricLoaderPlatform#onCaughtFire to replicate NeoForge's TNT ignition semantics
+accessible method net/minecraft/world/level/block/TntBlock prime (Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/entity/LivingEntity;)Z
+
+# RecipeManager#recipes is private in vanilla (Neo patches in a recipeMap() accessor);
+# used by FabricLoaderPlatform#getRecipeMap
+accessible field net/minecraft/world/item/crafting/RecipeManager recipes Lnet/minecraft/world/item/crafting/RecipeMap;

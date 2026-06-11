@@ -25,13 +25,12 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.level.levelgen.FlatLevelSource;
-import net.neoforged.neoforge.common.NeoForge;
 
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.PlayerMessages;
 import appeng.items.tools.powered.ColorApplicatorItem;
 import appeng.server.ISubCommand;
-import appeng.server.testplots.KitOutPlayerEvent;
+import appeng.server.testplots.TestPlotPlatform;
 import appeng.server.testplots.TestPlots;
 import appeng.server.testworld.TestWorldGenerator;
 
@@ -122,7 +121,7 @@ public class SetupTestWorldCommand implements ISubCommand {
         if (!playerInv.hasAnyOf(Collections.singleton(AEItems.COLOR_APPLICATOR.asItem()))) {
             playerInv.placeItemBackInInventory(fullApplicator);
         }
-        NeoForge.EVENT_BUS.post(new KitOutPlayerEvent(player));
+        TestPlotPlatform.get().postKitOutPlayer(player);
     }
 
     /**

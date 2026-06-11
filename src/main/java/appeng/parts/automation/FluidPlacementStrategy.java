@@ -78,7 +78,7 @@ public class FluidPlacementStrategy implements PlacementStrategy {
         }
 
         // We do not support placing fluids with patched components for now
-        if (!fluidKey.toStack(1).getComponentsPatch().isEmpty()) {
+        if (!fluidKey.getComponentsPatch().isEmpty()) {
             return 0;
         }
 

@@ -48,7 +48,6 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.model.data.ModelData;
 
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 
@@ -78,6 +77,7 @@ import appeng.util.IDebugExportable;
 import appeng.util.InteractionUtil;
 import appeng.util.JsonStreamUtil;
 import appeng.util.SettingsFrom;
+import appeng.util.render.AERenderData;
 
 public abstract class AEBasePart
         implements IPart, IActionHost, ISegmentedInventory, IPowerChannelState, Nameable, IDebugExportable {
@@ -480,7 +480,7 @@ public abstract class AEBasePart
 
     @Nullable
     @Override
-    public void collectModelData(ModelData.Builder builder) {
+    public void collectRenderData(AERenderData.Builder builder) {
         PartModelData.StatusIndicatorState state;
         if (isActive() && isPowered()) {
             state = PartModelData.StatusIndicatorState.ACTIVE;

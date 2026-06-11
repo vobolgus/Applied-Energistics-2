@@ -20,6 +20,7 @@ package appeng.core;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
@@ -27,7 +28,7 @@ import com.google.common.collect.Multimap;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.CreativeModeTab;
-import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
+import net.minecraft.world.level.ItemLike;
 
 import appeng.api.ids.AECreativeTabIds;
 import appeng.block.AEBaseBlock;
@@ -44,7 +45,8 @@ public final class MainCreativeTab {
     private static final List<ItemDefinition<?>> itemDefs = new ArrayList<>();
 
     public static void init(Registry<CreativeModeTab> registry) {
-        var tab = CreativeModeTab.builder()
+        // was Neo's no-arg CreativeModeTab.builder(); identical to the vanilla overload below
+        var tab = CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0)
                 .title(GuiText.CreativeTab.text())
                 .icon(() -> AEBlocks.CONTROLLER.stack(1))
                 .displayItems(MainCreativeTab::buildDisplayItems)
@@ -52,9 +54,13 @@ public final class MainCreativeTab {
         Registry.register(registry, AECreativeTabIds.MAIN, tab);
     }
 
-    public static void initExternal(BuildCreativeModeTabContentsEvent contents) {
-        for (var itemDefinition : externalItemDefs.get(contents.getTabKey())) {
-            contents.accept(itemDefinition);
+    /**
+     * Adds the AE2 items registered for the given external creative tab to that tab. Called from the loader-specific
+     * build-creative-tab-contents hook.
+     */
+    public static void initExternal(ResourceKey<CreativeModeTab> tabKey, Consumer<ItemLike> output) {
+        for (var itemDefinition : externalItemDefs.get(tabKey)) {
+            output.accept(itemDefinition);
         }
     }
 

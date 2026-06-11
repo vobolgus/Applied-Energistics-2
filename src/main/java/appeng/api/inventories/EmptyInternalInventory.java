@@ -27,9 +27,6 @@ import java.util.Collections;
 import java.util.Iterator;
 
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.transfer.EmptyResourceHandler;
-import net.neoforged.neoforge.transfer.ResourceHandler;
-import net.neoforged.neoforge.transfer.item.ItemResource;
 
 class EmptyInternalInventory implements InternalInventory {
     static final EmptyInternalInventory INSTANCE = new EmptyInternalInventory();
@@ -40,11 +37,6 @@ class EmptyInternalInventory implements InternalInventory {
     @Override
     public boolean isEmpty() {
         return true;
-    }
-
-    @Override
-    public ResourceHandler<ItemResource> toResourceHandler() {
-        return EmptyResourceHandler.instance();
     }
 
     @Override

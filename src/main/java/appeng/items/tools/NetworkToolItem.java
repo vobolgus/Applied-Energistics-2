@@ -50,6 +50,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.upgrades.Upgrades;
 import appeng.api.util.DimensionalBlockPos;
 import appeng.api.util.INetworkToolAware;
+import appeng.hooks.extensions.ItemUseFirstHook;
 import appeng.items.AEBaseItem;
 import appeng.items.contents.NetworkToolMenuHost;
 import appeng.items.storage.StorageCellTooltipComponent;
@@ -63,7 +64,7 @@ import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 
-public class NetworkToolItem extends AEBaseItem implements IMenuItem {
+public class NetworkToolItem extends AEBaseItem implements IMenuItem, ItemUseFirstHook {
 
     public NetworkToolItem(Properties properties) {
         super(properties);

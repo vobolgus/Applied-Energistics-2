@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "ae2",
+  "version": "${version}",
+  "name": "Applied Energistics 2",
+  "description": "A Minecraft mod about Matter, Energy and using them to conquer the world...",
+  "authors": ["AlgorithmX2", "Applied Energistics Team"],
+  "contact": {
+    "homepage": "https://appliedenergistics.org",
+    "sources": "https://github.com/AppliedEnergistics/Applied-Energistics-2",
+    "issues": "https://github.com/AppliedEnergistics/Applied-Energistics-2/issues"
+  },
+  "license": "LGPL-3.0-only",
+  "icon": "assets/ae2/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["appeng.fabric.AppEngFabric"]
+  },
+  "mixins": ["ae2.mixins.json"],
+  "accessWidener": "ae2.accesswidener",
+  "depends": {
+    "fabricloader": ">=${fabric_loader_version}",
+    "fabric-api": "*",
+    "minecraft": "~${minecraft_version}",
+    "team_reborn_energy": "*"
+  }
+}

@@ -26,17 +26,17 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.block.Block;
-import net.neoforged.neoforge.registries.DeferredBlock;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import appeng.core.registration.AEBlockEntry;
 
 public class BlockDefinition<T extends Block> implements ItemLike {
     private final String englishName;
     private final ItemDefinition<BlockItem> item;
-    private final DeferredBlock<T> block;
+    private final AEBlockEntry<T> block;
 
-    public BlockDefinition(String englishName, DeferredBlock<T> block, ItemDefinition<BlockItem> item) {
+    public BlockDefinition(String englishName, AEBlockEntry<T> block, ItemDefinition<BlockItem> item) {
         this.englishName = englishName;
         this.item = Objects.requireNonNull(item, "item");
         this.block = Objects.requireNonNull(block, "block");

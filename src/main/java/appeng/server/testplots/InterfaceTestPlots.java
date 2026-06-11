@@ -6,12 +6,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChestBlock;
-import net.minecraft.world.level.block.entity.HopperBlockEntity;
 import net.minecraft.world.level.block.state.properties.ChestType;
-import net.minecraft.world.level.material.Fluids;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.transfer.fluid.FluidResource;
-import net.neoforged.neoforge.transfer.item.ItemResource;
 
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEItemKey;
@@ -27,54 +22,6 @@ import appeng.server.testworld.PlotBuilder;
 
 @TestPlotClass
 public class InterfaceTestPlots {
-
-    /**
-     * Test that configured slots of interfaces are filtered and prevent insertion.
-     */
-    @TestPlot("interface_slot_filtering")
-    public static void interfaceSlotFiltering(PlotBuilder builder) {
-        var o = BlockPos.ZERO;
-        builder.blockEntity(o, AEBlocks.INTERFACE, iface -> {
-            // Set slot 0 to sticks
-            iface.getInterfaceLogic().getConfig().setStack(0, new GenericStack(AEItemKey.of(Items.STICK), 1));
-        });
-        builder.hopper(o.above(), Direction.DOWN, Items.BRICK);
-        builder.test(helper -> {
-            helper.startSequence()
-                    .thenExecute(() -> {
-                        var itemCap = helper.getCapability(o, Capabilities.Item.BLOCK, Direction.UP);
-                        helper.check(itemCap.isValid(0, ItemResource.of(Items.STICK)),
-                                "stick should be valid in slot 0");
-                        helper.check(itemCap.isValid(1, ItemResource.of(Items.STICK)),
-                                "stick should be valid in slot 1");
-                        helper.check(!itemCap.isValid(0, ItemResource.of(Blocks.BRICKS)),
-                                "bricks should not be valid in slot 0");
-                        helper.check(itemCap.isValid(1, ItemResource.of(Blocks.BRICKS)),
-                                "bricks should be valid in slot 1");
-
-                        var fluidCap = helper.getCapability(o, Capabilities.Fluid.BLOCK, Direction.UP);
-                        helper.check(!fluidCap.isValid(0, FluidResource.of(Fluids.WATER)),
-                                "fluid should not be valid in slot 0");
-                        helper.check(fluidCap.isValid(1, FluidResource.of(Fluids.WATER)),
-                                "fluid should be valid in slot 1");
-                    })
-                    .thenWaitUntil(() -> {
-                        var iface = helper.getBlockEntity(o, InterfaceBlockEntity.class);
-                        helper.assertEquals(o, null, iface.getStorage().getKey(0));
-                        helper.assertEquals(o, AEItemKey.of(Items.BRICK), iface.getStorage().getKey(1));
-                    })
-                    .thenExecute(() -> {
-                        var hopper = helper.getBlockEntity(o.above(), HopperBlockEntity.class);
-                        hopper.setItem(0, Items.STICK.getDefaultInstance());
-                    })
-                    .thenWaitUntil(() -> {
-                        var iface = helper.getBlockEntity(o, InterfaceBlockEntity.class);
-                        helper.assertEquals(o, AEItemKey.of(Items.STICK), iface.getStorage().getKey(0));
-                        helper.assertEquals(o, AEItemKey.of(Items.BRICK), iface.getStorage().getKey(1));
-                    })
-                    .thenSucceed();
-        });
-    }
 
     /**
      * Similar to {@link TestPlots#exportBusDupeRegression(PlotBuilder)}, but tests that interface restocking will not

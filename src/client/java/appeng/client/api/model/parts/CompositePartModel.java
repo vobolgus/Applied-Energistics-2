@@ -13,10 +13,10 @@ import net.minecraft.client.resources.model.sprite.Material;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.RandomSource;
-import net.neoforged.neoforge.model.data.ModelData;
 
 import appeng.client.model.PartModels;
 import appeng.core.AppEng;
+import appeng.util.render.AERenderData;
 
 /**
  * Combines multiple part models into one.
@@ -24,7 +24,7 @@ import appeng.core.AppEng;
 public record CompositePartModel(List<PartModel> models) implements PartModel {
 
     @Override
-    public void collectParts(BlockAndTintGetter level, BlockPos pos, ModelData partModelData, RandomSource random,
+    public void collectParts(BlockAndTintGetter level, BlockPos pos, AERenderData partModelData, RandomSource random,
             List<BlockStateModelPart> parts) {
         for (var model : models) {
             model.collectParts(level, pos, partModelData, random, parts);

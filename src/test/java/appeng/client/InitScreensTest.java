@@ -51,7 +51,7 @@ class InitScreensTest {
 
     @BeforeAll
     static void setUp() {
-        InitScreens.init(new RegisterMenuScreensEvent(new HashMap<>()));
+        InitScreens.init(new RegisterMenuScreensEvent(new HashMap<>())::register);
     }
 
     /**

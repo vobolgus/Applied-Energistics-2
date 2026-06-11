@@ -46,10 +46,11 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.spatial.ISpatialService;
 import appeng.core.AEConfig;
 import appeng.core.AppEng;
+import appeng.hooks.extensions.ItemUseFirstHook;
 import appeng.items.AEBaseItem;
 import appeng.util.InteractionUtil;
 
-public class ReplicatorCardItem extends AEBaseItem {
+public class ReplicatorCardItem extends AEBaseItem implements ItemUseFirstHook {
 
     public ReplicatorCardItem(Properties properties) {
         super(properties);

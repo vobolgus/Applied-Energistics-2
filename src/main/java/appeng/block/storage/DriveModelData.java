@@ -19,24 +19,10 @@
 package appeng.block.storage;
 
 import net.minecraft.world.item.Item;
-import net.neoforged.neoforge.model.data.ModelData;
-import net.neoforged.neoforge.model.data.ModelProperty;
 
-import appeng.blockentity.AEModelData;
-
-public final class DriveModelData {
-    public final static ModelProperty<Item[]> STATE = new ModelProperty<>();
-
-    private DriveModelData() {
-    }
-
-    public static ModelData.Builder builder(Item[] cells) {
-        return AEModelData.builder()
-                .with(STATE, cells)
-                .with(AEModelData.SKIP_CACHE, true);
-    }
-
-    public static ModelData create(Item[] cells) {
-        return builder(cells).build();
-    }
+/**
+ * Loader-neutral render data for the drive block: the cell item inserted into each bay (null or {@code Items.AIR} for
+ * empty bays).
+ */
+public record DriveModelData(Item[] cells) {
 }

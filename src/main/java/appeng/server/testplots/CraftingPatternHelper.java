@@ -15,6 +15,7 @@ import net.minecraft.world.level.ItemLike;
 
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.stacks.AEItemKey;
+import appeng.util.LoaderPlatform;
 
 public class CraftingPatternHelper {
 
@@ -88,7 +89,8 @@ public class CraftingPatternHelper {
         var input = new SingleRecipeInput(new ItemStack(inputItem));
 
         RecipeHolder<StonecutterRecipe> foundRecipe = null;
-        var it = level.recipeAccess().recipeMap().getRecipesFor(RecipeType.STONECUTTING, input, level).iterator();
+        var it = LoaderPlatform.get().getRecipeMap(level.recipeAccess())
+                .getRecipesFor(RecipeType.STONECUTTING, input, level).iterator();
         while (it.hasNext()) {
             var holder = it.next();
             StonecutterRecipe recipe = holder.value();

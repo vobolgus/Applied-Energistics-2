@@ -54,10 +54,6 @@ import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.HitResult.Type;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.common.util.BlockSnapshot;
-import net.neoforged.neoforge.event.EventHooks;
-import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
 
 import appeng.api.config.Actionable;
 import appeng.api.config.FuzzyMode;
@@ -75,6 +71,7 @@ import appeng.api.util.DimensionalBlockPos;
 import appeng.blockentity.misc.PaintSplotchesBlockEntity;
 import appeng.core.AEConfig;
 import appeng.core.AppEng;
+import appeng.core.LoaderEventHooks;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEDamageTypes;
 import appeng.core.definitions.AEItems;
@@ -87,6 +84,7 @@ import appeng.me.helpers.PlayerSource;
 import appeng.recipes.AERecipeTypes;
 import appeng.util.ConfigInventory;
 import appeng.util.InteractionUtil;
+import appeng.util.LoaderPlatform;
 import appeng.util.LookDirection;
 import appeng.util.Platform;
 
@@ -266,8 +264,7 @@ public class MatterCannonItem extends AEBasePoweredItem implements IBasicCellIte
                     return;
                 }
 
-                if (EventHooks.onBlockPlace(p, BlockSnapshot.create(p.level().dimension(), level, hitPos),
-                        blockResult.getDirection())) {
+                if (LoaderEventHooks.get().isBlockPlaceCanceled(p, level, hitPos, blockResult.getDirection())) {
                     return;
                 }
 
@@ -387,8 +384,7 @@ public class MatterCannonItem extends AEBasePoweredItem implements IBasicCellIte
         }
 
         var state = level.getBlockState(pos);
-        var event = new BreakBlockEvent(level, pos, state, player);
-        return !NeoForge.EVENT_BUS.post(event).isCanceled();
+        return !LoaderEventHooks.get().isBlockBreakCanceled(level, pos, state, player);
     }
 
     public static int getDamageFromPenetration(float penetration) {
@@ -458,7 +454,8 @@ public class MatterCannonItem extends AEBasePoweredItem implements IBasicCellIte
             return 0;
         }
 
-        var recipes = server.getRecipeManager().recipeMap().byType(AERecipeTypes.MATTER_CANNON_AMMO);
+        var recipes = LoaderPlatform.get().getRecipeMap(server.getRecipeManager())
+                .byType(AERecipeTypes.MATTER_CANNON_AMMO);
         for (var holder : recipes) {
             var ammoRecipe = holder.value();
             if (what.matches(ammoRecipe.getAmmo())) {

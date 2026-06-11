@@ -1,6 +1,6 @@
 package appeng.integration.modules.itemlists;
 
-import net.neoforged.fml.ModList;
+import appeng.util.LoaderPlatform;
 
 /**
  * We prevent most of the REI compat from loading when the JEI compat is loaded. Two exceptions:
@@ -10,5 +10,5 @@ import net.neoforged.fml.ModList;
  * </ul>
  */
 public class CompatLayerHelper {
-    public static final boolean IS_LOADED = ModList.get().isLoaded("rei_plugin_compatibilities");
+    public static final boolean IS_LOADED = LoaderPlatform.get().isModLoaded("rei_plugin_compatibilities");
 }

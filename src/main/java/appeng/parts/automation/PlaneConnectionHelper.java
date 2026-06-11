@@ -28,6 +28,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartHost;
+import appeng.blockentity.AEBaseBlockEntity;
 import appeng.parts.AEBasePart;
 
 /**
@@ -149,8 +150,8 @@ public final class PlaneConnectionHelper {
      */
     public void updateConnections() {
         BlockEntity host = getHostBlockEntity();
-        if (host != null) {
-            host.requestModelDataUpdate();
+        if (host instanceof AEBaseBlockEntity aeHost) {
+            aeHost.requestRenderUpdate();
         }
     }
 

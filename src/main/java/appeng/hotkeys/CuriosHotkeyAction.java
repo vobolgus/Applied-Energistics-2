@@ -7,7 +7,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ItemLike;
 
 import appeng.api.features.HotkeyAction;
-import appeng.integration.modules.curios.CuriosIntegration;
+import appeng.integration.modules.curios.CuriosSupport;
 import appeng.menu.locator.MenuLocators;
 
 public record CuriosHotkeyAction(Predicate<ItemStack> locatable,
@@ -19,11 +19,11 @@ public record CuriosHotkeyAction(Predicate<ItemStack> locatable,
 
     @Override
     public boolean run(Player player) {
-        var cap = player.getCapability(CuriosIntegration.ITEM_HANDLER);
-        if (cap == null)
+        var curios = CuriosSupport.get().getCuriosInventory(player);
+        if (curios == null)
             return false;
-        for (int i = 0; i < cap.size(); i++) {
-            if (locatable.test(cap.getResource(i).toStack())) {
+        for (int i = 0; i < curios.size(); i++) {
+            if (locatable.test(curios.getStack(i))) {
                 if (opener.open(player, MenuLocators.forCurioSlot(i))) {
                     return true;
                 }

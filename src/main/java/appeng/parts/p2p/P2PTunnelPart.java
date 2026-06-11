@@ -31,10 +31,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.model.data.ModelData;
-import net.neoforged.neoforge.transfer.transaction.SnapshotJournal;
-import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 
+import appeng.api.behaviors.AETransaction;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.config.PowerUnit;
@@ -54,9 +52,11 @@ import appeng.items.tools.MemoryCardItem;
 import appeng.me.service.P2PService;
 import appeng.parts.AEBasePart;
 import appeng.parts.automation.PartModelData;
+import appeng.util.AESnapshotJournal;
 import appeng.util.InteractionUtil;
 import appeng.util.Platform;
 import appeng.util.SettingsFrom;
+import appeng.util.render.AERenderData;
 
 public abstract class P2PTunnelPart<T extends P2PTunnelPart<T>> extends AEBasePart {
     private boolean output;
@@ -310,7 +310,7 @@ public abstract class P2PTunnelPart<T extends P2PTunnelPart<T>> extends AEBasePa
         });
     }
 
-    protected void deductEnergyCost(double energyTransported, PowerUnit typeTransported, TransactionContext tx) {
+    protected void deductEnergyCost(double energyTransported, PowerUnit typeTransported, AETransaction tx) {
         var costFactor = AEConfig.instance().getP2PTunnelEnergyTax();
         var tax = typeTransported.convertTo(PowerUnit.AE, energyTransported * costFactor);
         if (tax > 0) {
@@ -319,7 +319,7 @@ public abstract class P2PTunnelPart<T extends P2PTunnelPart<T>> extends AEBasePa
         }
     }
 
-    protected void deductTransportCost(long amountTransported, AEKeyType typeTransported, TransactionContext tx) {
+    protected void deductTransportCost(long amountTransported, AEKeyType typeTransported, AETransaction tx) {
         var costFactor = AEConfig.instance().getP2PTunnelTransportTax();
         double operations = amountTransported / (double) typeTransported.getAmountPerOperation();
         double tax = operations * costFactor;
@@ -365,8 +365,8 @@ public abstract class P2PTunnelPart<T extends P2PTunnelPart<T>> extends AEBasePa
     }
 
     @Override
-    public void collectModelData(ModelData.Builder builder) {
-        super.collectModelData(builder);
+    public void collectRenderData(AERenderData.Builder builder) {
+        super.collectRenderData(builder);
 
         long ret = Short.toUnsignedLong(this.getFrequency());
 
@@ -377,7 +377,7 @@ public abstract class P2PTunnelPart<T extends P2PTunnelPart<T>> extends AEBasePa
         builder.with(PartModelData.P2P_FREQUENCY, ret);
     }
 
-    private class EnergyCostJournal extends SnapshotJournal<Double> {
+    private class EnergyCostJournal extends AESnapshotJournal<Double> {
         private double pendingEnergyCost;
 
         @Override

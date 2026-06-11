@@ -2,10 +2,10 @@ package appeng.hooks;
 
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.BlockHitResult;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import appeng.api.implementations.blockentities.IColorableBlockEntity;
 import appeng.core.definitions.AEItems;
+import appeng.core.network.NetworkAdapter;
 import appeng.core.network.ServerboundPacket;
 import appeng.core.network.serverbound.ColorApplicatorSelectColorPacket;
 
@@ -23,7 +23,7 @@ public final class ColorApplicatorPickColorHook {
         var be = player.level().getBlockEntity(hitResult.getBlockPos());
         if (be instanceof IColorableBlockEntity colorableBlockEntity) {
             ServerboundPacket message = new ColorApplicatorSelectColorPacket(colorableBlockEntity.getColor());
-            ClientPacketDistributor.sendToServer(message);
+            NetworkAdapter.get().sendToServer(message);
             return true;
         }
 

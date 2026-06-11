@@ -54,8 +54,6 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
-import net.neoforged.neoforge.network.connection.ConnectionType;
 
 import it.unimi.dsi.fastutil.shorts.ShortOpenHashSet;
 import it.unimi.dsi.fastutil.shorts.ShortSet;
@@ -71,6 +69,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.core.network.ClientboundPacket;
+import appeng.core.network.NetworkAdapter;
 import appeng.core.network.ServerboundPacket;
 import appeng.core.network.clientbound.GuiDataSyncPacket;
 import appeng.core.network.serverbound.GuiActionPacket;
@@ -595,7 +594,7 @@ public abstract class AEBaseMenu extends AbstractContainerMenu {
                 && appEngSlot.getInventory() instanceof ConfigMenuInventory configInv
                 && configInv.getDelegate().getMode() == GenericStackInv.Mode.STORAGE) {
             var realInv = configInv.getDelegate();
-            var realInvSlot = appEngSlot.getSlotIndex();
+            var realInvSlot = appEngSlot.getContainerSlot();
 
             if (action == InventoryAction.FILL_ITEM || action == InventoryAction.FILL_ENTIRE_ITEM) {
                 var what = realInv.getKey(realInvSlot);
@@ -897,7 +896,7 @@ public abstract class AEBaseMenu extends AbstractContainerMenu {
 
     protected final void sendPacketToClient(ClientboundPacket packet) {
         if (getPlayer() instanceof ServerPlayer serverPlayer) {
-            serverPlayer.connection.send(packet);
+            NetworkAdapter.get().sendToPlayer(serverPlayer, packet);
         }
     }
 
@@ -979,15 +978,14 @@ public abstract class AEBaseMenu extends AbstractContainerMenu {
             }
             var buffer = new RegistryFriendlyByteBuf(
                     Unpooled.buffer(),
-                    registryAccess(),
-                    ConnectionType.NEOFORGE);
+                    registryAccess());
             clientAction.argCodec.encode(buffer, arg);
             argumentPayload = new byte[buffer.readableBytes()];
             buffer.readBytes(argumentPayload);
         }
 
         ServerboundPacket message = new GuiActionPacket(containerId, clientAction.key().name(), argumentPayload);
-        ClientPacketDistributor.sendToServer(message);
+        NetworkAdapter.get().sendToServer(message);
     }
 
     /**
@@ -1010,8 +1008,7 @@ public abstract class AEBaseMenu extends AbstractContainerMenu {
             if (argCodec != null) {
                 var buffer = new RegistryFriendlyByteBuf(
                         Unpooled.wrappedBuffer(payload),
-                        registryAccess,
-                        ConnectionType.NEOFORGE);
+                        registryAccess);
                 arg = argCodec.decode(buffer);
             } else {
                 if (payload.length > 0) {

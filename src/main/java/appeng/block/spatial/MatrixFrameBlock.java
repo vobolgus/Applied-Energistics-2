@@ -32,12 +32,14 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 import appeng.block.AEBaseBlock;
+import appeng.hooks.extensions.BlockExplodedHook;
+import appeng.hooks.extensions.EntityDestroyHook;
 
 /**
  * This block is used to fill empty space in spatial dimensions and delinates the border of a spatial dimensions's
  * usable space.
  */
-public class MatrixFrameBlock extends AEBaseBlock {
+public class MatrixFrameBlock extends AEBaseBlock implements BlockExplodedHook, EntityDestroyHook {
 
     public MatrixFrameBlock(Properties properties) {
         super(properties.strength(-1.0F, 6000000.0F).noOcclusion().noLootTable());

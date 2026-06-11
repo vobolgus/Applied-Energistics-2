@@ -28,15 +28,11 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.transfer.energy.EnergyHandler;
-import net.neoforged.neoforge.transfer.transaction.Transaction;
-import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 
 import appeng.blockentity.AEBaseBlockEntity;
 import appeng.blockentity.ServerTickingBlockEntity;
 
-public class EnergyGeneratorBlockEntity extends AEBaseBlockEntity implements ServerTickingBlockEntity, EnergyHandler {
+public class EnergyGeneratorBlockEntity extends AEBaseBlockEntity implements ServerTickingBlockEntity {
     /**
      * The base energy injected each tick. Adjacent energy generators will increase it to pow(base, #generators).
      */
@@ -62,14 +58,8 @@ public class EnergyGeneratorBlockEntity extends AEBaseBlockEntity implements Ser
         final int energyToInsert = IntMath.pow(generationRate, tier);
 
         for (Direction facing : Direction.values()) {
-            var consumer = getLevel().getCapability(Capabilities.Energy.BLOCK, getBlockPos().relative(facing),
-                    facing.getOpposite());
-            if (consumer != null) {
-                try (var tx = Transaction.open(null)) {
-                    consumer.insert(energyToInsert, tx);
-                    tx.commit();
-                }
-            }
+            EnergyGeneratorPlatform.get().pushEnergy(getLevel(), getBlockPos().relative(facing), facing.getOpposite(),
+                    energyToInsert);
         }
     }
 
@@ -91,25 +81,5 @@ public class EnergyGeneratorBlockEntity extends AEBaseBlockEntity implements Ser
     public void saveAdditional(ValueOutput data) {
         super.saveAdditional(data);
         data.putInt("generationRate", generationRate);
-    }
-
-    @Override
-    public long getAmountAsLong() {
-        return Long.MAX_VALUE;
-    }
-
-    @Override
-    public long getCapacityAsLong() {
-        return Long.MAX_VALUE;
-    }
-
-    @Override
-    public int insert(int amount, TransactionContext transaction) {
-        return 0;
-    }
-
-    @Override
-    public int extract(int amount, TransactionContext transaction) {
-        return amount;
     }
 }

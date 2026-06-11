@@ -3,9 +3,9 @@ package appeng.recipes;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeType;
-import net.neoforged.neoforge.registries.DeferredRegister;
 
 import appeng.core.AppEng;
+import appeng.core.registration.AERegistries;
 import appeng.recipes.entropy.EntropyRecipe;
 import appeng.recipes.game.CraftingUnitTransformRecipe;
 import appeng.recipes.game.StorageCellDisassemblyRecipe;
@@ -19,9 +19,6 @@ public final class AERecipeTypes {
     private AERecipeTypes() {
     }
 
-    public static final DeferredRegister<RecipeType<?>> DR = DeferredRegister
-            .create(Registries.RECIPE_TYPE, AppEng.MOD_ID);
-
     public static final RecipeType<TransformRecipe> TRANSFORM = register("transform");
     public static final RecipeType<EntropyRecipe> ENTROPY = register("entropy");
     public static final RecipeType<InscriberRecipe> INSCRIBER = register("inscriber");
@@ -33,9 +30,24 @@ public final class AERecipeTypes {
     public static final RecipeType<StorageCellDisassemblyRecipe> CELL_DISASSEMBLY = register(
             "storage_cell_disassembly");
 
+    /**
+     * Forces the class to be loaded, ensuring all registration entries above were collected into {@link AERegistries}.
+     */
+    public static void init() {
+    }
+
     private static <T extends Recipe<?>> RecipeType<T> register(String id) {
-        RecipeType<T> type = RecipeType.simple(AppEng.makeId(id));
-        DR.register(id, () -> type);
+        // was Neo's RecipeType.simple(...) (a Neo patch); this is its exact body. The vanilla alternative,
+        // RecipeType.register(String), eagerly registers into BuiltInRegistries and would bypass AERegistries.
+        var name = AppEng.makeId(id).toString();
+        RecipeType<T> type = new RecipeType<>() {
+            @Override
+            public String toString() {
+                return name;
+            }
+        };
+        // was DeferredRegister: DR.register(id, () -> type)
+        AERegistries.register(Registries.RECIPE_TYPE, AppEng.makeId(id), () -> type);
         return type;
     }
 }

@@ -14,7 +14,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.saveddata.SavedData;
-import net.minecraft.world.level.saveddata.SavedDataType;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -22,6 +21,8 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 
 import appeng.core.AppEng;
+import appeng.util.AESavedDataType;
+import appeng.util.LoaderPlatform;
 
 /**
  * Implementation detail of {@link ChunkLoadingService} on Fabric, as {@code ForgeChunkManager} is not available there.
@@ -36,7 +37,8 @@ class ChunkLoadState extends SavedData {
                 .apply(builder, ForcedChunk::new));
     }
 
-    private static final SavedDataType<ChunkLoadState> TYPE = new SavedDataType<>(
+    // was a NeoForge level-sensitive SavedDataType; see AESavedDataType
+    private static final AESavedDataType<ChunkLoadState> TYPE = new AESavedDataType<>(
             AppEng.makeId("chunk_load_state"),
             ChunkLoadState::new,
             level -> RecordCodecBuilder.create(builder -> builder.group(
@@ -44,7 +46,7 @@ class ChunkLoadState extends SavedData {
                     .apply(builder, data -> new ChunkLoadState(level, data))));
 
     public static ChunkLoadState get(ServerLevel level) {
-        return level.getDataStorage().computeIfAbsent(TYPE);
+        return LoaderPlatform.get().computeSavedDataIfAbsent(level, TYPE);
     }
 
     private final ServerLevel level;

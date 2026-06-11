@@ -45,8 +45,8 @@ import net.minecraft.world.level.block.state.StateHolder;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.FluidState;
-import net.neoforged.neoforge.network.codec.NeoForgeStreamCodecs;
 
+import appeng.core.network.AEStreamCodecs;
 import appeng.items.tools.powered.EntropyManipulatorItem;
 import appeng.recipes.AERecipeTypes;
 import appeng.recipes.MechanicsRecipe;
@@ -62,7 +62,7 @@ public class EntropyRecipe extends MechanicsRecipe<RecipeInput> {
             Output.CODEC.fieldOf("output").forGetter(EntropyRecipe::getOutput)).apply(builder, EntropyRecipe::new));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, EntropyRecipe> STREAM_CODEC = StreamCodec.composite(
-            NeoForgeStreamCodecs.enumCodec(EntropyMode.class),
+            AEStreamCodecs.enumCodec(EntropyMode.class),
             EntropyRecipe::getMode,
             Input.STREAM_CODEC,
             EntropyRecipe::getInput,

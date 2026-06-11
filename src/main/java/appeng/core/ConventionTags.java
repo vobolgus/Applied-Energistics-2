@@ -32,7 +32,6 @@ import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Block;
-import net.neoforged.neoforge.common.Tags;
 
 /**
  * Contains various tags:
@@ -55,8 +54,8 @@ public final class ConventionTags {
             Registries.DATA_COMPONENT_TYPE,
             AppEng.makeId("exported_settings"));
 
-    public static final TagKey<Item> DUSTS = Tags.Items.DUSTS;
-    public static final TagKey<Item> GEMS = Tags.Items.GEMS;
+    public static final TagKey<Item> DUSTS = tag("c:dusts");
+    public static final TagKey<Item> GEMS = tag("c:gems");
 
     public static final TagKey<Item> SILICON = tag("c:silicon");
 
@@ -74,37 +73,37 @@ public final class ConventionTags {
 
     // Includes synthetic/purified
     public static final TagKey<Item> ALL_NETHER_QUARTZ = tag("ae2:all_nether_quartz");
-    public static final TagKey<Item> NETHER_QUARTZ = Tags.Items.GEMS_QUARTZ;
+    public static final TagKey<Item> NETHER_QUARTZ = tag("c:gems/quartz");
 
     // Includes synthetic/purified
     public static final TagKey<Item> ALL_FLUIX = tag("ae2:all_fluix");
     public static final TagKey<Item> FLUIX_DUST = tag("c:dusts/fluix");
     public static final TagKey<Item> FLUIX_CRYSTAL = tag("c:gems/fluix");
 
-    public static final TagKey<Item> COPPER_INGOT = Tags.Items.INGOTS_COPPER;
+    public static final TagKey<Item> COPPER_INGOT = tag("c:ingots/copper");
 
-    public static final TagKey<Item> GOLD_NUGGET = Tags.Items.NUGGETS_GOLD;
-    public static final TagKey<Item> GOLD_INGOT = Tags.Items.INGOTS_GOLD;
+    public static final TagKey<Item> GOLD_NUGGET = tag("c:nuggets/gold");
+    public static final TagKey<Item> GOLD_INGOT = tag("c:ingots/gold");
 
-    public static final TagKey<Item> IRON_NUGGET = Tags.Items.NUGGETS_IRON;
-    public static final TagKey<Item> IRON_INGOT = Tags.Items.INGOTS_IRON;
+    public static final TagKey<Item> IRON_NUGGET = tag("c:nuggets/iron");
+    public static final TagKey<Item> IRON_INGOT = tag("c:ingots/iron");
 
-    public static final TagKey<Item> DIAMOND = Tags.Items.GEMS_DIAMOND;
-    public static final TagKey<Item> REDSTONE = Tags.Items.DUSTS_REDSTONE;
-    public static final TagKey<Item> GLOWSTONE = Tags.Items.DUSTS_GLOWSTONE;
+    public static final TagKey<Item> DIAMOND = tag("c:gems/diamond");
+    public static final TagKey<Item> REDSTONE = tag("c:dusts/redstone");
+    public static final TagKey<Item> GLOWSTONE = tag("c:dusts/glowstone");
 
-    public static final TagKey<Item> ENDER_PEARL = Tags.Items.ENDER_PEARLS;
+    public static final TagKey<Item> ENDER_PEARL = tag("c:ender_pearls");
     public static final TagKey<Item> ENDER_PEARL_DUST = tag("c:dusts/ender_pearl");
 
     public static final TagKey<Item> SKY_STONE_DUST = tag("c:dusts/sky_stone");
 
-    public static final TagKey<Item> WOOD_STICK = Tags.Items.RODS_WOODEN;
-    public static final TagKey<Item> CHEST = Tags.Items.CHESTS_WOODEN;
+    public static final TagKey<Item> WOOD_STICK = tag("c:rods/wooden");
+    public static final TagKey<Item> CHEST = tag("c:chests/wooden");
 
-    public static final TagKey<Item> STONE = Tags.Items.STONES;
-    public static final TagKey<Item> GLASS = Tags.Items.GLASS_BLOCKS;
-    public static final TagKey<Item> GLASS_CHEAP = Tags.Items.GLASS_BLOCKS_CHEAP;
-    public static final TagKey<Block> GLASS_BLOCK = Tags.Blocks.GLASS_BLOCKS;
+    public static final TagKey<Item> STONE = tag("c:stones");
+    public static final TagKey<Item> GLASS = tag("c:glass_blocks");
+    public static final TagKey<Item> GLASS_CHEAP = tag("c:glass_blocks/cheap");
+    public static final TagKey<Block> GLASS_BLOCK = blockTag("c:glass_blocks");
 
     public static final TagKey<Item> GLASS_CABLE = tag("ae2:glass_cable");
     public static final TagKey<Item> SMART_CABLE = tag("ae2:smart_cable");
@@ -130,12 +129,12 @@ public final class ConventionTags {
     public static final TagKey<Item> CAN_REMOVE_COLOR = tag("ae2:can_remove_color");
 
     // Budding stuff
-    public static final TagKey<Item> BUDDING_BLOCKS = Tags.Items.BUDDING_BLOCKS;
-    public static final TagKey<Item> BUDS = Tags.Items.BUDS;
-    public static final TagKey<Item> CLUSTERS = Tags.Items.CLUSTERS;
-    public static final TagKey<Block> BUDDING_BLOCKS_BLOCKS = Tags.Blocks.BUDDING_BLOCKS;
-    public static final TagKey<Block> BUDS_BLOCKS = Tags.Blocks.BUDS;
-    public static final TagKey<Block> CLUSTERS_BLOCKS = Tags.Blocks.CLUSTERS;
+    public static final TagKey<Item> BUDDING_BLOCKS = tag("c:budding_blocks");
+    public static final TagKey<Item> BUDS = tag("c:buds");
+    public static final TagKey<Item> CLUSTERS = tag("c:clusters");
+    public static final TagKey<Block> BUDDING_BLOCKS_BLOCKS = blockTag("c:budding_blocks");
+    public static final TagKey<Block> BUDS_BLOCKS = blockTag("c:buds");
+    public static final TagKey<Block> CLUSTERS_BLOCKS = blockTag("c:clusters");
 
     // For Growth Accelerator
     public static final TagKey<Block> CROPS = BlockTags.CROPS;
@@ -144,12 +143,16 @@ public final class ConventionTags {
     /**
      * Platform tags for blocks that should not be moved, i.e. some pipes, chunk loaders, etc...
      */
-    public static final TagKey<Block> IMMOVABLE_BLOCKS = Tags.Blocks.RELOCATION_NOT_SUPPORTED;
+    public static final TagKey<Block> IMMOVABLE_BLOCKS = blockTag("c:relocation_not_supported");
 
     /**
      * For Worldgen Biomes
      */
-    public static final TagKey<Biome> METEORITE_OCEAN = Tags.Biomes.IS_OCEAN;
+    public static final TagKey<Biome> METEORITE_OCEAN = biomeTag("c:is_ocean");
+    public static final TagKey<Biome> SANDY_BIOMES = biomeTag("c:is_sandy");
+    public static final TagKey<Biome> SNOWY_BIOMES = biomeTag("c:is_snowy");
+    public static final TagKey<Biome> COLD_BIOMES = biomeTag("c:is_cold");
+    public static final TagKey<Biome> PLAINS_BIOMES = biomeTag("c:is_plains");
 
     /**
      * Used to identify items that act as wrenches.
@@ -173,6 +176,10 @@ public final class ConventionTags {
 
     private static TagKey<Block> blockTag(String name) {
         return net.minecraft.tags.TagKey.create(Registries.BLOCK, Identifier.parse(name));
+    }
+
+    private static TagKey<Biome> biomeTag(String name) {
+        return net.minecraft.tags.TagKey.create(Registries.BIOME, Identifier.parse(name));
     }
 
 }

@@ -48,12 +48,12 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.model.data.ModelData;
 
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IManagedGridNode;
 import appeng.api.util.AECableType;
 import appeng.util.SettingsFrom;
+import appeng.util.render.AERenderData;
 
 public interface IPart extends ICustomCableConnection, Clearable {
 
@@ -141,9 +141,8 @@ public interface IPart extends ICustomCableConnection, Clearable {
     }
 
     /**
-     * a block around the bus's host has been changed.
-     *
-     * @see net.neoforged.neoforge.common.extensions.IBlockExtension#onNeighborChange
+     * a block around the bus's host has been changed. (Called from the loader-specific equivalent of NeoForge's
+     * {@code IBlockExtension#onNeighborChange}.)
      */
     default void onNeighborChanged(BlockGetter level, BlockPos pos, BlockPos neighbor) {
     }
@@ -393,10 +392,9 @@ public interface IPart extends ICustomCableConnection, Clearable {
     }
 
     /**
-     * Additional model data to be passed to the part models for rendering this part.
+     * Additional render data to be passed to the part models for rendering this part.
      */
-    @Nullable
-    default void collectModelData(ModelData.Builder builder) {
+    default void collectRenderData(AERenderData.Builder builder) {
     }
 
     /**

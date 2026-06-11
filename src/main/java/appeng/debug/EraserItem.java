@@ -39,10 +39,11 @@ import net.minecraft.world.level.block.Blocks;
 
 import appeng.core.AEConfig;
 import appeng.core.AELog;
+import appeng.hooks.extensions.ItemUseFirstHook;
 import appeng.items.AEBaseItem;
 import appeng.util.InteractionUtil;
 
-public class EraserItem extends AEBaseItem {
+public class EraserItem extends AEBaseItem implements ItemUseFirstHook {
 
     private static final int BOX_SIZE = 48;
     private static final int BLOCK_ERASE_LIMIT = BOX_SIZE * BOX_SIZE * BOX_SIZE;

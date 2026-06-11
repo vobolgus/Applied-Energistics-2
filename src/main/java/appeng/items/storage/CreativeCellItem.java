@@ -41,6 +41,7 @@ import appeng.items.AEBaseItem;
 import appeng.items.contents.CellConfig;
 import appeng.me.cells.CreativeCellHandler;
 import appeng.util.ConfigInventory;
+import appeng.util.LoaderPlatform;
 
 public class CreativeCellItem extends AEBaseItem implements ICellWorkbenchItem {
     public CreativeCellItem(Properties props) {
@@ -70,7 +71,7 @@ public class CreativeCellItem extends AEBaseItem implements ICellWorkbenchItem {
         if (inventory != null) {
             var cc = getConfigInventory(stack);
             if (!cc.isEmpty()) {
-                if (tooltipFlags.hasShiftDown()) {
+                if (LoaderPlatform.get().tooltipHasShiftDown(tooltipFlags)) {
                     for (var key : cc.keySet()) {
                         lines.accept(Tooltips.of(key.getDisplayName()));
                     }

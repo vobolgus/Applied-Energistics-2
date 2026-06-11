@@ -35,7 +35,6 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.capabilities.ICapabilityInvalidationListener;
 
 import appeng.api.AECapabilities;
 import appeng.api.behaviors.ExternalStorageStrategy;
@@ -48,6 +47,8 @@ import appeng.api.config.StorageFilter;
 import appeng.api.config.YesNo;
 import appeng.api.features.IPlayerRegistry;
 import appeng.api.ids.AEComponents;
+import appeng.api.lookup.AEApiInvalidationListener;
+import appeng.api.lookup.AEApiLookups;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.security.IActionSource;
@@ -112,7 +113,7 @@ public class StorageBusPart extends UpgradeablePart
 
     // Capability listener.
     // Stored as a field because it will be stored in a WeakReference by the capability invalidation system.
-    private final ICapabilityInvalidationListener capabilityListener = () -> {
+    private final AEApiInvalidationListener capabilityListener = () -> {
         if (!PartAdjacentApi.isPartValid(this)) {
             return false;
         }
@@ -144,7 +145,7 @@ public class StorageBusPart extends UpgradeablePart
         super.addToWorld();
         if (getLevel() instanceof ServerLevel serverLevel) {
             var targetPos = getBlockEntity().getBlockPos().relative(getSide());
-            serverLevel.registerCapabilityListener(targetPos, this.capabilityListener);
+            AEApiLookups.get().registerInvalidationListener(serverLevel, targetPos, this.capabilityListener);
         }
     }
 

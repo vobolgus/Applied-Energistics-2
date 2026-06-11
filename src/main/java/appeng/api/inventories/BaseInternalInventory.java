@@ -23,8 +23,10 @@
 
 package appeng.api.inventories;
 
-import net.neoforged.neoforge.transfer.ResourceHandler;
-import net.neoforged.neoforge.transfer.item.ItemResource;
+import java.util.function.Function;
+
+import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation aid for {@link InternalInventory} that ensures the platorm adapter maintains its referential equality
@@ -32,17 +34,18 @@ import net.neoforged.neoforge.transfer.item.ItemResource;
  */
 public abstract class BaseInternalInventory implements InternalInventory {
 
-    private ResourceHandler<ItemResource> platformWrapper;
+    @Nullable
+    private Object platformWrapper;
 
-    @Override
-    public final ResourceHandler<ItemResource> toResourceHandler() {
+    /**
+     * Returns a cached loader-specific adapter for this inventory (e.g. the NeoForge ResourceHandler), creating it via
+     * the given factory on first use. Caching the adapter here maintains its referential equality over time.
+     */
+    @ApiStatus.Internal
+    public final Object getOrCreatePlatformAdapter(Function<? super InternalInventory, ?> factory) {
         if (platformWrapper == null) {
-            platformWrapper = createResourceHandler();
+            platformWrapper = factory.apply(this);
         }
         return platformWrapper;
-    }
-
-    protected ResourceHandler<ItemResource> createResourceHandler() {
-        return new InternalInventoryResourceHandler(this);
     }
 }

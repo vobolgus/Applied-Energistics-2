@@ -19,7 +19,9 @@
 package appeng.blockentity.storage;
 
 import java.util.Objects;
+import java.util.function.Function;
 
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,10 +39,6 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.neoforged.neoforge.transfer.ResourceHandler;
-import net.neoforged.neoforge.transfer.TransferPreconditions;
-import net.neoforged.neoforge.transfer.fluid.FluidResource;
-import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
@@ -52,15 +50,14 @@ import appeng.api.config.ViewItems;
 import appeng.api.implementations.blockentities.IColorableBlockEntity;
 import appeng.api.implementations.blockentities.IMEChest;
 import appeng.api.inventories.InternalInventory;
+import appeng.api.lookup.AEApiLookups;
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.events.GridPowerStorageStateChanged;
 import appeng.api.networking.events.GridPowerStorageStateChanged.PowerEventType;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
-import appeng.api.stacks.GenericStack;
 import appeng.api.storage.ILinkStatus;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
@@ -88,7 +85,6 @@ import appeng.menu.MenuOpener;
 import appeng.menu.implementations.MEChestMenu;
 import appeng.menu.locator.MenuLocators;
 import appeng.menu.me.items.BasicCellChestMenu;
-import appeng.util.InsertionOnlyResourceHandlerWithJournal;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.CombinedInternalInventory;
 import appeng.util.inv.filter.IAEItemFilter;
@@ -123,7 +119,11 @@ public class MEChestBlockEntity extends AENetworkedPoweredBlockEntity
     private AEColor paintedColor = AEColor.TRANSPARENT;
     private boolean isCached = false;
     private ChestMonitorHandler cellHandler;
-    private ResourceHandler<FluidResource> fluidHandler;
+    // Tracks whether the loader-specific fluid adapter should currently be exposed (i.e. a cell is inserted)
+    private boolean fluidHandlerActive;
+    // Cached loader-specific fluid adapter (e.g. a NeoForge ResourceHandler), see getFluidHandler
+    @Nullable
+    private Object fluidHandler;
     private double idlePowerUsage;
 
     public MEChestBlockEntity(BlockEntityType<?> blockEntityType, BlockPos pos, BlockState blockState) {
@@ -183,9 +183,10 @@ public class MEChestBlockEntity extends AENetworkedPoweredBlockEntity
         return 1;
     }
 
-    private void updateHandler() {
+    void updateHandler() {
         if (!this.isCached) {
             this.cellHandler = null;
+            this.fluidHandlerActive = false;
             this.fluidHandler = null;
 
             var is = this.getCell();
@@ -199,7 +200,7 @@ public class MEChestBlockEntity extends AENetworkedPoweredBlockEntity
                     this.getMainNode().setIdlePowerUsage(idlePowerUsage);
 
                     if (this.cellHandler != null) {
-                        this.fluidHandler = new FluidHandler();
+                        this.fluidHandlerActive = true;
                     }
                 }
             }
@@ -456,7 +457,7 @@ public class MEChestBlockEntity extends AENetworkedPoweredBlockEntity
 
             // update the neighbors
             if (this.level != null) {
-                invalidateCapabilities();
+                AEApiLookups.get().invalidateApis(this);
                 this.markForUpdate();
             }
         }
@@ -606,13 +607,44 @@ public class MEChestBlockEntity extends AENetworkedPoweredBlockEntity
         }
     }
 
+    /**
+     * Returns the loader-specific fluid adapter for this chest (e.g. a NeoForge ResourceHandler), creating it via the
+     * given factory on first use. Returns null while no storage cell is inserted or when accessed from the front.
+     */
+    @ApiStatus.Internal
     @Nullable
-    public ResourceHandler<FluidResource> getFluidHandler(Direction side) {
-        if (side != getFront()) {
-            return fluidHandler;
-        } else {
+    public Object getFluidHandler(Direction side, Function<? super MEChestBlockEntity, ?> factory) {
+        if (side == getFront() || !fluidHandlerActive) {
             return null;
         }
+        if (fluidHandler == null) {
+            fluidHandler = factory.apply(this);
+        }
+        return fluidHandler;
+    }
+
+    /**
+     * @return Whether fluids can currently be pushed into the inserted storage cell.
+     */
+    boolean canAcceptLiquids() {
+        return this.cellHandler != null;
+    }
+
+    /**
+     * Pushes fluids into the inserted storage cell on behalf of the loader-specific fluid adapter.
+     */
+    int pushFluidToNetwork(AEKey what, int amount, Actionable mode) {
+        updateHandler();
+        if (canAcceptLiquids()) {
+            return (int) StorageHelper.poweredInsert(
+                    this,
+                    this.cellHandler,
+                    what,
+                    amount,
+                    this.mySrc,
+                    mode);
+        }
+        return 0;
     }
 
     @Nullable
@@ -621,65 +653,6 @@ public class MEChestBlockEntity extends AENetworkedPoweredBlockEntity
             return getInventory();
         } else {
             return null;
-        }
-    }
-
-    private class FluidHandler extends InsertionOnlyResourceHandlerWithJournal<FluidResource, GenericStack> {
-        public FluidHandler() {
-            super(FluidResource.EMPTY);
-        }
-
-        private boolean canAcceptLiquids() {
-            return MEChestBlockEntity.this.cellHandler != null;
-        }
-
-        @Override
-        public int insert(FluidResource resource, int maxAmount, TransactionContext transaction) {
-            TransferPreconditions.checkNonEmptyNonNegative(resource, maxAmount);
-
-            if (pendingSideEffect != null) {
-                return 0; // Can only insert once per action
-            }
-
-            MEChestBlockEntity.this.updateHandler();
-            if (canAcceptLiquids()) {
-                var what = AEFluidKey.of(resource);
-                var inserted = pushToNetwork(what, maxAmount, Actionable.SIMULATE);
-                if (inserted > 0) {
-                    updateSnapshots(transaction);
-                    pendingSideEffect = new GenericStack(what, inserted);
-                }
-                return inserted;
-            }
-            return 0;
-        }
-
-        @Override
-        public int size() {
-            if (!canAcceptLiquids()) {
-                return 0;
-            }
-            return super.size();
-        }
-
-        @Override
-        protected void onRootCommit(GenericStack originalState) {
-            pushToNetwork(pendingSideEffect.what(), (int) pendingSideEffect.amount(), Actionable.MODULATE);
-            pendingSideEffect = null;
-        }
-
-        private int pushToNetwork(AEKey what, int amount, Actionable mode) {
-            MEChestBlockEntity.this.updateHandler();
-            if (canAcceptLiquids()) {
-                return (int) StorageHelper.poweredInsert(
-                        MEChestBlockEntity.this,
-                        MEChestBlockEntity.this.cellHandler,
-                        what,
-                        amount,
-                        MEChestBlockEntity.this.mySrc,
-                        mode);
-            }
-            return 0;
         }
     }
 

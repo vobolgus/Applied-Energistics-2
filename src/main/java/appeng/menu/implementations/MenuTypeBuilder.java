@@ -30,13 +30,11 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.MenuProvider;
 import net.minecraft.world.Nameable;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.MenuConstructor;
 import net.minecraft.world.inventory.MenuType;
-import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
 
 import appeng.core.AppEng;
 import appeng.init.InitMenuTypes;
@@ -141,30 +139,15 @@ public final class MenuTypeBuilder<M extends AEBaseMenu, I> {
 
         Component title = menuTitleStrategy.apply(accessInterface);
 
-        class AppEngMenuProvider implements MenuProvider {
-            @Override
-            public Component getDisplayName() {
-                return title;
-            }
+        MenuConstructor menuConstructor = (wnd, p, pl) -> {
+            M m = factory.create(wnd, p, accessInterface);
+            // Set the original locator on the opened server-side menu for it to more
+            // easily remember how to re-open after being closed.
+            m.setLocator(locator);
+            return m;
+        };
 
-            @Nullable
-            @Override
-            public AbstractContainerMenu createMenu(int wnd, Inventory p, Player pl) {
-                M m = factory.create(wnd, p, accessInterface);
-                // Set the original locator on the opened server-side menu for it to more
-                // easily remember how to re-open after being closed.
-                m.setLocator(locator);
-                return m;
-            }
-
-            @Override
-            public boolean shouldTriggerClientSideContainerClosingOnOpen() {
-                // Do not send close packets when switching between AE menus
-                return !(player.containerMenu instanceof AEBaseMenu);
-            }
-        }
-
-        player.openMenu(new AppEngMenuProvider(), buffer -> {
+        MenuTypePlatform.get().openMenu(player, title, menuConstructor, buffer -> {
             MenuLocators.writeToPacket(buffer, locator);
             buffer.writeBoolean(fromSubMenu);
 
@@ -188,7 +171,7 @@ public final class MenuTypeBuilder<M extends AEBaseMenu, I> {
         Preconditions.checkState(this.id == null, "id should not be set");
 
         this.id = id;
-        menuType = IMenuTypeExtension.create(this::fromNetwork);
+        menuType = MenuTypePlatform.get().createMenuType(this::fromNetwork);
         MenuOpener.addOpener(menuType, this::open);
         return menuType;
     }

@@ -18,7 +18,10 @@
 
 package appeng.parts.networking;
 
-import net.neoforged.neoforge.transfer.energy.EnergyHandler;
+import java.util.function.Function;
+
+import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Nullable;
 
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
@@ -28,20 +31,28 @@ import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartItem;
 import appeng.api.util.AECableType;
 import appeng.blockentity.powersink.IExternalPowerSink;
-import appeng.helpers.ForgeEnergyAdapter;
 import appeng.parts.AEBasePart;
 
 public class EnergyAcceptorPart extends AEBasePart implements IExternalPowerSink {
-    private EnergyHandler forgeEnergyAdapter;
+    // Cached loader-specific energy adapter (e.g. a NeoForge EnergyHandler), see getOrCreateEnergyAdapter
+    @Nullable
+    private Object energyAdapter;
 
     public EnergyAcceptorPart(IPartItem<?> partItem) {
         super(partItem);
         this.getMainNode().setIdlePowerUsage(0);
-        this.forgeEnergyAdapter = new ForgeEnergyAdapter(this);
     }
 
-    public EnergyHandler getEnergyStorage() {
-        return forgeEnergyAdapter;
+    /**
+     * Returns the cached loader-specific energy adapter for this part (e.g. a NeoForge EnergyHandler), creating it via
+     * the given factory on first use. Caching it here maintains referential equality of the adapter over time.
+     */
+    @ApiStatus.Internal
+    public final Object getOrCreateEnergyAdapter(Function<? super IExternalPowerSink, ?> factory) {
+        if (energyAdapter == null) {
+            energyAdapter = factory.apply(this);
+        }
+        return energyAdapter;
     }
 
     @Override

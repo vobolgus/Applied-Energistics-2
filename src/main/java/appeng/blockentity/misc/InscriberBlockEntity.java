@@ -49,6 +49,7 @@ import appeng.api.config.YesNo;
 import appeng.api.implementations.blockentities.ICrankable;
 import appeng.api.inventories.ISegmentedInventory;
 import appeng.api.inventories.InternalInventory;
+import appeng.api.lookup.AEApiLookups;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.energy.IEnergySource;
@@ -69,6 +70,7 @@ import appeng.core.definitions.AEItems;
 import appeng.core.settings.TickRates;
 import appeng.recipes.handlers.InscriberProcessType;
 import appeng.recipes.handlers.InscriberRecipe;
+import appeng.util.LoaderPlatform;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.CombinedInternalInventory;
 import appeng.util.inv.FilteredInternalInventory;
@@ -398,7 +400,8 @@ public class InscriberBlockEntity extends AENetworkedPoweredBlockEntity
         }
 
         for (var dir : pushSides) {
-            var target = InternalInventory.wrapExternal(level, getBlockPos().relative(dir), dir.getOpposite());
+            var target = LoaderPlatform.get().wrapExternalInventory(level, getBlockPos().relative(dir),
+                    dir.getOpposite());
 
             if (target != null) {
                 int startItems = this.sideItemHandler.getStackInSlot(1).getCount();
@@ -463,7 +466,7 @@ public class InscriberBlockEntity extends AENetworkedPoweredBlockEntity
 
         if (setting == Settings.INSCRIBER_SEPARATE_SIDES) {
             // Our exposed inventory changed, invalidate caps!
-            invalidateCapabilities();
+            AEApiLookups.get().invalidateApis(this);
         }
 
         if (setting == Settings.INSCRIBER_INPUT_CAPACITY) {

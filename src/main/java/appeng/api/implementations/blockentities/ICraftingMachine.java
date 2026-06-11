@@ -46,14 +46,13 @@ public interface ICraftingMachine {
             return null;
         }
 
-        return blockEntity.getLevel().getCapability(
-                AECapabilities.CRAFTING_MACHINE, blockEntity.getBlockPos(), blockEntity.getBlockState(),
-                blockEntity, side);
+        return AECapabilities.CRAFTING_MACHINE.find(blockEntity.getLevel(), blockEntity.getBlockPos(),
+                blockEntity.getBlockState(), blockEntity, side);
     }
 
     @Nullable
     static ICraftingMachine of(Level level, BlockPos pos, Direction side) {
-        return level.getCapability(AECapabilities.CRAFTING_MACHINE, pos, side);
+        return AECapabilities.CRAFTING_MACHINE.find(level, pos, side);
     }
 
     /**

@@ -1,6 +1,5 @@
 package appeng.server.testplots;
 
-import java.lang.annotation.ElementType;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -47,7 +46,6 @@ import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.material.Fluids;
-import net.neoforged.fml.ModList;
 
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
@@ -83,6 +81,7 @@ import appeng.server.testworld.Plot;
 import appeng.server.testworld.PlotBuilder;
 import appeng.server.testworld.TestCraftingJob;
 import appeng.util.CraftingRecipeUtil;
+import appeng.util.LoaderPlatform;
 import appeng.util.Platform;
 
 @TestPlotClass
@@ -198,22 +197,8 @@ public final class TestPlots {
     }
 
     private static List<Class<?>> findAllTestPlotClasses() {
-        var result = new ArrayList<Class<?>>();
-
-        for (var data : ModList.get().getAllScanData()) {
-            for (var annotation : data.getAnnotations()) {
-                if (annotation.targetType() == ElementType.TYPE
-                        && annotation.annotationType().getClassName().equals(TestPlotClass.class.getName())) {
-                    try {
-                        result.add(Class.forName(annotation.memberName()));
-                    } catch (Throwable e) {
-                        LOG.error("Failed to load class {} annotated with @TestPlotClass", annotation.memberName(), e);
-                    }
-                }
-            }
-        }
-
-        return result;
+        // was a ModList scan-data lookup; the annotation scan is loader-specific (see TestPlotPlatform)
+        return TestPlotPlatform.get().findTestPlotClasses();
     }
 
     public static List<PlotInfo> getPlots() {
@@ -724,7 +709,8 @@ public final class TestPlots {
 
             var patternProviders = grid.getMachines(PatternProviderPart.class).iterator();
             PatternProviderPart current = patternProviders.next();
-            var craftingRecipes = node.getLevel().recipeAccess().recipeMap().byType(RecipeType.CRAFTING);
+            var craftingRecipes = LoaderPlatform.get().getRecipeMap(node.getLevel().recipeAccess())
+                    .byType(RecipeType.CRAFTING);
 
             Set<AEItemKey> neededIngredients = new HashSet<>();
             Set<AEItemKey> providedResults = new HashSet<>();
@@ -886,9 +872,10 @@ public final class TestPlots {
             helper.succeedWhen(() -> {
                 helper.assertBlockPresent(Blocks.CAULDRON, origin.east());
                 var tank = helper.getBlockEntity(origin.west(), SkyStoneTankBlockEntity.class);
-                helper.check(tank.getFluidHandler().getAmountAsLong(0) == AEFluidKey.AMOUNT_BUCKET,
+                helper.check(tank.getStoredAmount() == AEFluidKey.AMOUNT_BUCKET,
                         "Less than a bucket stored");
-                helper.check(tank.getFluidHandler().getResource(0).is(Fluids.LAVA),
+                var storedFluid = tank.getStoredFluid();
+                helper.check(storedFluid != null && storedFluid.getFluid() == Fluids.LAVA,
                         "Something other than lava stored");
             });
         });

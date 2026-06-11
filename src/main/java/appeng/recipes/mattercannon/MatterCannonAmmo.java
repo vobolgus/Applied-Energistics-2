@@ -26,7 +26,6 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
-import net.minecraft.core.HolderGetter;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -34,8 +33,6 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.tags.TagKey;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeInput;
 import net.minecraft.world.item.crafting.RecipeSerializer;
@@ -43,8 +40,6 @@ import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.display.RecipeDisplay;
 import net.minecraft.world.item.crafting.display.SlotDisplay;
 import net.minecraft.world.level.ItemLike;
-import net.neoforged.neoforge.common.conditions.NotCondition;
-import net.neoforged.neoforge.common.conditions.TagEmptyCondition;
 
 import appeng.core.AppEng;
 import appeng.core.definitions.AEItems;
@@ -94,13 +89,6 @@ public class MatterCannonAmmo extends MechanicsRecipe<RecipeInput> {
 
     public static void ammo(RecipeOutput consumer, Identifier id, Ingredient ammo, float weight) {
         consumer.accept(ResourceKey.create(Registries.RECIPE, id), new MatterCannonAmmo(ammo, weight), null);
-    }
-
-    public static void ammo(HolderGetter<Item> items, RecipeOutput consumer, Identifier id, TagKey<Item> tag,
-            float weight) {
-        var recipe = new MatterCannonAmmo(Ingredient.of(items.getOrThrow(tag)), weight);
-        var condition = new NotCondition(new TagEmptyCondition<>(tag));
-        consumer.accept(ResourceKey.create(Registries.RECIPE, id), recipe, null, condition);
     }
 
     @Override

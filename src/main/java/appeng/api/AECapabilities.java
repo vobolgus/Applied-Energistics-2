@@ -18,38 +18,81 @@
 
 package appeng.api;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.Direction;
-import net.neoforged.neoforge.capabilities.BlockCapability;
+import net.minecraft.resources.Identifier;
 
 import appeng.api.behaviors.GenericInternalInventory;
 import appeng.api.implementations.blockentities.ICraftingMachine;
 import appeng.api.implementations.blockentities.ICrankable;
+import appeng.api.lookup.AEApiLookup;
 import appeng.api.networking.IInWorldGridNodeHost;
 import appeng.api.storage.MEStorage;
 import appeng.core.AppEng;
 
 /**
- * Utility class that holds the capabilities provided by AE2.
+ * Utility class that holds the loader-neutral ids and {@linkplain AEApiLookup lookups} of the block capabilities/APIs
+ * provided by AE2.
+ * <p>
+ * The loader-specific capability objects are built from these ids:
+ * <ul>
+ * <li>On NeoForge, {@code appeng.neoforge.AENeoForgeCapabilities} exposes them as {@code BlockCapability} objects
+ * (which back the lookups in this class).</li>
+ * <li>On Fabric, the analog will be {@code BlockApiLookup}s created from the same ids.</li>
+ * </ul>
  */
 public final class AECapabilities {
     private AECapabilities() {
     }
 
-    public static BlockCapability<MEStorage, @Nullable Direction> ME_STORAGE = BlockCapability
-            .createSided(AppEng.makeId("me_storage"), MEStorage.class);
+    /**
+     * Id of the sided block capability exposing {@link appeng.api.storage.MEStorage}.
+     */
+    public static final Identifier ME_STORAGE_ID = AppEng.makeId("me_storage");
 
-    public static BlockCapability<ICraftingMachine, @Nullable Direction> CRAFTING_MACHINE = BlockCapability
-            .createSided(AppEng.makeId("crafting_machine"), ICraftingMachine.class);
+    /**
+     * Id of the sided block capability exposing {@link appeng.api.implementations.blockentities.ICraftingMachine}.
+     */
+    public static final Identifier CRAFTING_MACHINE_ID = AppEng.makeId("crafting_machine");
 
-    public static BlockCapability<GenericInternalInventory, @Nullable Direction> GENERIC_INTERNAL_INV = BlockCapability
-            .createSided(AppEng.makeId("generic_internal_inv"), GenericInternalInventory.class);
+    /**
+     * Id of the sided block capability exposing {@link appeng.api.behaviors.GenericInternalInventory}.
+     */
+    public static final Identifier GENERIC_INTERNAL_INV_ID = AppEng.makeId("generic_internal_inv");
 
-    public static BlockCapability<IInWorldGridNodeHost, Void> IN_WORLD_GRID_NODE_HOST = BlockCapability
-            .createVoid(AppEng.makeId("inworld_gridnode_host"), IInWorldGridNodeHost.class);
+    /**
+     * Id of the (unsided) block capability exposing {@link appeng.api.networking.IInWorldGridNodeHost}.
+     */
+    public static final Identifier IN_WORLD_GRID_NODE_HOST_ID = AppEng.makeId("inworld_gridnode_host");
 
-    public static BlockCapability<ICrankable, @Nullable Direction> CRANKABLE = BlockCapability
-            .createSided(AppEng.makeId("crankable"), ICrankable.class);
+    /**
+     * Id of the sided block capability exposing {@link appeng.api.implementations.blockentities.ICrankable}.
+     */
+    public static final Identifier CRANKABLE_ID = AppEng.makeId("crankable");
 
+    /**
+     * Lookup for the sided block API exposing {@link MEStorage}.
+     */
+    public static final AEApiLookup<MEStorage> ME_STORAGE = AEApiLookup.sided(ME_STORAGE_ID, MEStorage.class);
+
+    /**
+     * Lookup for the sided block API exposing {@link ICraftingMachine}.
+     */
+    public static final AEApiLookup<ICraftingMachine> CRAFTING_MACHINE = AEApiLookup.sided(CRAFTING_MACHINE_ID,
+            ICraftingMachine.class);
+
+    /**
+     * Lookup for the sided block API exposing {@link GenericInternalInventory}.
+     */
+    public static final AEApiLookup<GenericInternalInventory> GENERIC_INTERNAL_INV = AEApiLookup
+            .sided(GENERIC_INTERNAL_INV_ID, GenericInternalInventory.class);
+
+    /**
+     * Lookup for the (unsided) block API exposing {@link IInWorldGridNodeHost}.
+     */
+    public static final AEApiLookup<IInWorldGridNodeHost> IN_WORLD_GRID_NODE_HOST = AEApiLookup
+            .unsided(IN_WORLD_GRID_NODE_HOST_ID, IInWorldGridNodeHost.class);
+
+    /**
+     * Lookup for the sided block API exposing {@link ICrankable}.
+     */
+    public static final AEApiLookup<ICrankable> CRANKABLE = AEApiLookup.sided(CRANKABLE_ID, ICrankable.class);
 }

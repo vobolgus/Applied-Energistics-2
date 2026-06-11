@@ -3,11 +3,8 @@ package appeng.core.network.serverbound;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.BlockHitResult;
-import net.neoforged.neoforge.common.CommonHooks;
-import net.neoforged.neoforge.common.NeoForge;
 
 import appeng.api.parts.IPartHost;
 import appeng.core.network.CustomAppEngPayload;
@@ -42,11 +39,16 @@ public record PartLeftClickPacket(BlockHitResult hitResult, boolean alternateUse
 
     @Override
     public void handleOnServer(ServerPlayer player) {
-        // Fire event on the server to give protection mods a chance to cancel the interaction
-        var evt = CommonHooks.onLeftClickBlock(player, hitResult.getBlockPos(), hitResult.getDirection(),
-                ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK);
-        NeoForge.EVENT_BUS.post(evt);
-        if (evt.isCanceled()) {
+        // Replaces NeoForge's CommonHooks.onLeftClickBlock + event post: that hook performs no validation
+        // itself, it only fires PlayerInteractEvent.LeftClickBlock to give protection mods a chance to
+        // cancel the interaction. We inline the equivalent vanilla server-side validation performed for
+        // START_DESTROY_BLOCK in ServerPlayerGameMode.handleBlockBreakAction: reach check, spectator check
+        // and ServerPlayer.mayInteract (spawn protection + world border). A loader-specific interaction
+        // event hook can be re-attached at this seam later.
+        var pos = hitResult.getBlockPos();
+        if (player.isSpectator()
+                || !player.isWithinBlockInteractionRange(pos, 1.0)
+                || !player.mayInteract(player.level(), pos)) {
             return;
         }
 

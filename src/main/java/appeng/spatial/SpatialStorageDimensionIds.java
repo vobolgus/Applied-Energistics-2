@@ -68,8 +68,7 @@ public final class SpatialStorageDimensionIds {
             AppEng.makeId("spatial_storage"));
 
     /**
-     * ID of the {@link net.neoforged.neoforge.client.event.RegisterCustomEnvironmentEffectRendererEvent} used for the
-     * spatial storage level.
+     * ID for NeoForge's {@code RegisterCustomEnvironmentEffectRendererEvent} used for the spatial storage level.
      */
     public static Identifier CUSTOM_RENDERER_ID = AppEng.makeId("spatial_storage");
 

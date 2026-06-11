@@ -20,7 +20,6 @@ package appeng.blockentity.spatial;
 
 import java.util.EnumSet;
 import java.util.Iterator;
-import java.util.Objects;
 import java.util.Set;
 
 import com.google.common.collect.Iterators;
@@ -34,8 +33,6 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.neoforged.neoforge.model.data.ModelData;
-import net.neoforged.neoforge.model.data.ModelProperty;
 
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGridMultiblock;
@@ -49,9 +46,6 @@ import appeng.me.cluster.implementations.SpatialPylonCluster;
 import appeng.util.iterators.ChainedIterator;
 
 public class SpatialPylonBlockEntity extends AENetworkedBlockEntity implements IAEMultiBlock<SpatialPylonCluster> {
-
-    // The lower 6 bits are used
-    public static final ModelProperty<ClientState> STATE = new ModelProperty<>(Objects::nonNull);
 
     private final SpatialPylonCalculator calc = new SpatialPylonCalculator(this);
     private SpatialPylonCluster cluster;
@@ -206,10 +200,10 @@ public class SpatialPylonBlockEntity extends AENetworkedBlockEntity implements I
     }
 
     @Override
-    public ModelData getModelData() {
+    public ClientState getRenderData() {
         // FIXME: Must force model data update on changes, should potentially be moved
         // to block state (?)
-        return ModelData.builder().with(STATE, getClientState()).build();
+        return getClientState();
     }
 
     private Iterator<IGridNode> getMultiblockNodes() {

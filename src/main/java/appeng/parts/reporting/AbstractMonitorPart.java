@@ -28,7 +28,6 @@ import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.model.data.ModelData;
 
 import appeng.api.behaviors.ContainerItemStrategies;
 import appeng.api.implementations.parts.IStorageMonitorPart;
@@ -43,6 +42,7 @@ import appeng.api.stacks.AmountFormat;
 import appeng.core.localization.PlayerMessages;
 import appeng.parts.automation.PartModelData;
 import appeng.util.InteractionUtil;
+import appeng.util.render.AERenderData;
 
 /**
  * A basic subclass for any item monitor like display with an item icon and an amount.
@@ -300,8 +300,8 @@ public abstract class AbstractMonitorPart extends AbstractDisplayPart
 
     @Nullable
     @Override
-    public void collectModelData(ModelData.Builder builder) {
-        super.collectModelData(builder);
+    public void collectRenderData(AERenderData.Builder builder) {
+        super.collectRenderData(builder);
         builder.with(PartModelData.MONITOR_LOCKED, isLocked());
     }
 }

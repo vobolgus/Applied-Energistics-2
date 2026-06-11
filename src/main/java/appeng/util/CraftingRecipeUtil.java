@@ -6,6 +6,7 @@ import java.util.Optional;
 import com.google.common.base.Preconditions;
 
 import net.minecraft.core.NonNullList;
+import net.minecraft.util.context.ContextKeySet;
 import net.minecraft.util.context.ContextMap;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -14,6 +15,13 @@ import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.SmithingRecipe;
 
 public final class CraftingRecipeUtil {
+    /**
+     * Replacement for NeoForge's {@code ContextMap.EMPTY} patch: an empty context for resolving recipe displays outside
+     * of a specific display context.
+     */
+    private static final ContextMap EMPTY_CONTEXT = new ContextMap.Builder()
+            .create(new ContextKeySet.Builder().build());
+
     private CraftingRecipeUtil() {
     }
 
@@ -58,7 +66,7 @@ public final class CraftingRecipeUtil {
     public static ItemStack getResult(Recipe<?> recipe) {
         var displays = recipe.display();
         for (var display : displays) {
-            var stack = display.result().resolveForFirstStack(ContextMap.EMPTY);
+            var stack = display.result().resolveForFirstStack(EMPTY_CONTEXT);
             if (!stack.isEmpty()) {
                 return stack;
             }

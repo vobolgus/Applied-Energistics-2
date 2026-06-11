@@ -37,6 +37,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
@@ -54,12 +55,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.material.Fluid;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.loading.FMLEnvironment;
-import net.neoforged.fml.loading.FMLLoader;
-import net.neoforged.fml.util.thread.SidedThreadGroups;
-import net.neoforged.neoforge.common.util.FakePlayerFactory;
-import net.neoforged.neoforge.fluids.FluidStack;
 
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.PowerUnit;
@@ -69,6 +64,7 @@ import appeng.api.util.DimensionalBlockPos;
 import appeng.core.AEConfig;
 import appeng.hooks.VisualStateSaving;
 import appeng.hooks.ticking.TickHandler;
+import appeng.util.fluid.FluidPlatform;
 import appeng.util.helpers.P2PHelper;
 
 public class Platform {
@@ -78,8 +74,13 @@ public class Platform {
     public static final Direction[] CULL_FACES = Stream.concat(Direction.stream(), Stream.of((Direction) null))
             .toArray(Direction[]::new);
 
+    /**
+     * The loader-provided thread group all server threads belong to.
+     */
+    private static final ThreadGroup SERVER_THREAD_GROUP = LoaderPlatform.get().getServerThreadGroup();
+
     @VisibleForTesting
-    public static ThreadGroup serverThreadGroup = SidedThreadGroups.SERVER;
+    public static ThreadGroup serverThreadGroup = SERVER_THREAD_GROUP;
 
     private static final P2PHelper P2P_HELPER = new P2PHelper();
 
@@ -99,14 +100,14 @@ public class Platform {
             return null; // Don't attempt this on a dedicated server
         }
 
-        if (!ModList.get().isLoaded("ponder")) {
+        if (!LoaderPlatform.get().isModLoaded("ponder")) {
             return null;
         }
 
         try {
             return Class.forName(className);
         } catch (ClassNotFoundException ignored) {
-            LOG.atLevel(FMLEnvironment.isProduction() ? org.slf4j.event.Level.DEBUG : org.slf4j.event.Level.WARN)
+            LOG.atLevel(isDevelopmentEnvironment() ? org.slf4j.event.Level.WARN : org.slf4j.event.Level.DEBUG)
                     .log("Unable to find class {}. Integration with PonderJS disabled.", className);
             return null;
         }
@@ -184,16 +185,14 @@ public class Platform {
      * @return True if client-side classes (such as Renderers) are available.
      */
     public static boolean hasClientClasses() {
-        // The null check is for tests
-        var loader = FMLLoader.getCurrentOrNull();
-        return loader == null || loader.getDist().isClient();
+        return LoaderPlatform.get().hasClientClasses();
     }
 
     /*
      * returns true if the code is on the client.
      */
     public static boolean isClient() {
-        return Thread.currentThread().getThreadGroup() != SidedThreadGroups.SERVER;
+        return Thread.currentThread().getThreadGroup() != SERVER_THREAD_GROUP;
     }
 
     public static boolean hasPermissions(DimensionalBlockPos dc, Player player) {
@@ -218,7 +217,7 @@ public class Platform {
      * returns true if the code is on the server.
      */
     public static boolean isServer() {
-        return Thread.currentThread().getThreadGroup() == SidedThreadGroups.SERVER;
+        return Thread.currentThread().getThreadGroup() == SERVER_THREAD_GROUP;
     }
 
     /**
@@ -237,13 +236,11 @@ public class Platform {
 
     @Nullable
     public static String getModName(String modId) {
-        return ModList.get().getModContainerById(modId).map(mc -> mc.getModInfo().getDisplayName())
-                .orElse(modId);
+        return LoaderPlatform.get().getModDisplayName(modId);
     }
 
     public static Component getFluidDisplayName(Fluid fluid) {
-        var fluidStack = new FluidStack(fluid, 1);
-        return fluidStack.getHoverName();
+        return FluidPlatform.get().getFluidDisplayName(fluid, DataComponentPatch.EMPTY);
     }
 
     public static boolean isChargeable(ItemStack i) {
@@ -266,7 +263,7 @@ public class Platform {
             playerUuid = DEFAULT_FAKE_PLAYER_UUID;
         }
 
-        return FakePlayerFactory.get(level, new GameProfile(playerUuid, "[AE2]"));
+        return LoaderPlatform.get().getFakePlayer(level, new GameProfile(playerUuid, "[AE2]"));
     }
 
     public static Direction rotateAround(Direction forward, Direction axis) {
@@ -385,8 +382,7 @@ public class Platform {
      * @return True if AE2 is being run within a dev environment.
      */
     public static boolean isDevelopmentEnvironment() {
-        var loader = FMLLoader.getCurrentOrNull();
-        return loader == null || !loader.isProduction();
+        return LoaderPlatform.get().isDevelopmentEnvironment();
     }
 
     /**

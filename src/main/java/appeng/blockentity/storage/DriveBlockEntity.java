@@ -38,7 +38,6 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.neoforged.neoforge.model.data.ModelData;
 
 import appeng.api.implementations.blockentities.IChestOrDrive;
 import appeng.api.inventories.InternalInventory;
@@ -435,12 +434,12 @@ public class DriveBlockEntity extends AENetworkedInvBlockEntity
     }
 
     @Override
-    public ModelData getModelData() {
+    public DriveModelData getRenderData() {
         var cells = new Item[getCellCount()];
         for (int i = 0; i < getCellCount(); i++) {
             cells[i] = getCellItem(i);
         }
-        return DriveModelData.create(cells);
+        return new DriveModelData(cells);
     }
 
     public void openMenu(Player player) {

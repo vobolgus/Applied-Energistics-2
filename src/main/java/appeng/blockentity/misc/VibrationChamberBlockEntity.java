@@ -51,6 +51,7 @@ import appeng.core.AEConfig;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
 import appeng.core.settings.TickRates;
+import appeng.util.LoaderPlatform;
 import appeng.util.Platform;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.FilteredInternalInventory;
@@ -314,7 +315,7 @@ public class VibrationChamberBlockEntity extends AENetworkedInvBlockEntity
     }
 
     public int getBurnTime(ItemStack is) {
-        return is.getBurnTime(null, level.fuelValues());
+        return LoaderPlatform.get().getBurnTime(is, level.fuelValues());
     }
 
     public boolean hasBurnTime(ItemStack is) {

@@ -8,10 +8,10 @@ import org.jetbrains.annotations.ApiStatus;
 
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import appeng.api.stacks.AEKeyType;
 import appeng.api.util.KeyTypeSelection;
+import appeng.core.network.NetworkAdapter;
 import appeng.core.network.ServerboundPacket;
 import appeng.core.network.serverbound.SelectKeyTypePacket;
 import appeng.menu.guisync.PacketWritable;
@@ -37,7 +37,7 @@ public interface KeyTypeSelectionMenu {
     default void selectKeyType(AEKeyType keyType, boolean enabled) {
         // Send to server
         ServerboundPacket message = new SelectKeyTypePacket(keyType, enabled);
-        ClientPacketDistributor.sendToServer(message);
+        NetworkAdapter.get().sendToServer(message);
         // Update client
         getClientKeyTypeSelection().keyTypes().put(keyType, enabled);
     }

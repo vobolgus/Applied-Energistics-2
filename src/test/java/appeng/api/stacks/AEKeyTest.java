@@ -8,6 +8,7 @@ import com.mojang.serialization.JsonOps;
 import org.junit.jupiter.api.Test;
 
 import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.util.GsonHelper;
@@ -16,7 +17,6 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.level.storage.TagValueOutput;
-import net.neoforged.neoforge.fluids.FluidStack;
 
 import appeng.util.BootstrapMinecraft;
 import appeng.util.CodecTestUtil;
@@ -57,9 +57,8 @@ class AEKeyTest {
         var expected = GsonHelper
                 .parse("{\"id\":\"minecraft:lava\",\"components\":{\"minecraft:max_stack_size\":99},\"#t\":\"ae2:f\"}");
 
-        var stack = new FluidStack(Fluids.LAVA, 1);
-        stack.set(DataComponents.MAX_STACK_SIZE, 99);
-        var ik = AEFluidKey.of(stack);
+        var patch = DataComponentPatch.builder().set(DataComponents.MAX_STACK_SIZE, 99).build();
+        var ik = AEFluidKey.of(Fluids.LAVA, patch);
         testKeyTypeRoundtrip(ik, JsonOps.INSTANCE, expected);
     }
 

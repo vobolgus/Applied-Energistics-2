@@ -34,7 +34,7 @@ import appeng.api.util.AECableType;
  * Implement to create a networked {@link BlockEntity}. Must be implemented for a block entity to be available for
  * in-world connection attempts by adjacent grid nodes.
  * <p>
- * Must be provided via the {@link appeng.api.AECapabilities#IN_WORLD_GRID_NODE_HOST} capability.
+ * Must be provided via the capability identified by {@link appeng.api.AECapabilities#IN_WORLD_GRID_NODE_HOST_ID}.
  */
 public interface IInWorldGridNodeHost {
     /**

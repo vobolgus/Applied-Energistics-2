@@ -11,9 +11,9 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Recipe;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import appeng.api.stacks.AEItemKey;
+import appeng.core.network.NetworkAdapter;
 import appeng.core.network.ServerboundPacket;
 import appeng.core.network.serverbound.FillCraftingGridFromRecipePacket;
 import appeng.menu.me.common.GridInventoryEntry;
@@ -37,7 +37,7 @@ public final class CraftingHelper {
         var templateItems = findGoodTemplateItems(recipe, menu);
 
         ServerboundPacket message = new FillCraftingGridFromRecipePacket(recipeId, templateItems, craftMissing);
-        ClientPacketDistributor.sendToServer(message);
+        NetworkAdapter.get().sendToServer(message);
     }
 
     private static NonNullList<ItemStack> findGoodTemplateItems(Recipe<?> recipe, MEStorageMenu menu) {

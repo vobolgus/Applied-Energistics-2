@@ -1,0 +1,173 @@
+/*
+ * Fabric loader project for Applied Energistics 2.
+ *
+ * Compiles the shared sources from the repository root (src/main/java, src/client/java)
+ * against Fabric Loader + Fabric API, plus the Fabric-specific platform layer in this
+ * directory (loader/fabric/src).
+ *
+ * NOTE: The shared sources still contain net.neoforged imports until the Phase 1
+ * decoupling is complete (gate M1). Until then they are excluded from this project;
+ * flip them on with -Pae2.fabric.shared=true (or by setting it in gradle.properties).
+ */
+
+plugins {
+    id 'net.fabricmc.fabric-loom'
+}
+
+apply plugin: appengbuild.ProjectDefaultsPlugin
+
+// fabric-loom injects project-level repositories into this project, which (under PREFER_PROJECT)
+// makes Gradle ignore the settings-level repositories entirely for :fabric. Declare what we need here.
+repositories {
+    mavenLocal {
+        content {
+            includeModule 'org.appliedenergistics', 'guideme-fabric'
+        }
+    }
+    maven {
+        name = 'TeamReborn'
+        url = 'https://maven.modmuss50.me/'
+        content {
+            includeGroup 'teamreborn'
+        }
+    }
+    maven {
+        url = 'https://maven.shedaniel.me/'
+        content {
+            includeGroup 'me.shedaniel'
+            includeGroup 'me.shedaniel.cloth'
+            includeGroup 'dev.architectury'
+        }
+    }
+    mavenCentral()
+}
+
+base {
+    archivesName = "appliedenergistics2-fabric"
+}
+
+loom {
+    // NOTE: splitEnvironmentSourceSets() is deliberately NOT used (yet): the shared src/main/java still
+    // contains client-referencing classes (appeng.client.*, e.g. MenuTypeBuilder/Hotkey — the known
+    // "main-source client leak", see PORTING_NOTES). Like the NeoForge dev environment, main compiles
+    // against the merged Minecraft jar; the dedicated-server boot test is the gate for actual leaks.
+    // Phase 3 revisits the client source set split.
+
+    mods {
+        ae2 {
+            sourceSet sourceSets.main
+        }
+    }
+
+    accessWidenerPath = file('src/main/resources/ae2.accesswidener')
+
+    runs {
+        configureEach {
+            runDir 'run'
+            property 'appeng.tests', 'true'
+            property 'guideme.ae2.guide.sources', rootProject.file('guidebook').absolutePath
+        }
+    }
+}
+
+// Shared MAIN sources (gate flipped on with Phase 2a; ae2.fabric.shared now only gates main).
+def includeSharedSources = providers.gradleProperty('ae2.fabric.shared').getOrElse('false') == 'true'
+// Shared CLIENT sources stay off until Phase 3.
+def includeSharedClientSources = providers.gradleProperty('ae2.fabric.client').getOrElse('false') == 'true'
+if (includeSharedSources) {
+    sourceSets {
+        main {
+            java {
+                srcDir rootProject.file('src/main/java')
+                // TODO 1.21.11 (kept in sync with :neoforge)
+                exclude 'appeng/integration/modules/rei/**'
+                exclude 'appeng/integration/modules/theoneprobe/**'
+                // Jade/WTHIT plugins need their (loader-specific) API jars; gated out until the
+                // Fabric integrations step. The shared CuriosSupport seam itself stays compiled.
+                exclude 'appeng/integration/modules/jade/**'
+                exclude 'appeng/integration/modules/wthit/**'
+            }
+            resources {
+                srcDir rootProject.file('src/main/resources')
+                srcDir rootProject.file('src/generated/resources')
+                // NeoForge metadata must not ship in the Fabric jar
+                exclude 'META-INF/accesstransformer.cfg'
+            }
+        }
+    }
+}
+if (includeSharedClientSources) {
+    // Phase 3: define the client source set (likely via loom's splitEnvironmentSourceSets) and add
+    // rootProject src/client/java + src/client/resources here, excluding rei/emi/datagen like :neoforge.
+    throw new GradleException("ae2.fabric.client is not implemented yet (Phase 3)")
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    // MC 26.1+ is unobfuscated: no mappings dependency, and mods are plain `implementation`
+    // (loom 1.17 dropped the modImplementation remapping configurations)
+
+    implementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+
+    // Energy at the edges: Team Reborn Energy over the Fabric Transfer API
+    implementation "teamreborn:energy:${tr_energy_version}"
+
+    // TOML config files matching NeoForge's format (NeoForge bundles the same library).
+    // TODO (fabric, runtime step): ship via jar-in-jar (include) or shade.
+    implementation "com.electronwill.night-config:toml:${night_config_version}"
+
+    // javax.annotation (@Nonnull etc.) is still used by a few shared files; NeoForge provides it transitively
+    compileOnly "com.google.code.findbugs:jsr305:3.0.2"
+
+    // The addon-facing REI converter API in src/main/java/appeng/api/integrations/rei (matches :neoforge's
+    // compileOnly on the REI api)
+    compileOnly "me.shedaniel:RoughlyEnoughItems-api-fabric:${rei_version}"
+
+    if (includeSharedSources) {
+        // Published by the GuideME Fabric port (Workstream A) to mavenLocal until released
+        implementation "org.appliedenergistics:guideme-fabric:${guideme_fabric_version}"
+    }
+}
+
+tasks.named('jar', Jar) {
+    exclude '/.cache'
+    from(rootProject.file('guidebook')) {
+        into 'assets/ae2/ae2guide'
+    }
+}
+
+processResources {
+    def expandProps = [
+            'version'              : project.version.toString(),
+            'minecraft_version'    : project.minecraft_version,
+            'fabric_loader_version': project.fabric_loader_version
+    ]
+    inputs.properties expandProps
+
+    filesMatching('fabric.mod.json') {
+        expand expandProps
+    }
+}
+
+static void publicApiIncludePatterns(PatternFilterable spec) {
+    spec.exclude "**/*Internal.*"
+    spec.exclude "**/*Internal\$*.*"
+    spec.include "appeng/api/**"
+    spec.include "appeng/client/api/**"
+}
+
+// Mirrors :neoforge's javadoc setup: restrict to the public API packages and disable doclint —
+// upstream's shared javadoc is not doclint-clean (self-closing tags etc.).
+tasks.named('javadoc', Javadoc) {
+    options.addStringOption('Xdoclint:none', '-quiet')
+    options.encoding = 'UTF-8'
+    options.charSet = 'UTF-8'
+    publicApiIncludePatterns(it)
+}
+
+tasks.named('sourcesJar', Jar) {
+    // fabric-loom adds the main sources to the sources jar on top of withSourcesJar()'s own configuration,
+    // producing identical duplicate entries; excluding the second copy is lossless.
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}

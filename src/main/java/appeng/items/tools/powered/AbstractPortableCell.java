@@ -24,6 +24,7 @@ import appeng.api.upgrades.Upgrades;
 import appeng.block.networking.EnergyCellBlockItem;
 import appeng.core.AEConfig;
 import appeng.core.localization.PlayerMessages;
+import appeng.hooks.extensions.ItemUseFirstHook;
 import appeng.items.contents.PortableCellMenuHost;
 import appeng.menu.MenuOpener;
 import appeng.menu.locator.ItemMenuHostLocator;
@@ -32,7 +33,7 @@ import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import appeng.util.InteractionUtil;
 
 public abstract class AbstractPortableCell extends PoweredContainerItem
-        implements ICellWorkbenchItem, IMenuItem {
+        implements ICellWorkbenchItem, IMenuItem, ItemUseFirstHook {
 
     private final MenuType<?> menuType;
     private final int defaultColor;

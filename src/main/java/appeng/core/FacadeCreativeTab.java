@@ -31,15 +31,16 @@ import net.minecraft.world.item.Items;
 import appeng.api.ids.AECreativeTabIds;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
+import appeng.util.LoaderPlatform;
 
 public final class FacadeCreativeTab {
 
     private static CreativeModeTab group;
 
     public static void init(Registry<CreativeModeTab> registry) {
-        group = CreativeModeTab.builder()
+        // was Neo's no-arg CreativeModeTab.builder(); identical to the vanilla overload below
+        var builder = CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0)
                 .title(GuiText.CreativeTabFacades.text())
-                .withTabsBefore(AECreativeTabIds.MAIN)
                 .icon(() -> {
                     if (group == null) {
                         return ItemStack.EMPTY;
@@ -47,8 +48,10 @@ public final class FacadeCreativeTab {
                     var items = group.getDisplayItems();
                     return items.stream().findFirst().orElse(Items.CAKE.getDefaultInstance());
                 })
-                .displayItems(FacadeCreativeTab::buildDisplayItems)
-                .build();
+                .displayItems(FacadeCreativeTab::buildDisplayItems);
+        // was Neo's builder.withTabsBefore(MAIN): vanilla has no tab-ordering API (sorts by registration order)
+        LoaderPlatform.get().orderCreativeTabAfter(builder, AECreativeTabIds.MAIN);
+        group = builder.build();
         Registry.register(registry, AECreativeTabIds.FACADES, group);
     }
 

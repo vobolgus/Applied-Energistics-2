@@ -30,33 +30,40 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EntityType.Builder;
 import net.minecraft.world.entity.EntityType.EntityFactory;
 import net.minecraft.world.entity.MobCategory;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.neoforge.registries.DeferredRegister;
 
 import appeng.core.AppEng;
+import appeng.core.registration.AERegistries;
+import appeng.core.registration.AERegistryEntry;
 import appeng.entity.TinyTNTPrimedEntity;
 
 public final class AEEntities {
 
-    public static final DeferredRegister<EntityType<?>> DR = DeferredRegister.create(Registries.ENTITY_TYPE,
-            AppEng.MOD_ID);
-
     public static final Map<String, String> ENTITY_ENGLISH_NAMES = new HashMap<>();
 
-    public static final DeferredHolder<EntityType<?>, EntityType<TinyTNTPrimedEntity>> TINY_TNT_PRIMED = create(
+    public static final AERegistryEntry<EntityType<?>, EntityType<TinyTNTPrimedEntity>> TINY_TNT_PRIMED = create(
             "tiny_tnt_primed",
             "Tiny TNT Primed",
             TinyTNTPrimedEntity::new,
             MobCategory.MISC,
-            builder -> builder.setTrackingRange(16).setUpdateInterval(4).setShouldReceiveVelocityUpdates(true));
+            // was Neo's setTrackingRange(16).setUpdateInterval(4).setShouldReceiveVelocityUpdates(true);
+            // clientTrackingRange/updateInterval are the identical vanilla knobs, and vanilla sends velocity
+            // updates for all entity types except a fixed exclusion list (trackDeltas), so the third call is moot.
+            builder -> builder.clientTrackingRange(16).updateInterval(4));
 
-    private static <T extends Entity> DeferredHolder<EntityType<?>, EntityType<T>> create(String id,
+    /**
+     * Forces the class to be loaded, ensuring all registration entries above were collected into {@link AERegistries}.
+     */
+    public static void init() {
+    }
+
+    private static <T extends Entity> AERegistryEntry<EntityType<?>, EntityType<T>> create(String id,
             String englishName,
             EntityFactory<T> entityFactory,
             MobCategory classification,
             Consumer<Builder<T>> customizer) {
         ENTITY_ENGLISH_NAMES.put(id, englishName);
-        return DR.register(id, () -> {
+        // was DeferredRegister: DR.register(id, () -> {...})
+        return AERegistries.register(Registries.ENTITY_TYPE, AppEng.makeId(id), () -> {
             Builder<T> builder = Builder.of(entityFactory, classification);
             customizer.accept(builder);
             // Temporarily disable the data fixer check to avoid the annoying "no data fixer registered for ae2:xxx".

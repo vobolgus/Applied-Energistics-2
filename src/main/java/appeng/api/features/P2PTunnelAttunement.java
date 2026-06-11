@@ -38,8 +38,6 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ItemLike;
-import net.neoforged.neoforge.capabilities.ItemCapability;
-import net.neoforged.neoforge.transfer.access.ItemAccess;
 
 import appeng.core.definitions.AEParts;
 import appeng.items.parts.PartItem;
@@ -107,30 +105,23 @@ public final class P2PTunnelAttunement {
     }
 
     /**
-     * Attunement based on the ability of getting a capability from the item.
-     * 
-     * @param tunnelPart  The P2P-tunnel part item.
-     * @param description Description for display in REI/JEI.
-     */
-    public synchronized static void registerAttunementApi(ItemLike tunnelPart, ItemCapability<?, Void> cap,
-            Component description) {
-        Objects.requireNonNull(cap, "cap");
-        Predicate<ItemStack> test = stack -> stack.getCapability(cap) != null;
-        apiAttunements.add(new ApiAttunement(test, cap, validateTunnelPartItem(tunnelPart), description));
-    }
-
-    /**
-     * Attunement based on the ability of getting a capability from the item.
+     * Attunement based on the ability of getting a loader-specific API (e.g. a NeoForge item capability or a Fabric API
+     * lookup) from the item.
+     * <p>
+     * On NeoForge, prefer the convenience overloads in {@code appeng.neoforge.AENeoForgeP2PAttunement}, which build the
+     * predicate from an {@code ItemCapability}.
      *
      * @param tunnelPart  The P2P-tunnel part item.
+     * @param api         An opaque identity for the API the predicate tests for (e.g. the capability object). Only used
+     *                    to group attunements when reporting them.
+     * @param test        Tests whether the given item stack provides the API.
      * @param description Description for display in REI/JEI.
      */
-    public synchronized static void registerItemAccessAttunementApi(ItemLike tunnelPart,
-            ItemCapability<?, ItemAccess> cap,
+    public synchronized static void registerAttunementApi(ItemLike tunnelPart, Object api, Predicate<ItemStack> test,
             Component description) {
-        Objects.requireNonNull(cap, "cap");
-        Predicate<ItemStack> test = stack -> stack.getCapability(cap, ItemAccess.forStack(stack)) != null;
-        apiAttunements.add(new ApiAttunement(test, cap, validateTunnelPartItem(tunnelPart), description));
+        Objects.requireNonNull(api, "api");
+        Objects.requireNonNull(test, "test");
+        apiAttunements.add(new ApiAttunement(test, api, validateTunnelPartItem(tunnelPart), description));
     }
 
     /**
@@ -178,7 +169,7 @@ public final class P2PTunnelAttunement {
 
     record ApiAttunement(
             Predicate<ItemStack> capabilityTest,
-            ItemCapability<?, ?> capability,
+            Object capability,
             Item tunnelType,
             Component component) {
         public boolean hasApi(ItemStack stack) {

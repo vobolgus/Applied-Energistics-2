@@ -32,8 +32,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.client.network.event.RegisterClientPayloadHandlersEvent;
-import net.neoforged.neoforge.common.SoundActions;
 
 import appeng.api.util.IConfigurableObject;
 import appeng.blockentity.crafting.MolecularAssemblerAnimationStatus;
@@ -71,6 +69,7 @@ import appeng.menu.AEBaseMenu;
 import appeng.menu.guisync.LinkStatusAwareMenu;
 import appeng.menu.me.common.MEStorageMenu;
 import appeng.menu.me.crafting.CraftConfirmMenu;
+import appeng.util.fluid.FluidPlatform;
 
 public class AEClientboundPacketHandler {
     public void handleGuiDataSyncPacket(GuiDataSyncPacket packet, Minecraft minecraft, Player player) {
@@ -141,7 +140,7 @@ public class AEClientboundPacketHandler {
         if (packet.soundMode() == BlockTransitionEffectPacket.SoundMode.FLUID) {
             // This code is based on what BucketItem does
             Fluid fluid = packet.blockState().getFluidState().getType();
-            soundEvent = fluid.getFluidType().getSound(SoundActions.BUCKET_FILL);
+            soundEvent = FluidPlatform.get().getBucketFillSound(fluid);
             if (soundEvent == null) {
                 if (fluid.is(FluidTags.LAVA)) {
                     soundEvent = SoundEvents.BUCKET_FILL_LAVA;
@@ -324,33 +323,41 @@ public class AEClientboundPacketHandler {
         }
     }
 
-    public void register(RegisterClientPayloadHandlersEvent event) {
-        register(event, GuiDataSyncPacket.TYPE, this::handleGuiDataSyncPacket);
-        register(event, MatterCannonPacket.TYPE, this::handleMatterCannonPacket);
-        register(event, SetLinkStatusPacket.TYPE, this::handleSetLinkStatusPacket);
-        register(event, PatternAccessTerminalPacket.TYPE, this::handlePatternAccessTerminalPacket);
-        register(event, BlockTransitionEffectPacket.TYPE, this::handleBlockTransitionEffectPacket);
-        register(event, CraftingStatusPacket.TYPE, this::handleCraftingStatusPacket);
-        register(event, CraftConfirmPlanPacket.TYPE, this::handleCraftConfirmPlanPacket);
-        register(event, NetworkStatusPacket.TYPE, this::handleNetworkStatusPacket);
-        register(event, MolecularAssemblerAnimationPacket.TYPE, this::handleMolecularAssemblerAnimationPacket);
-        register(event, MEInventoryUpdatePacket.TYPE, this::handleMEInventoryUpdatePacket);
-        register(event, CompassResponsePacket.TYPE, this::handleCompassResponsePacket);
-        register(event, ClearPatternAccessTerminalPacket.TYPE, this::handleClearPatternAccessTerminalPacket);
-        register(event, ItemTransitionEffectPacket.TYPE, this::handleItemTransitionEffectPacket);
-        register(event, MockExplosionPacket.TYPE, this::handleMockExplosionPacket);
-        register(event, ExportedGridContent.TYPE, this::handleExportedGridContent);
-        register(event, CraftingJobStatusPacket.TYPE, this::handleCraftingJobStatusPacket);
-        register(event, ConfigValuePacket.TYPE, this::handleConfigValuePacket);
+    /**
+     * Registers all clientbound packet handlers with the given loader-specific registrar. The loader is responsible for
+     * adapting its networking API (NeoForge: {@code RegisterClientPayloadHandlersEvent}, Fabric:
+     * {@code ClientPlayNetworking}) and must invoke the handlers on the client main thread.
+     */
+    public void registerAll(Registrar registrar) {
+        registrar.register(GuiDataSyncPacket.TYPE, this::handleGuiDataSyncPacket);
+        registrar.register(MatterCannonPacket.TYPE, this::handleMatterCannonPacket);
+        registrar.register(SetLinkStatusPacket.TYPE, this::handleSetLinkStatusPacket);
+        registrar.register(PatternAccessTerminalPacket.TYPE, this::handlePatternAccessTerminalPacket);
+        registrar.register(BlockTransitionEffectPacket.TYPE, this::handleBlockTransitionEffectPacket);
+        registrar.register(CraftingStatusPacket.TYPE, this::handleCraftingStatusPacket);
+        registrar.register(CraftConfirmPlanPacket.TYPE, this::handleCraftConfirmPlanPacket);
+        registrar.register(NetworkStatusPacket.TYPE, this::handleNetworkStatusPacket);
+        registrar.register(MolecularAssemblerAnimationPacket.TYPE, this::handleMolecularAssemblerAnimationPacket);
+        registrar.register(MEInventoryUpdatePacket.TYPE, this::handleMEInventoryUpdatePacket);
+        registrar.register(CompassResponsePacket.TYPE, this::handleCompassResponsePacket);
+        registrar.register(ClearPatternAccessTerminalPacket.TYPE, this::handleClearPatternAccessTerminalPacket);
+        registrar.register(ItemTransitionEffectPacket.TYPE, this::handleItemTransitionEffectPacket);
+        registrar.register(MockExplosionPacket.TYPE, this::handleMockExplosionPacket);
+        registrar.register(ExportedGridContent.TYPE, this::handleExportedGridContent);
+        registrar.register(CraftingJobStatusPacket.TYPE, this::handleCraftingJobStatusPacket);
+        registrar.register(ConfigValuePacket.TYPE, this::handleConfigValuePacket);
     }
 
-    private static <T extends ClientboundPacket> void register(RegisterClientPayloadHandlersEvent event,
-            CustomPacketPayload.Type<T> type, ClientPacketHandler<T> handler) {
-        event.register(type, (payload, context) -> handler.handle(payload, Minecraft.getInstance(), context.player()));
+    /**
+     * Loader-neutral target for the clientbound packet handler registrations.
+     */
+    @FunctionalInterface
+    public interface Registrar {
+        <T extends ClientboundPacket> void register(CustomPacketPayload.Type<T> type, ClientPacketHandler<T> handler);
     }
 
     @FunctionalInterface
-    private interface ClientPacketHandler<T extends ClientboundPacket> {
+    public interface ClientPacketHandler<T extends ClientboundPacket> {
         void handle(T payload, Minecraft minecraft, Player player);
     }
 }

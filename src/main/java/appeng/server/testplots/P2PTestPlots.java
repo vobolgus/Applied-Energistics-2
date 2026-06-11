@@ -86,12 +86,11 @@ public class P2PTestPlots {
         plot.test(helper -> {
             helper.succeedWhen(() -> {
                 var tank = helper.getBlockEntity(outputPos, SkyStoneTankBlockEntity.class);
-                var storage = tank.getFluidHandler();
                 helper.check(
-                        storage.getResource(0).is(Fluids.WATER),
+                        tank.getStoredFluid() != null && tank.getStoredFluid().getFluid() == Fluids.WATER,
                         "No water stored");
                 helper.check(
-                        storage.getAmountAsLong(0) > 0,
+                        tank.getStoredAmount() > 0,
                         "No amount >0 stored");
             });
         });

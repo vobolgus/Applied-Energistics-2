@@ -33,9 +33,10 @@ import net.minecraft.util.ExtraCodecs;
 import net.minecraft.util.Util;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.saveddata.SavedData;
-import net.minecraft.world.level.saveddata.SavedDataType;
 
 import appeng.core.AppEng;
+import appeng.util.AESavedDataType;
+import appeng.util.LoaderPlatform;
 
 /**
  * A compass region stores information about the occurrence of skystone blocks in a region of 1024x1024 chunks.
@@ -54,11 +55,12 @@ final class CompassRegion extends SavedData {
                 entry -> new Section(entry.getKey(), entry.getValue())).toList();
     }
 
-    private static final BiFunction<Integer, Integer, SavedDataType<CompassRegion>> TYPE = Util
-            .memoize((regionX, regionZ) -> new SavedDataType<>(
+    // was a NeoForge SavedDataType; see AESavedDataType (the level argument is unused here)
+    private static final BiFunction<Integer, Integer, AESavedDataType<CompassRegion>> TYPE = Util
+            .memoize((regionX, regionZ) -> new AESavedDataType<>(
                     AppEng.makeId("compass_" + regionX + "_" + regionZ),
-                    () -> new CompassRegion(regionX, regionZ),
-                    RecordCodecBuilder.create(builder -> builder.group(
+                    level -> new CompassRegion(regionX, regionZ),
+                    level -> RecordCodecBuilder.create(builder -> builder.group(
                             SECTION_CODEC.listOf().fieldOf("sections").forGetter(CompassRegion::sections))
                             .apply(builder, sections -> new CompassRegion(regionX, regionZ, sections)))));
 
@@ -106,7 +108,7 @@ final class CompassRegion extends SavedData {
         var regionX = Math.floorDiv(cx, CHUNKS_PER_REGION);
         var regionZ = Math.floorDiv(cz, CHUNKS_PER_REGION);
 
-        return level.getDataStorage().computeIfAbsent(TYPE.apply(regionX, regionZ));
+        return LoaderPlatform.get().computeSavedDataIfAbsent(level, TYPE.apply(regionX, regionZ));
     }
 
     static boolean hasCompassTarget(ServerLevel level, int cx, int cz) {

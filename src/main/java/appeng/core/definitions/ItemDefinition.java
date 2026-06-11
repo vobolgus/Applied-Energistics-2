@@ -29,18 +29,18 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.level.ItemLike;
-import net.neoforged.neoforge.registries.DeferredItem;
 
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import appeng.core.registration.AEItemEntry;
 import appeng.util.helpers.ItemComparisonHelper;
 
 public class ItemDefinition<T extends Item> implements ItemLike, Supplier<T> {
     private final String englishName;
-    private final DeferredItem<T> item;
+    private final AEItemEntry<T> item;
 
-    public ItemDefinition(String englishName, DeferredItem<T> item) {
+    public ItemDefinition(String englishName, AEItemEntry<T> item) {
         this.englishName = englishName;
         this.item = item;
     }
@@ -58,7 +58,7 @@ public class ItemDefinition<T extends Item> implements ItemLike, Supplier<T> {
     }
 
     public ItemStack stack(int stackSize) {
-        return new ItemStack((ItemLike) item, stackSize);
+        return new ItemStack(item, stackSize);
     }
 
     public ItemStackTemplate template() {
@@ -66,7 +66,7 @@ public class ItemDefinition<T extends Item> implements ItemLike, Supplier<T> {
     }
 
     public ItemStackTemplate template(int stackSize) {
-        return new ItemStackTemplate(item, stackSize);
+        return new ItemStackTemplate(item.getHolder(), stackSize, DataComponentPatch.EMPTY);
     }
 
     public ItemStackTemplate template(Consumer<DataComponentPatch.Builder> customizer) {
@@ -76,7 +76,7 @@ public class ItemDefinition<T extends Item> implements ItemLike, Supplier<T> {
     public ItemStackTemplate template(int stackSize, Consumer<DataComponentPatch.Builder> customizer) {
         var patch = DataComponentPatch.builder();
         customizer.accept(patch);
-        return new ItemStackTemplate(item, stackSize, patch.build());
+        return new ItemStackTemplate(item.getHolder(), stackSize, patch.build());
     }
 
     public GenericStack genericStack(long stackSize) {
@@ -84,7 +84,7 @@ public class ItemDefinition<T extends Item> implements ItemLike, Supplier<T> {
     }
 
     public Holder<Item> holder() {
-        return item;
+        return item.getHolder();
     }
 
     public Component getName() {

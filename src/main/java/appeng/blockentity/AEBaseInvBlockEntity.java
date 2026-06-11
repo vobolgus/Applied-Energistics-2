@@ -30,8 +30,6 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.neoforged.neoforge.transfer.ResourceHandler;
-import net.neoforged.neoforge.transfer.item.ItemResource;
 
 import appeng.api.inventories.InternalInventory;
 import appeng.api.stacks.GenericStack;
@@ -109,17 +107,21 @@ public abstract class AEBaseInvBlockEntity extends AEBaseBlockEntity implements 
         return this.getInternalInventory();
     }
 
+    /**
+     * The inventory this block entity exposes to neighbors on the given side, or null if it exposes none. Used by
+     * loader-specific code to expose the inventory via the loaders transfer API.
+     */
     @Nullable
-    public ResourceHandler<ItemResource> getExposedItemHandler(@Nullable Direction side) {
+    public final InternalInventory getExposedInventory(@Nullable Direction side) {
         if (side == null) {
-            return getInternalInventory().toResourceHandler();
+            return getInternalInventory();
         } else {
             var exposed = getExposedInventoryForSide(side);
             // If the inventory has 0 slots, it's probably a dummy.
             // Return null to avoid pipe connections to it.
             // isEmpty checks for stacks, use size to only check the slot count.
             // noinspection SizeReplaceableByIsEmpty
-            return exposed.size() == 0 ? null : exposed.toResourceHandler();
+            return exposed.size() == 0 ? null : exposed;
         }
     }
 

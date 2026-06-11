@@ -23,8 +23,6 @@ import java.util.function.Supplier;
 
 import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.transfer.ResourceHandler;
-import net.neoforged.neoforge.transfer.item.ItemResource;
 
 import appeng.api.inventories.InternalInventory;
 
@@ -39,18 +37,13 @@ public class SupplierInternalInventory<T extends InternalInventory> implements I
         this.delegate = delegate;
     }
 
-    protected final T getDelegate() {
+    public final T getDelegate() {
         return this.delegate.get();
     }
 
     @Override
     public boolean isEmpty() {
         return getDelegate().isEmpty();
-    }
-
-    @Override
-    public ResourceHandler<ItemResource> toResourceHandler() {
-        return getDelegate().toResourceHandler();
     }
 
     @Override

@@ -49,10 +49,10 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.EntityCollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.neoforged.neoforge.model.data.ModelData;
 
 import appeng.api.config.YesNo;
 import appeng.api.implementations.parts.ICablePart;
+import appeng.api.lookup.AEApiLookups;
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridNode;
 import appeng.api.parts.CableRenderMode;
@@ -79,6 +79,7 @@ import appeng.items.parts.FacadeItem;
 import appeng.me.InWorldGridNode;
 import appeng.parts.networking.CablePart;
 import appeng.util.Platform;
+import appeng.util.render.AERenderData;
 
 public class CableBusContainer implements AEMultiBlockEntity, ICableBusContainer {
 
@@ -298,7 +299,7 @@ public class CableBusContainer implements AEMultiBlockEntity, ICableBusContainer
         this.markForUpdate();
         this.markForSave();
         this.partChanged();
-        getBlockEntity().invalidateCapabilities();
+        AEApiLookups.get().invalidateApis(getBlockEntity());
         this.partRendererCache = null;
         updateNeighborShapeOnSide(side);
     }
@@ -961,11 +962,11 @@ public class CableBusContainer implements AEMultiBlockEntity, ICableBusContainer
                 continue;
             }
 
-            var builder = ModelData.builder();
-            part.collectModelData(builder);
-            var partModelData = builder.build();
+            var builder = AERenderData.builder();
+            part.collectRenderData(builder);
+            var partRenderData = builder.build();
 
-            renderState.getAttachments().put(side, new PartRenderState(part.getPartItem(), partModelData));
+            renderState.getAttachments().put(side, new PartRenderState(part.getPartItem(), partRenderData));
 
             // This will add the part's bounding boxes to the render state, which is
             // required for facades

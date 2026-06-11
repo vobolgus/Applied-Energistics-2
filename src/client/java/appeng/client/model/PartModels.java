@@ -21,13 +21,12 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.util.ExtraCodecs;
-import net.neoforged.fml.ModLoader;
 
 import appeng.api.implementations.parts.ICablePart;
 import appeng.api.parts.IPartItem;
+import appeng.client.ClientLoaderHooks;
 import appeng.client.api.model.parts.ClientPart;
 import appeng.client.api.model.parts.PartModel;
-import appeng.client.api.model.parts.RegisterPartModelsEvent;
 
 public final class PartModels {
     private static final Logger LOG = LoggerFactory.getLogger(PartModels.class);
@@ -40,7 +39,7 @@ public final class PartModels {
     private Map<Identifier, ClientPart> clientParts = null;
 
     public PartModels() {
-        ModLoader.postEvent(new RegisterPartModelsEvent(PART_MODEL_IDS));
+        ClientLoaderHooks.get().postRegisterPartModels(PART_MODEL_IDS);
     }
 
     public CompletableFuture<Void> reload(ResourceManager resourceManager, Executor executor) {

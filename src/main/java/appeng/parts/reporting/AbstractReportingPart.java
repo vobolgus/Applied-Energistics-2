@@ -28,15 +28,15 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.model.data.ModelData;
 
 import appeng.api.implementations.parts.IMonitorPart;
 import appeng.api.networking.GridFlags;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartItem;
-import appeng.blockentity.AEModelData;
 import appeng.parts.AEBasePart;
+import appeng.parts.automation.PartModelData;
 import appeng.util.InteractionUtil;
+import appeng.util.render.AERenderData;
 
 /**
  * The most basic class for any part reporting information, like terminals or monitors. This can also include basic
@@ -153,9 +153,9 @@ public abstract class AbstractReportingPart extends AEBasePart implements IMonit
 
     @Nullable
     @Override
-    public void collectModelData(ModelData.Builder builder) {
-        super.collectModelData(builder);
-        builder.with(AEModelData.SPIN, getSpin());
+    public void collectRenderData(AERenderData.Builder builder) {
+        super.collectRenderData(builder);
+        builder.with(PartModelData.SPIN, getSpin());
     }
 
     public final byte getSpin() {

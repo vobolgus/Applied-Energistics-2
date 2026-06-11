@@ -43,6 +43,7 @@ import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 import appeng.block.AEBaseEntityBlock;
+import appeng.blockentity.AEBaseBlockEntity;
 import appeng.blockentity.crafting.CraftingBlockEntity;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.localization.PlayerMessages;
@@ -77,8 +78,8 @@ public abstract class AbstractCraftingUnitBlock<T extends CraftingBlockEntity> e
     protected BlockState updateShape(BlockState state, LevelReader level, ScheduledTickAccess scheduledTickAccess,
             BlockPos pos, Direction direction, BlockPos neighborPos, BlockState neighborState, RandomSource random) {
         BlockEntity te = level.getBlockEntity(pos);
-        if (te != null) {
-            te.requestModelDataUpdate();
+        if (te instanceof AEBaseBlockEntity aeBe) {
+            aeBe.requestRenderUpdate();
         }
         var cp = this.getBlockEntity(level, pos);
         if (cp != null) {

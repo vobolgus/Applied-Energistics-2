@@ -22,10 +22,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.core.LoaderEventHooks;
 import appeng.util.Platform;
 
 public class CraftingEvent {
@@ -37,7 +36,7 @@ public class CraftingEvent {
             Container container) {
         var serverLevel = (ServerLevel) level;
         var fakePlayer = Platform.getFakePlayer(serverLevel, null);
-        NeoForge.EVENT_BUS.post(new PlayerEvent.ItemCraftedEvent(fakePlayer, craftedItem, container));
+        LoaderEventHooks.get().firePlayerCraftingEvent(fakePlayer, craftedItem, container);
     }
 
 }

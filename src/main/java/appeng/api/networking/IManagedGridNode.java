@@ -37,7 +37,6 @@ import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.neoforged.neoforge.common.util.ValueIOSerializable;
 
 import appeng.api.networking.pathing.IPathingService;
 import appeng.api.stacks.AEItemKey;
@@ -46,7 +45,7 @@ import appeng.api.util.AEColor;
 /**
  * This interface is intended for the host that created this node. It is used to configure the node's properties.
  */
-public interface IManagedGridNode extends ValueIOSerializable {
+public interface IManagedGridNode {
 
     /**
      * By destroying your node, you destroy any connections, and its existence in the grid, use in invalidate, or
@@ -71,7 +70,6 @@ public interface IManagedGridNode extends ValueIOSerializable {
      *
      * @param nodeData to be loaded data
      */
-    @Override
     void deserialize(ValueInput nodeData);
 
     /**
@@ -80,7 +78,6 @@ public interface IManagedGridNode extends ValueIOSerializable {
      *
      * @param nodeData to be saved data
      */
-    @Override
     void serialize(ValueOutput nodeData);
 
     /**

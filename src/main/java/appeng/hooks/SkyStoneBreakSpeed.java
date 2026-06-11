@@ -18,9 +18,12 @@
 
 package appeng.hooks;
 
+import org.jetbrains.annotations.Nullable;
+
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ToolMaterial;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.minecraft.world.level.block.state.BlockState;
 
 import appeng.core.definitions.AEBlocks;
 
@@ -28,6 +31,8 @@ import appeng.core.definitions.AEBlocks;
  * This hook is intended to essentially make sky stone blocks found in meteorites minable with iron tools while
  * multiplying their destroy time by 10. To accomplish this, the blocks are created with destroy time 50, and their
  * destroy time is divided by 10 if a tool _better_ than iron is used.
+ * <p>
+ * The loader entrypoint must wire {@link #getIncreasedBreakSpeed} to its break-speed event.
  */
 public final class SkyStoneBreakSpeed {
     public static final int SPEEDUP_FACTOR = 10;
@@ -35,13 +40,17 @@ public final class SkyStoneBreakSpeed {
     private SkyStoneBreakSpeed() {
     }
 
-    public static void handleBreakFaster(PlayerEvent.BreakSpeed event) {
-        var blockState = event.getState();
+    /**
+     * @return The increased break speed, or null if the break speed should remain unchanged.
+     */
+    @Nullable
+    public static Float getIncreasedBreakSpeed(Player player, BlockState blockState, float currentSpeed) {
         if (blockState.getBlock() == AEBlocks.SKY_STONE_BLOCK.block()) {
-            var tool = event.getEntity().getItemBySlot(EquipmentSlot.MAINHAND);
+            var tool = player.getItemBySlot(EquipmentSlot.MAINHAND);
             if (tool.getDestroySpeed(blockState) > ToolMaterial.IRON.speed()) {
-                event.setNewSpeed(event.getNewSpeed() * SPEEDUP_FACTOR);
+                return currentSpeed * SPEEDUP_FACTOR;
             }
         }
+        return null;
     }
 }

@@ -33,7 +33,8 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.item.DyeColor;
-import net.neoforged.neoforge.network.codec.NeoForgeStreamCodecs;
+
+import appeng.core.network.AEStreamCodecs;
 
 /**
  * List of all colors supported by AE, their names, and various colors for display.
@@ -66,7 +67,7 @@ public enum AEColor implements StringRepresentable {
 
     public static final Codec<AEColor> CODEC = StringRepresentable.fromEnum(AEColor::values);
 
-    public static final StreamCodec<FriendlyByteBuf, AEColor> STREAM_CODEC = NeoForgeStreamCodecs
+    public static final StreamCodec<FriendlyByteBuf, AEColor> STREAM_CODEC = AEStreamCodecs
             .enumCodec(AEColor.class);
 
     // TODO (RID): Sorted the colours according to the colour wheel

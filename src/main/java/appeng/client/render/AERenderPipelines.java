@@ -20,7 +20,9 @@ public final class AERenderPipelines {
     /**
      * Similar to {@link RenderPipelines#LINES}, but with inverted depth test.
      */
-    public static final RenderPipeline LINES_BEHIND_BLOCK = RenderPipelines.LINES.toBuilder()
+    // was Neo's RenderPipelines.LINES.toBuilder() (toBuilder is a Neo patch); vanilla LINES is exactly
+    // builder(LINES_SNIPPET) + location, so starting from the snippet is equivalent.
+    public static final RenderPipeline LINES_BEHIND_BLOCK = RenderPipeline.builder(RenderPipelines.LINES_SNIPPET)
             .withLocation(AppEng.makeId("pipeline/lines_behind_block"))
             .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN, false))
             .build();

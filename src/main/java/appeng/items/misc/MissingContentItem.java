@@ -30,7 +30,8 @@ public class MissingContentItem extends Item {
         var genericStackData = stack.get(AEComponents.MISSING_CONTENT_AEKEY_DATA);
 
         // "id" is just the most common ID field for key types
-        if (itemStackData != null && itemStackData.contains("id")) {
+        // was Neo's CustomData#contains(String); copyTag() is the vanilla equivalent
+        if (itemStackData != null && itemStackData.copyTag().contains("id")) {
             var brokenDataTag = itemStackData.copyTag();
             if (!brokenDataTag.contains("id")) {
                 return null; // Without any ID this info is worthless
@@ -45,7 +46,7 @@ public class MissingContentItem extends Item {
             }
 
             return new BrokenStackInfo(Component.literal(missingId), AEKeyType.items(), amount);
-        } else if (genericStackData != null && genericStackData.contains("id")) {
+        } else if (genericStackData != null && genericStackData.copyTag().contains("id")) {
             var brokenDataTag = genericStackData.copyTag();
             if (!brokenDataTag.contains("id")) {
                 return null; // Without any ID this info is worthless

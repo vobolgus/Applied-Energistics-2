@@ -18,11 +18,13 @@
 
 package appeng.client.render.crafting;
 
+import org.jetbrains.annotations.Nullable;
+
 import net.minecraft.client.resources.model.sprite.Material;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.model.data.ModelData;
 
+import appeng.blockentity.crafting.CraftingCubeModelData;
 import appeng.client.render.CubeBuilder;
 
 /**
@@ -39,7 +41,8 @@ public class UnitBakedModel extends CraftingCubeModel {
     }
 
     @Override
-    protected void addInnerCube(Direction facing, BlockState state, ModelData modelData, CubeBuilder builder, float x1,
+    protected void addInnerCube(Direction facing, BlockState state, @Nullable CraftingCubeModelData modelData,
+            CubeBuilder builder, float x1,
             float y1, float z1, float x2, float y2, float z2) {
         builder.setTexture(this.unitTexture);
         builder.addCube(x1, y1, z1, x2, y2, z2);

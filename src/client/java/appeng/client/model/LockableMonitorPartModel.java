@@ -15,11 +15,11 @@ import net.minecraft.client.resources.model.sprite.Material;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.RandomSource;
-import net.neoforged.neoforge.model.data.ModelData;
 
 import appeng.client.api.model.parts.PartModel;
 import appeng.core.AppEng;
 import appeng.parts.automation.PartModelData;
+import appeng.util.render.AERenderData;
 
 public record LockableMonitorPartModel(BlockStateModelPart unpoweredUnlockedModel,
         BlockStateModelPart poweredUnlockedModel,
@@ -27,7 +27,7 @@ public record LockableMonitorPartModel(BlockStateModelPart unpoweredUnlockedMode
         BlockStateModelPart poweredLockedModel) implements PartModel {
 
     @Override
-    public void collectParts(BlockAndTintGetter level, BlockPos pos, ModelData partModelData, RandomSource random,
+    public void collectParts(BlockAndTintGetter level, BlockPos pos, AERenderData partModelData, RandomSource random,
             List<BlockStateModelPart> parts) {
         var locked = Objects.requireNonNullElse(partModelData.get(PartModelData.MONITOR_LOCKED), false);
         var statusIndicator = Objects.requireNonNullElse(partModelData.get(PartModelData.STATUS_INDICATOR),

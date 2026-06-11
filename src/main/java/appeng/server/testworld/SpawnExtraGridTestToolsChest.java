@@ -8,15 +8,15 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
-import net.neoforged.neoforge.common.NeoForge;
 
 import appeng.core.definitions.AEBlockEntities;
 import appeng.core.definitions.AEBlocks;
-import appeng.server.testplots.SpawnExtraGridTestTools;
+import appeng.server.testplots.TestPlotPlatform;
 
 /**
  * Spawns a sky stone chest at the given position and once the grid at another position is initialized, posts
- * {@link SpawnExtraGridTestTools} to allow the chest to be populated.
+ * {@code appeng.server.testplots.SpawnExtraGridTestTools} (via {@link TestPlotPlatform}) to allow the chest to be
+ * populated.
  */
 public record SpawnExtraGridTestToolsChest(BlockPos chestPos, BlockPos gridPos,
         Identifier plotId) implements BuildAction {
@@ -35,7 +35,7 @@ public record SpawnExtraGridTestToolsChest(BlockPos chestPos, BlockPos gridPos,
             var chest = AEBlockEntities.SKY_CHEST.getBlockEntity(level, absChestPod);
             if (chest != null) {
                 var inventory = chest.getInternalInventory();
-                NeoForge.EVENT_BUS.post(new SpawnExtraGridTestTools(plotId, inventory, grid));
+                TestPlotPlatform.get().postSpawnExtraGridTestTools(plotId, inventory, grid);
             }
         });
     }

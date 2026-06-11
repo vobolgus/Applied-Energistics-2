@@ -8,7 +8,8 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.util.StringRepresentable;
-import net.neoforged.neoforge.network.codec.NeoForgeStreamCodecs;
+
+import appeng.core.network.AEStreamCodecs;
 
 /**
  * Extends {@link Direction} with an 'all' key.
@@ -24,7 +25,7 @@ public enum PushDirection implements StringRepresentable {
 
     public static final Codec<PushDirection> CODEC = StringRepresentable.fromEnum(PushDirection::values);
 
-    public static final StreamCodec<FriendlyByteBuf, PushDirection> STREAM_CODEC = NeoForgeStreamCodecs
+    public static final StreamCodec<FriendlyByteBuf, PushDirection> STREAM_CODEC = AEStreamCodecs
             .enumCodec(PushDirection.class);
 
     @Nullable

@@ -30,7 +30,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
-import net.neoforged.neoforge.model.data.ModelProperty;
 
 import appeng.api.util.AECableType;
 import appeng.api.util.AEColor;
@@ -40,8 +39,6 @@ import appeng.api.util.AEColor;
  * processing.
  */
 public class CableBusRenderState {
-
-    public static final ModelProperty<CableBusRenderState> PROPERTY = new ModelProperty<>();
 
     // The cable type used for rendering the outgoing connections to other blocks
     // and attached parts

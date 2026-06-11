@@ -2,9 +2,9 @@ package appeng.recipes;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.crafting.RecipeSerializer;
-import net.neoforged.neoforge.registries.DeferredRegister;
 
 import appeng.core.AppEng;
+import appeng.core.registration.AERegistries;
 import appeng.recipes.entropy.EntropyRecipe;
 import appeng.recipes.game.AddItemUpgradeRecipe;
 import appeng.recipes.game.CraftingUnitTransformRecipe;
@@ -22,9 +22,6 @@ public final class AERecipeSerializers {
     private AERecipeSerializers() {
     }
 
-    public static final DeferredRegister<RecipeSerializer<?>> DR = DeferredRegister
-            .create(Registries.RECIPE_SERIALIZER, AppEng.MOD_ID);
-
     static {
         register("inscriber", InscriberRecipe.SERIALIZER);
         register("facade", FacadeRecipe.SERIALIZER);
@@ -40,7 +37,14 @@ public final class AERecipeSerializers {
         register("storage_cell_disassembly", StorageCellDisassemblyRecipe.SERIALIZER);
     }
 
+    /**
+     * Forces the class to be loaded, ensuring all registration entries above were collected into {@link AERegistries}.
+     */
+    public static void init() {
+    }
+
     private static void register(String id, RecipeSerializer<?> serializer) {
-        DR.register(id, () -> serializer);
+        // was DeferredRegister: DR.register(id, () -> serializer)
+        AERegistries.register(Registries.RECIPE_SERIALIZER, AppEng.makeId(id), () -> serializer);
     }
 }

@@ -49,7 +49,6 @@ import net.minecraft.world.level.block.WallBlock;
 import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
 import net.minecraft.world.level.block.state.BlockBehaviour.StateArgumentPredicate;
 import net.minecraft.world.level.material.MapColor;
-import net.neoforged.neoforge.registries.DeferredRegister;
 
 import appeng.api.ids.AEBlockIds;
 import appeng.block.AEBaseBlock;
@@ -94,6 +93,7 @@ import appeng.block.storage.SkyStoneChestBlock;
 import appeng.block.storage.SkyStoneTankBlock;
 import appeng.core.AppEng;
 import appeng.core.MainCreativeTab;
+import appeng.core.registration.AERegistries;
 import appeng.debug.CubeGeneratorBlock;
 import appeng.debug.EnergyGeneratorBlock;
 import appeng.debug.ItemGenBlock;
@@ -109,8 +109,6 @@ import appeng.decorative.solid.QuartzLampBlock;
  * Internal implementation for the API blocks
  */
 public final class AEBlocks {
-    public static final DeferredRegister.Blocks DR = DeferredRegister.createBlocks(AppEng.MOD_ID);
-
     private static final List<BlockDefinition<?>> BLOCKS = new ArrayList<>();
     private static final StateArgumentPredicate<EntityType<?>> NEVER_ALLOW_SPAWN = (p1, p2, p3,
             p4) -> false;
@@ -259,6 +257,12 @@ public final class AEBlocks {
         return Collections.unmodifiableList(BLOCKS);
     }
 
+    /**
+     * Forces the class to be loaded, ensuring all registration entries above were collected into {@link AERegistries}.
+     */
+    public static void init() {
+    }
+
     private static <T extends Block> BlockDefinition<T> block(String englishName, Identifier id,
             Function<Properties, T> blockSupplier) {
         return block(englishName, id, blockSupplier, null);
@@ -272,9 +276,13 @@ public final class AEBlocks {
         Preconditions.checkArgument(id.getNamespace().equals(AppEng.MOD_ID));
 
         // Create block and matching item
-        var deferredBlock = DR.registerBlock(id.getPath(), blockSupplier);
-        var deferredItem = AEItems.DR.register(id.getPath(), () -> {
-            var block = deferredBlock.get();
+        // was DeferredRegister: DR.registerBlock(id.getPath(), blockSupplier)
+        var blockEntry = AERegistries.registerBlock(id, blockSupplier);
+        // Route the block item registration through AEItems to force its class initialization first.
+        // This preserves the item registration order of the previous code, where referencing AEItems.DR
+        // initialized all of AEItems before the first block item was registered (raw-id stability).
+        var itemEntry = AEItems.registerBlockItem(id, () -> {
+            var block = blockEntry.get();
             var itemProperties = new Item.Properties().setId(ResourceKey.create(Registries.ITEM, id))
                     .useBlockDescriptionPrefix();
             if (itemFactory != null) {
@@ -290,9 +298,9 @@ public final class AEBlocks {
             }
         });
 
-        var itemDef = new ItemDefinition<>(englishName, deferredItem);
+        var itemDef = new ItemDefinition<>(englishName, itemEntry);
         MainCreativeTab.add(itemDef);
-        BlockDefinition<T> definition = new BlockDefinition<>(englishName, deferredBlock, itemDef);
+        BlockDefinition<T> definition = new BlockDefinition<>(englishName, blockEntry, itemDef);
 
         BLOCKS.add(definition);
 

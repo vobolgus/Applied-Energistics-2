@@ -19,20 +19,14 @@
 package appeng.core;
 
 import net.minecraft.world.level.Level;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.Mod;
 
 /**
  * Contains mod functionality specific to a dedicated server.
+ * <p>
+ * Loader-free; the loader-specific dedicated-server entrypoint (e.g. {@code appeng.neoforge.AppEngNeoForgeServer})
+ * extends this class.
  */
-@Mod(value = AppEng.MOD_ID, dist = Dist.DEDICATED_SERVER)
 public class AppEngServer extends AppEngBase {
-    public AppEngServer(IEventBus modEventBus, ModContainer container) {
-        super(modEventBus, container);
-    }
-
     @Override
     public Level getClientLevel() {
         return null;

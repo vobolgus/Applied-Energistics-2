@@ -14,8 +14,8 @@ import net.minecraft.world.Nameable;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.capabilities.Capabilities;
 
+import appeng.api.lookup.AEApiLookups;
 import appeng.api.parts.IPartHost;
 import appeng.api.stacks.AEItemKey;
 import appeng.core.localization.GuiText;
@@ -82,14 +82,9 @@ public record PatternContainerGroup(
         }
 
         // Heuristic: If it doesn't allow item or fluid transfers, ignore it
-        var itemHandler = level.getCapability(Capabilities.Item.BLOCK, pos, target.getBlockState(), target,
-                side);
-        if (itemHandler == null || itemHandler.size() <= 0) {
-            var fluidHandler = level.getCapability(Capabilities.Fluid.BLOCK, pos, target.getBlockState(), target,
-                    side);
-            if (fluidHandler == null || fluidHandler.size() == 0) {
-                return null;
-            }
+        if (!AEApiLookups.get().hasNonEmptyItemHandler(level, pos, target.getBlockState(), target, side)
+                && !AEApiLookups.get().hasNonEmptyFluidHandler(level, pos, target.getBlockState(), target, side)) {
+            return null;
         }
 
         AEItemKey icon;

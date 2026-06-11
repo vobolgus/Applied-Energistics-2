@@ -40,6 +40,7 @@ import appeng.blockentity.qnb.QuantumBridgeBlockEntity;
 import appeng.core.definitions.AEItems;
 import appeng.crafting.pattern.EncodedPatternItem;
 import appeng.util.Icon;
+import appeng.util.LoaderPlatform;
 import appeng.util.Platform;
 
 /**
@@ -134,7 +135,7 @@ public class RestrictedInputSlot extends AppEngSlot {
             case VIEW_CELL:
                 return AEItems.VIEW_CELL.is(stack);
             case FUEL:
-                return stack.getBurnTime(null, getLevel().fuelValues()) > 0;
+                return LoaderPlatform.get().getBurnTime(stack, getLevel().fuelValues()) > 0;
             case POWERED_TOOL:
                 return Platform.isChargeable(stack);
             case QE_SINGULARITY:

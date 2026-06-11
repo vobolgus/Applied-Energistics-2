@@ -25,11 +25,12 @@ package appeng.api.config;
 
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
-import net.neoforged.neoforge.network.codec.NeoForgeStreamCodecs;
+
+import appeng.core.network.AEStreamCodecs;
 
 public enum CopyMode {
     CLEAR_ON_REMOVE, KEEP_ON_REMOVE;
 
-    public static final StreamCodec<FriendlyByteBuf, CopyMode> STREAM_CODEC = NeoForgeStreamCodecs
+    public static final StreamCodec<FriendlyByteBuf, CopyMode> STREAM_CODEC = AEStreamCodecs
             .enumCodec(CopyMode.class);
 }

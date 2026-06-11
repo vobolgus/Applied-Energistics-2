@@ -30,8 +30,6 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.neoforged.neoforge.transfer.ResourceHandler;
-import net.neoforged.neoforge.transfer.item.ItemResource;
 
 import appeng.blockentity.AEBaseBlockEntity;
 import appeng.util.inv.AppEngInternalInventory;
@@ -86,8 +84,8 @@ public class ItemGenBlockEntity extends AEBaseBlockEntity implements InternalInv
         super.loadTag(data);
     }
 
-    public ResourceHandler<ItemResource> getItemHandler() {
-        return inv.toResourceHandler();
+    public AppEngInternalInventory getInventory() {
+        return inv;
     }
 
     public void setItem(Item item) {

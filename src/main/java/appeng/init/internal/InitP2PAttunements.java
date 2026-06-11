@@ -18,11 +18,8 @@
 
 package appeng.init.internal;
 
-import net.neoforged.neoforge.capabilities.Capabilities;
-
 import appeng.api.features.P2PTunnelAttunement;
 import appeng.core.definitions.AEParts;
-import appeng.core.localization.GuiText;
 
 public final class InitP2PAttunements {
 
@@ -37,11 +34,7 @@ public final class InitP2PAttunements {
         P2PTunnelAttunement.registerAttunementTag(AEParts.ITEM_P2P_TUNNEL);
         P2PTunnelAttunement.registerAttunementTag(AEParts.LIGHT_P2P_TUNNEL);
 
-        P2PTunnelAttunement.registerItemAccessAttunementApi(P2PTunnelAttunement.ENERGY_TUNNEL,
-                Capabilities.Energy.ITEM,
-                GuiText.P2PAttunementEnergy.text());
-        P2PTunnelAttunement.registerItemAccessAttunementApi(P2PTunnelAttunement.FLUID_TUNNEL,
-                Capabilities.Fluid.ITEM,
-                GuiText.P2PAttunementFluid.text());
+        // The capability-based attunements (energy, fluid containers) are registered by the loader-specific
+        // glue right after this method runs, see appeng.neoforge.AENeoForgeP2PAttunement.init()
     }
 }

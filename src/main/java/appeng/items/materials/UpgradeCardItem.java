@@ -37,10 +37,11 @@ import appeng.api.upgrades.IUpgradeableObject;
 import appeng.api.upgrades.Upgrades;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.PlayerMessages;
+import appeng.hooks.extensions.ItemUseFirstHook;
 import appeng.items.AEBaseItem;
 import appeng.util.InteractionUtil;
 
-public class UpgradeCardItem extends AEBaseItem {
+public class UpgradeCardItem extends AEBaseItem implements ItemUseFirstHook {
 
     public UpgradeCardItem(Properties properties) {
         super(properties);
@@ -110,6 +111,7 @@ public class UpgradeCardItem extends AEBaseItem {
             }
         }
 
-        return super.onItemUseFirst(stack, context);
+        // was super.onItemUseFirst (Neo's injected default); the shim interface default is identical (PASS)
+        return ItemUseFirstHook.super.onItemUseFirst(stack, context);
     }
 }

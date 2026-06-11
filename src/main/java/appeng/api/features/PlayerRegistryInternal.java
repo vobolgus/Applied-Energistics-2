@@ -35,10 +35,11 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
-import net.minecraft.world.level.saveddata.SavedDataType;
 
 import appeng.core.AELog;
 import appeng.core.AppEng;
+import appeng.util.AESavedDataType;
+import appeng.util.LoaderPlatform;
 
 /**
  * Handles the matching between UUIDs and internal IDs for security systems. This whole system could be replaced by
@@ -57,7 +58,8 @@ final class PlayerRegistryInternal extends SavedData implements IPlayerRegistry 
                     UUIDUtil.CODEC.listOf().fieldOf("profile_ids").forGetter(PlayerRegistryData::profileIds))
                     .apply(builder, PlayerRegistryData::new));
 
-    private static final SavedDataType<PlayerRegistryInternal> TYPE = new SavedDataType<>(
+    // was a NeoForge level-sensitive SavedDataType; see AESavedDataType
+    private static final AESavedDataType<PlayerRegistryInternal> TYPE = new AESavedDataType<>(
             ID,
             level -> new PlayerRegistryInternal(level.getServer()),
             level -> RecordCodecBuilder.create(builder -> builder.group(
@@ -96,7 +98,7 @@ final class PlayerRegistryInternal extends SavedData implements IPlayerRegistry 
         if (overworld == null) {
             throw new IllegalStateException("Cannot retrieve player data for a server that has no overworld.");
         }
-        return overworld.getDataStorage().computeIfAbsent(TYPE);
+        return LoaderPlatform.get().computeSavedDataIfAbsent(overworld, TYPE);
     }
 
     @Nullable

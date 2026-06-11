@@ -20,10 +20,10 @@ package appeng.menu.slot;
 
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import appeng.api.config.Actionable;
 import appeng.api.inventories.InternalInventory;
+import appeng.core.network.NetworkAdapter;
 import appeng.core.network.ServerboundPacket;
 import appeng.core.network.serverbound.InventoryActionPacket;
 import appeng.helpers.InventoryAction;
@@ -69,14 +69,14 @@ public class FakeSlot extends AppEngSlot {
 
     // Used by item list mod dragging ghost items to determine if this is a valid destination
     public boolean canSetFilterTo(ItemStack stack) {
-        return getSlotIndex() < getInventory().size() && getInventory().isItemValid(getSlotIndex(), stack);
+        return getContainerSlot() < getInventory().size() && getInventory().isItemValid(getContainerSlot(), stack);
     }
 
     // Used by the item list mod dropping ghost ingredients on this slot
     public void setFilterTo(ItemStack itemStack) {
         ServerboundPacket message = new InventoryActionPacket(InventoryAction.SET_FILTER,
                 index, itemStack);
-        ClientPacketDistributor.sendToServer(message);
+        NetworkAdapter.get().sendToServer(message);
     }
 
     public void increase(ItemStack is) {
@@ -85,8 +85,8 @@ public class FakeSlot extends AppEngSlot {
             var realInv = configInv.getDelegate();
             if (realInv.getMode() == ConfigInventory.Mode.CONFIG_STACKS) {
                 var newFilter = configInv.convertToSuitableStack(is);
-                if (newFilter != null && newFilter.what().equals(realInv.getKey(getSlotIndex()))) {
-                    realInv.insert(getSlotIndex(), newFilter.what(), newFilter.amount(), Actionable.MODULATE);
+                if (newFilter != null && newFilter.what().equals(realInv.getKey(getContainerSlot()))) {
+                    realInv.insert(getContainerSlot(), newFilter.what(), newFilter.amount(), Actionable.MODULATE);
                     return;
                 }
             }
@@ -103,7 +103,7 @@ public class FakeSlot extends AppEngSlot {
                 var newFilter = configInv.convertToSuitableStack(is);
 
                 if (newFilter != null) {
-                    realInv.extract(getSlotIndex(), newFilter.what(), newFilter.amount(), Actionable.MODULATE);
+                    realInv.extract(getContainerSlot(), newFilter.what(), newFilter.amount(), Actionable.MODULATE);
                     return;
                 }
             }

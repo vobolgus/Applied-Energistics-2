@@ -9,7 +9,6 @@ import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.gui.handlers.IGhostIngredientHandler;
@@ -18,6 +17,7 @@ import mezz.jei.api.ingredients.ITypedIngredient;
 
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseScreen;
+import appeng.core.network.NetworkAdapter;
 import appeng.core.network.serverbound.InventoryActionPacket;
 import appeng.helpers.InventoryAction;
 import appeng.menu.slot.AppEngSlot;
@@ -112,7 +112,7 @@ class GhostIngredientHandler implements IGhostIngredientHandler<AEBaseScreen> {
         }
 
         if (index > -1) {
-            ClientPacketDistributor.sendToServer(new InventoryActionPacket(InventoryAction.SET_FILTER,
+            NetworkAdapter.get().sendToServer(new InventoryActionPacket(InventoryAction.SET_FILTER,
                     index, wrapped));
         }
 
@@ -140,7 +140,7 @@ class GhostIngredientHandler implements IGhostIngredientHandler<AEBaseScreen> {
             var wrapped = wrapDraggedItem(type, ingredient);
 
             if (wrapped != null) {
-                ClientPacketDistributor.sendToServer(new InventoryActionPacket(InventoryAction.SET_FILTER,
+                NetworkAdapter.get().sendToServer(new InventoryActionPacket(InventoryAction.SET_FILTER,
                         slot.index, wrapped));
             }
         }

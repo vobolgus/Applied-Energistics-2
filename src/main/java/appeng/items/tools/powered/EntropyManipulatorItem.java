@@ -63,6 +63,7 @@ import appeng.recipes.AERecipeTypes;
 import appeng.recipes.entropy.EntropyMode;
 import appeng.recipes.entropy.EntropyRecipe;
 import appeng.util.InteractionUtil;
+import appeng.util.LoaderPlatform;
 import appeng.util.Platform;
 
 public class EntropyManipulatorItem extends AEBasePoweredItem implements IBlockTool {
@@ -168,7 +169,7 @@ public class EntropyManipulatorItem extends AEBasePoweredItem implements IBlockT
         if (tryBoth || !InteractionUtil.isInAlternateUseMode(p)) {
             if (block instanceof TntBlock) {
                 level.removeBlock(pos, false);
-                block.onCaughtFire(level.getBlockState(pos), level, pos, side, p);
+                LoaderPlatform.get().onCaughtFire(block, level.getBlockState(pos), level, pos, side, p);
                 return true;
             }
 
@@ -280,7 +281,7 @@ public class EntropyManipulatorItem extends AEBasePoweredItem implements IBlockT
     @Nullable
     private static EntropyRecipe findRecipe(ServerLevel level, EntropyMode mode, BlockState blockState,
             FluidState fluidState) {
-        for (var holder : level.recipeAccess().recipeMap().byType(AERecipeTypes.ENTROPY)) {
+        for (var holder : LoaderPlatform.get().getRecipeMap(level.recipeAccess()).byType(AERecipeTypes.ENTROPY)) {
             var recipe = holder.value();
             if (recipe.matches(mode, blockState, fluidState)) {
                 return recipe;

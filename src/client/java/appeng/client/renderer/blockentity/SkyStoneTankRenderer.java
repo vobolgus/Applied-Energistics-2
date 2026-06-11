@@ -35,6 +35,7 @@ import net.minecraft.world.phys.Vec3;
 
 import appeng.blockentity.storage.SkyStoneTankBlockEntity;
 import appeng.client.render.CubeBuilder;
+import appeng.neoforge.transfer.NeoForgeResources;
 
 public final class SkyStoneTankRenderer
         implements BlockEntityRenderer<SkyStoneTankBlockEntity, SkyStoneTankRenderState> {
@@ -52,21 +53,21 @@ public final class SkyStoneTankRenderer
             Vec3 cameraPos, @Nullable ModelFeatureRenderer.CrumblingOverlay crumblingOverlay) {
         BlockEntityRenderer.super.extractRenderState(be, state, partialTicks, cameraPos, crumblingOverlay);
 
-        var fluidHandler = be.getFluidHandler();
-        var resource = fluidHandler.getResource(0);
-        var capacity = fluidHandler.getCapacityAsLong(0, resource);
-        var amount = fluidHandler.getAmountAsLong(0);
-        if (resource.isEmpty() || capacity <= 0 || amount <= 0) {
+        var storedFluid = be.getStoredFluid();
+        var capacity = be.getCapacity();
+        var amount = be.getStoredAmount();
+        if (storedFluid == null || capacity <= 0 || amount <= 0) {
             state.fill = 0;
             state.sprite = null;
             return;
         }
 
-        var fluidStack = resource.toStack(1);
+        var fluid = storedFluid.getFluid();
+        var fluidStack = NeoForgeResources.toFluidStack(storedFluid, 1);
 
         state.fill = (float) amount / capacity;
         var fluidModel = Minecraft.getInstance().getModelManager().getFluidStateModelSet()
-                .get(resource.getFluid().defaultFluidState());
+                .get(fluid.defaultFluidState());
         state.sprite = fluidModel.stillMaterial().sprite();
         var tintSource = fluidModel.fluidTintSource();
         if (tintSource != null) {
@@ -74,7 +75,7 @@ public final class SkyStoneTankRenderer
         } else {
             state.color = -1;
         }
-        state.lighterThanAir = resource.getFluidType().isLighterThanAir();
+        state.lighterThanAir = fluid.getFluidType().isLighterThanAir();
     }
 
     @Override

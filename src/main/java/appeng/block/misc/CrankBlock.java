@@ -35,7 +35,6 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.neoforged.neoforge.common.util.FakePlayer;
 
 import appeng.api.implementations.blockentities.ICrankable;
 import appeng.api.orientation.IOrientationStrategy;
@@ -43,6 +42,7 @@ import appeng.api.orientation.OrientationStrategies;
 import appeng.api.orientation.RelativeSide;
 import appeng.block.AEBaseEntityBlock;
 import appeng.blockentity.misc.CrankBlockEntity;
+import appeng.util.LoaderPlatform;
 
 public class CrankBlock extends AEBaseEntityBlock<CrankBlockEntity> {
 
@@ -57,7 +57,7 @@ public class CrankBlock extends AEBaseEntityBlock<CrankBlockEntity> {
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
             BlockHitResult hitResult) {
-        if (player instanceof FakePlayer) {
+        if (LoaderPlatform.get().isFakePlayer(player)) {
             this.dropCrank(level, pos);
             return InteractionResult.SUCCESS;
         }

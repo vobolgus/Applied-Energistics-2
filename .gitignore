@@ -25,6 +25,9 @@
 # include sourcecode
 !docs/
 !src/
+!/loader/
+/loader/*/run
+/loader/*/.gradle
 src/generated/resources/.cache
 out
 build

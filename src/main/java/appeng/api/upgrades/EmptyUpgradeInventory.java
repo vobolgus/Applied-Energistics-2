@@ -26,9 +26,6 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.neoforged.neoforge.transfer.EmptyResourceHandler;
-import net.neoforged.neoforge.transfer.ResourceHandler;
-import net.neoforged.neoforge.transfer.item.ItemResource;
 
 final class EmptyUpgradeInventory implements IUpgradeInventory {
     public static final EmptyUpgradeInventory INSTANCE = new EmptyUpgradeInventory();
@@ -56,11 +53,6 @@ final class EmptyUpgradeInventory implements IUpgradeInventory {
     @Override
     public boolean isEmpty() {
         return true;
-    }
-
-    @Override
-    public ResourceHandler<ItemResource> toResourceHandler() {
-        return EmptyResourceHandler.instance();
     }
 
     @Override

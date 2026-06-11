@@ -50,8 +50,9 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 import appeng.block.AEBaseBlock;
 import appeng.entity.TinyTNTPrimedEntity;
+import appeng.hooks.extensions.BlockCaughtFireHook;
 
-public class TinyTNTBlock extends AEBaseBlock {
+public class TinyTNTBlock extends AEBaseBlock implements BlockCaughtFireHook {
 
     private static final VoxelShape SHAPE = Shapes
             .create(new AABB(0.25f, 0.0f, 0.25f, 0.75f, 0.5f, 0.75f));

@@ -9,7 +9,6 @@ import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.core.Registry;
-import net.neoforged.neoforge.registries.callback.BakeCallback;
 
 /**
  * Manages the registry used to synchronize key spaces to the client.
@@ -33,13 +32,18 @@ public final class AEKeyTypesInternal {
     public static void setRegistry(Registry<AEKeyType> registry) {
         Preconditions.checkState(AEKeyTypesInternal.registry == null);
         AEKeyTypesInternal.registry = registry;
-        registry.addCallback((BakeCallback<AEKeyType>) (ignored -> {
-            var types = new HashSet<AEKeyType>();
-            for (var aeKeyType : registry) {
-                types.add(aeKeyType);
-            }
-            allTypes = Set.copyOf(types);
-        }));
+    }
+
+    /**
+     * Rebuilds the cached set of all key types from the registry. Called by the loader layer whenever the key type
+     * registry is baked/frozen.
+     */
+    public static void updateAllTypes() {
+        var types = new HashSet<AEKeyType>();
+        for (var aeKeyType : getRegistry()) {
+            types.add(aeKeyType);
+        }
+        allTypes = Set.copyOf(types);
     }
 
     public static Set<AEKeyType> getAllTypes() {

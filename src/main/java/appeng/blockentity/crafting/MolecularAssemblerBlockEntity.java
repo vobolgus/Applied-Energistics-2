@@ -36,7 +36,6 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
@@ -65,9 +64,11 @@ import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
+import appeng.core.network.NetworkAdapter;
 import appeng.core.network.clientbound.MolecularAssemblerAnimationPacket;
 import appeng.crafting.CraftingEvent;
 import appeng.menu.AutoCraftingMenu;
+import appeng.util.LoaderPlatform;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.CombinedInternalInventory;
 import appeng.util.inv.FilteredInternalInventory;
@@ -462,7 +463,7 @@ public class MolecularAssemblerBlockEntity extends AENetworkedInvBlockEntity
 
                 var item = AEItemKey.of(output);
                 if (item != null) {
-                    PacketDistributor.sendToPlayersNear(node.getLevel(), null, worldPosition.getX(),
+                    NetworkAdapter.get().sendToPlayersNear(node.getLevel(), null, worldPosition.getX(),
                             worldPosition.getY(),
                             worldPosition.getZ(), 32,
                             new MolecularAssemblerAnimationPacket(this.worldPosition, (byte) speed, item));
@@ -524,7 +525,8 @@ public class MolecularAssemblerBlockEntity extends AENetworkedInvBlockEntity
             return output;
         }
 
-        var adaptor = InternalInventory.wrapExternal(getLevel(), this.worldPosition.relative(d), d.getOpposite());
+        var adaptor = LoaderPlatform.get().wrapExternalInventory(getLevel(), this.worldPosition.relative(d),
+                d.getOpposite());
         if (adaptor == null) {
             return output;
         }
