@@ -1158,7 +1158,7 @@ against the fabric-loom `minecraft-merged.jar`. New mixins live in `appeng.fabri
   PlayerRegistry/CompassRegion data; current DataVersion files are a no-op fix anyway.
 - Fabric gametests stay UNWIRED (placeholder `AEFabricGameTests` documented: Fabric's gametest API on
   26.1 has no dynamic-registration hook for `GameTestPlotAdapter.registerAll`); no
-  `fabric-gametest` entrypoint added.
+  `fabric-gametest` entrypoint added. (SUPERSEDED in part 2 below: registry-injection mixin found.)
 - Dist arrangement: `AppEngFabric.onInitialize` constructs `AppEngServer` only under
   `EnvType.SERVER`; client construction stays with the Phase 3 client entrypoint (no
   double-construction possible).
@@ -1170,6 +1170,88 @@ against the fabric-loom `minecraft-merged.jar`. New mixins live in `appeng.fabri
 - Sneak-bypass + pick-block client twins (`MultiPlayerGameMode`), `ReequipAnimationHook`,
   client chunk-unload forwarding for `onChunkUnloaded` — Phase 3.
 - Datagen parity: fabric load conditions + `fabric:difference` ingredient + per-loader biome json.
+
+## Phase 2b (part 2) — Fabric gametests (gate M2 COMPLETE)
+
+`:fabric:runGametest` runs the full plot-based suite headlessly: **68/68 tests pass** (67 shared AE2
+plots + vanilla `minecraft:always_pass`). NeoForge baseline `:neoforge:runGametest`: **69/69 pass**
+(68 AE2 plots + `always_pass`); the delta of exactly one test is `ae2:interface_slot_filtering` from
+the NeoForge-only `InterfaceCapabilityTestPlots` (capability-overlay plot split loader-side in the
+Phase 2a step; a Fabric twin is a follow-up, not part of this gate). `:fabric:build` GREEN,
+`:neoforge:build` GREEN (incl. the 451 unit tests), `grep -rl "net.neoforged" src/main/java | wc -l` → 0.
+
+### Registration mechanism found (the "no dynamic-registration hook" question resolved)
+
+On 26.1 game tests are entries of the **data-driven `minecraft:test_instance` registry**
+(`RegistryDataLoader#WORLDGEN_REGISTRIES`); NeoForge's `RegisterGameTestsEvent#registerTest` injects
+dynamic `GameTestInstance`s into that registry during datapack registry load. fabric-api's gametest
+module (`fabric-gametest-api-v1` 4.0.17) does the same for its `@GameTest`-annotated `fabric-gametest`
+entrypoint methods — via its own `RegistryDataLoaderMixin` that registers extra entries into the
+in-flight `WritableRegistry` before it is frozen. That entrypoint path is useless for AE2 (plots are
+generated `GameTestInstance`s, not annotated methods), but the registry-injection technique is exactly
+the NeoForge event's mechanics, so AE2 mirrors it one level lower:
+
+- NEW `appeng.fabric.mixins.GameTestRegistryLoadTaskMixin` — `@Inject` at HEAD of vanilla
+  `RegistryLoadTask#freezeRegistry`; when the task's registry is `Registries.TEST_INSTANCE` (and
+  `appeng.tests=true`), `GameTestPlotAdapter.registerAll` registers every plot adapter into the
+  `@Shadow`'d private `WritableRegistry` right before the freeze. `test_instance` is only listed in
+  `WORLDGEN_REGISTRIES` (not `SYNCHRONIZED_REGISTRIES`), so this never fires for the network-received
+  registry path — no flag dance needed (fabric-api's mixin needs one because it targets the shared
+  `load` lambda; `freezeRegistry` is per-task and self-identifying).
+- The `ae2:plot_adapter` `TEST_INSTANCE_TYPE` codec was already registered by `AppEngFabric` (Phase 2a),
+  and the shared `tests.TestInstanceBlockEntityMixin`/`tests.TestCommandMixin` (structure synthesis +
+  placement for plots) apply on both loaders. The placeholder `AEFabricGameTests` class was deleted.
+
+### Run configuration
+
+- loom run config `gametest` in `loader/fabric/build.gradle` (`server()`, runDir `build/gametest`,
+  `-Dfabric-api.gametest=true`) → gradle task `:fabric:runGametest`.
+- Mechanics: fabric-api's `MainMixin` hijacks the dedicated-server `Main.main` when
+  `fabric-api.gametest` is set and spins a vanilla `GameTestServer` (auto-agrees EULA, superflat,
+  exits non-zero on failures), which runs every non-`manualOnly` entry of the `test_instance`
+  registry. Optional properties: `fabric-api.gametest.filter` (resource selector, e.g. `ae2:subnet` —
+  invaluable for debugging single tests), `.report-file` (JUnit XML), `.verify`.
+- `appeng.tests=true` comes from the shared `configureEach` block, mirroring :neoforge.
+
+### Transfer/lookup-layer bug found & fixed (what this gate exists for)
+
+`ae2:subnet` and `ae2:multi_storage_bus` failed under full-suite load ("inserted != 1: 0",
+"Network storage does not contain minecraft:red_concrete. Available keys: []") but PASSED when run
+alone with the filter — a load-dependent ordering race, root cause **missing capability invalidation**:
+
+- Both plots point a storage bus at an AE2 interface (part or block). Under load, the bus's first
+  device tick runs before the interface's grid is online → `updateTarget` finds no `ME_STORAGE` and no
+  external storage → delegate `NullInventory` → `sleepDevice`. On NeoForge the interface's
+  `InterfaceLogic#gridChanged → notifyNeighbors → invalidateCapabilities()` then triggers the bus's
+  registered invalidation listener → `scheduleUpdate` → recovery. On Fabric both seam methods
+  (`AEApiLookups#registerInvalidationListener`/`#invalidateApis`) were documented no-ops → the bus
+  slept forever.
+- FIX in `FabricApiLookups`: an own per-`ServerLevel`, per-position invalidation-listener registry
+  (weakly-held listeners per the NeoForge contract; level keyed weakly). `invalidateApis(blockEntity)`
+  — called from AE2's 5 shared `invalidateCapabilities()` call sites (InterfaceLogic.notifyNeighbors,
+  CableBusContainer part changes, orientation changes, Inscriber, MEChest) — now notifies the
+  listeners at that position. The `createCache(level, pos, side, isValid, listener)` overload also
+  participates: it registers a wrapper (unregister-when-`isValid`-fails, mirroring NeoForge's
+  `BlockCapabilityCache`) which the returned cache holds strongly.
+- Remaining documented delta vs NeoForge: placing/removing non-AE2 blocks produces no invalidation
+  (NeoForge auto-invalidates on any block change); those cases are covered by vanilla neighbor
+  updates (`onNeighborChanged` → `alertDevice` → re-query), and Fabric's `BlockApiCache` re-validates
+  on every query, so re-querying consumers always observe changes.
+
+After the fix: two consecutive full-suite runs 68/68 (no flakiness), and the storage/network/automation
+core all passes — ME network formation (`ChannelTests`, `QnbTestPlots`), import/export/storage buses
+and subnets (`SubnetPlots`, `TestPlots` bus plots, `AnnihilationPlaneTests`), P2P
+(`P2PTestPlots`, `ItemP2PTestPlots`), autocrafting/pattern providers, interfaces, inscriber, spatial.
+
+### Non-blockers / deferred
+
+- The 67 `c:nuggets/*` matter-cannon recipe load errors + 5 `neoforge:difference` cable-clean recipe
+  errors still log during the run (known datagen-parity issue, Phase 2b part 1). **No gametest depends
+  on those recipes** — nothing was skipped because of them; noise only.
+- `ae2:interface_slot_filtering` (NeoForge-only plot) — port alongside the Fabric capability-overlay
+  work; tracked by the `FabricTestPlotPlatform` TODO.
+- Flaky-looking `[unregistered]` shown as the batch environment name in the log is cosmetic: plot
+  adapters use `Holder.direct(TestEnvironmentDefinition.AllOf())` (same on NeoForge).
 
 ## Open questions
 

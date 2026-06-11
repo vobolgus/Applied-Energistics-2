@@ -70,6 +70,17 @@ loom {
         server {
             programArgs 'nogui'
         }
+        // Headless game-test server (the twin of :neoforge's `gametest` run, type 'gameTestServer').
+        // fabric-api's gametest module hijacks the dedicated-server main when `fabric-api.gametest`
+        // is set and boots a vanilla GameTestServer that runs every non-manualOnly entry of the
+        // `minecraft:test_instance` registry; AE2's plot tests are injected into that registry by
+        // GameTestRegistryLoadTaskMixin (gated on `appeng.tests`, set in configureEach above).
+        gametest {
+            server()
+            name 'Game Test Server'
+            runDir 'build/gametest'
+            property 'fabric-api.gametest', 'true'
+        }
     }
 }
 

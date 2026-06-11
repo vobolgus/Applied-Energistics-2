@@ -6,6 +6,7 @@
   "mixins": [
     "BlockExplodedMixin",
     "EnderDragonEntityDestroyMixin",
+    "GameTestRegistryLoadTaskMixin",
     "LevelNeighborChangeMixin",
     "LivingEntityLadderMixin",
     "PickBlockCloneItemStackMixin",

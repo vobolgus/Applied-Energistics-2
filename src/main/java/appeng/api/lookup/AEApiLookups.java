@@ -47,13 +47,16 @@ public interface AEApiLookups {
      * <p>
      * NeoForge capability-invalidation semantics apply: the listener is only held <strong>weakly</strong>, so the
      * caller must keep a strong reference to it for as long as it should stay registered. Returning false from the
-     * listener unregisters it. On Fabric, where no invalidation notifications exist, this is a no-op.
+     * listener unregisters it. On Fabric, AE2 maintains its own per-position listener registry that is notified from
+     * the {@link #invalidateApis} call sites (the Fabric API lookup system itself has no invalidation notifications;
+     * block changes of non-AE2 blocks are covered by neighbor updates instead).
      */
     void registerInvalidationListener(ServerLevel level, BlockPos pos, AEApiInvalidationListener listener);
 
     /**
      * Notifies the loader that the set of APIs exposed by the given block entity may have changed (was NeoForge's
-     * {@code BlockEntity#invalidateCapabilities()}). On Fabric, where lookups are uncached, this is a no-op.
+     * {@code BlockEntity#invalidateCapabilities()}). On Fabric this notifies the listeners registered for the block
+     * entity's position via {@link #registerInvalidationListener}.
      */
     void invalidateApis(BlockEntity blockEntity);
 

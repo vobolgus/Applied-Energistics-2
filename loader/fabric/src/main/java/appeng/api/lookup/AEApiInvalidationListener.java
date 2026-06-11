@@ -23,9 +23,9 @@ package appeng.api.lookup;
  * <p>
  * This is a <strong>loader-duplicated</strong> interface: on NeoForge it extends
  * {@code ICapabilityInvalidationListener} so listeners can be registered with the capability invalidation system
- * directly; this Fabric version declares the single method itself and is <strong>never invoked</strong>, because the
- * Fabric API lookup system has no invalidation notifications — consumers must re-query instead (see
- * {@code appeng.fabric.lookup.FabricApiLookups}).
+ * directly; this Fabric version declares the single method itself and is invoked by AE2's own invalidation registry in
+ * {@code appeng.fabric.lookup.FabricApiLookups} (fed from the {@code AEApiLookups#invalidateApis} call sites, since the
+ * Fabric API lookup system itself has no invalidation notifications).
  */
 @FunctionalInterface
 public interface AEApiInvalidationListener {

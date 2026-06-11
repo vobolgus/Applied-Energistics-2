@@ -18,6 +18,11 @@
 
 package appeng.fabric.lookup;
 
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.function.BooleanSupplier;
 
 import org.jetbrains.annotations.Nullable;
@@ -36,6 +41,9 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+
 import appeng.api.lookup.AEApiCache;
 import appeng.api.lookup.AEApiInvalidationListener;
 import appeng.api.lookup.AEApiLookup;
@@ -46,18 +54,30 @@ import appeng.api.lookup.AEApiLookups;
  * <p>
  * <strong>Behavior notes (vs. NeoForge):</strong>
  * <ul>
- * <li>The Fabric API lookup system has no invalidation notifications. {@link #registerInvalidationListener} is
- * therefore a no-op and the {@code invalidationListener} passed to
- * {@link AEApiLookup#createCache(ServerLevel, BlockPos, Direction, BooleanSupplier, Runnable)} is never invoked. Caches
- * degrade gracefully: {@link BlockApiCache} re-validates the block entity and provider on every query, so consumers
- * that re-query (as all AE2 consumers do on tick/neighbor updates) observe changes, just without the eager
- * notification.</li>
+ * <li>The Fabric API lookup system has no invalidation notifications, so this class maintains its own per-level,
+ * per-position registry of {@linkplain #registerInvalidationListener invalidation listeners} (weakly held, mirroring
+ * NeoForge's contract) and delivers notifications from {@link #invalidateApis} — i.e. from AE2's own
+ * {@code invalidateCapabilities()} call sites (interface grid changes, part/orientation changes, ...). This is what
+ * wakes a sleeping storage bus when the AE2 machine it points at becomes available, exactly like the NeoForge
+ * capability invalidation system does. The remaining delta to NeoForge: placing/removing <em>non-AE2</em> blocks does
+ * not produce an invalidation (NeoForge auto-invalidates on any block change); those cases are covered by the vanilla
+ * neighbor-update path instead ({@code onNeighborChanged} alerts the device, which then re-queries).</li>
+ * <li>{@link BlockApiCache} re-validates the block entity and provider on every query, so consumers that re-query
+ * always observe changes even without a notification.</li>
  * <li>{@link #hasNonEmptyItemHandler}/{@link #hasNonEmptyFluidHandler} approximate the NeoForge {@code size()} checks:
  * a found Fabric storage is considered non-empty if it is not a {@link SlottedStorage} with zero slots (the Fabric API
  * has no slot-count query for generic storages).</li>
  * </ul>
  */
 public final class FabricApiLookups implements AEApiLookups {
+
+    /**
+     * Per-level, per-position invalidation listeners. Levels are keyed weakly (a ServerLevel lives for the duration of
+     * the server, but dev-time server restarts in the same JVM must not leak), listeners are held weakly per the
+     * NeoForge contract (the caller keeps the strong reference). Only ever touched on the server thread, matching
+     * NeoForge's thread-affinity for capability invalidation.
+     */
+    private static final Map<ServerLevel, Long2ObjectMap<List<WeakReference<AEApiInvalidationListener>>>> INVALIDATION_LISTENERS = new WeakHashMap<>();
 
     /**
      * Wraps an existing sided {@link BlockApiLookup} as an {@link AEApiLookup}, e.g. for use with
@@ -87,14 +107,57 @@ public final class FabricApiLookups implements AEApiLookups {
 
     @Override
     public void registerInvalidationListener(ServerLevel level, BlockPos pos, AEApiInvalidationListener listener) {
-        // No-op: Fabric has no API invalidation notifications. Consumers (e.g. the storage bus) rely on
-        // their tick/neighbor-update re-query paths instead. See the class javadoc.
+        addInvalidationListener(level, pos, listener);
+    }
+
+    private static void addInvalidationListener(ServerLevel level, BlockPos pos,
+            AEApiInvalidationListener listener) {
+        INVALIDATION_LISTENERS
+                .computeIfAbsent(level, ignored -> new Long2ObjectOpenHashMap<>())
+                .computeIfAbsent(pos.asLong(), ignored -> new ArrayList<>(2))
+                .add(new WeakReference<>(listener));
     }
 
     @Override
     public void invalidateApis(BlockEntity blockEntity) {
-        // No-op: Fabric API lookups are resolved (and BlockApiCache re-validated) on every query, so there is
-        // nothing to invalidate eagerly. See the class javadoc.
+        if (!(blockEntity.getLevel() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        var levelListeners = INVALIDATION_LISTENERS.get(serverLevel);
+        if (levelListeners == null) {
+            return;
+        }
+        var posKey = blockEntity.getBlockPos().asLong();
+        var listeners = levelListeners.get(posKey);
+        if (listeners == null) {
+            return;
+        }
+        listeners.removeIf(ref -> {
+            var listener = ref.get();
+            return listener == null || !listener.onInvalidate();
+        });
+        if (listeners.isEmpty()) {
+            levelListeners.remove(posKey);
+        }
+    }
+
+    /**
+     * Builds the weakly-registered listener for the {@code createCache} overload taking an invalidation listener,
+     * mirroring NeoForge's {@code BlockCapabilityCache} semantics: on invalidation, a cache that is no longer valid is
+     * permanently unregistered, otherwise the listener is notified. The returned wrapper must be strongly referenced by
+     * the cache for as long as it lives.
+     */
+    private static AEApiInvalidationListener createCacheListener(ServerLevel level, BlockPos pos,
+            BooleanSupplier isValid, Runnable invalidationListener) {
+        AEApiInvalidationListener wrapper = () -> {
+            if (!isValid.getAsBoolean()) {
+                return false;
+            }
+            invalidationListener.run();
+            return true;
+        };
+        addInvalidationListener(level, pos, wrapper);
+        return wrapper;
     }
 
     @Override
@@ -137,14 +200,14 @@ public final class FabricApiLookups implements AEApiLookups {
 
         @Override
         public AEApiCache<A> createCache(ServerLevel level, BlockPos pos, @Nullable Direction side) {
-            return new Cache<>(BlockApiCache.create(lookup, level, pos), side);
+            return new Cache<>(BlockApiCache.create(lookup, level, pos), side, null);
         }
 
         @Override
         public AEApiCache<A> createCache(ServerLevel level, BlockPos pos, @Nullable Direction side,
                 BooleanSupplier isValid, Runnable invalidationListener) {
-            // The invalidation listener is never invoked on Fabric, see the class javadoc.
-            return new Cache<>(BlockApiCache.create(lookup, level, pos), side);
+            return new Cache<>(BlockApiCache.create(lookup, level, pos), side,
+                    createCacheListener(level, pos, isValid, invalidationListener));
         }
     }
 
@@ -164,17 +227,23 @@ public final class FabricApiLookups implements AEApiLookups {
 
         @Override
         public AEApiCache<A> createCache(ServerLevel level, BlockPos pos, @Nullable Direction side) {
-            return new Cache<>(BlockApiCache.create(lookup, level, pos), null);
+            return new Cache<>(BlockApiCache.create(lookup, level, pos), null, null);
         }
 
         @Override
         public AEApiCache<A> createCache(ServerLevel level, BlockPos pos, @Nullable Direction side,
                 BooleanSupplier isValid, Runnable invalidationListener) {
-            return new Cache<>(BlockApiCache.create(lookup, level, pos), null);
+            return new Cache<>(BlockApiCache.create(lookup, level, pos), null,
+                    createCacheListener(level, pos, isValid, invalidationListener));
         }
     }
 
-    private record Cache<A, C>(BlockApiCache<A, C> cache, @Nullable C context) implements AEApiCache<A> {
+    /**
+     * @param registeredListener strong reference keeping the (weakly registered) invalidation listener of this cache
+     *                           alive; unused otherwise.
+     */
+    private record Cache<A, C>(BlockApiCache<A, C> cache, @Nullable C context,
+            @Nullable AEApiInvalidationListener registeredListener) implements AEApiCache<A> {
         @Override
         @Nullable
         public A get() {

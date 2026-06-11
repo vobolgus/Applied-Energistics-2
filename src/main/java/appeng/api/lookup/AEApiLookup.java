@@ -68,8 +68,9 @@ public interface AEApiLookup<A> {
     /**
      * Creates a cache for repeated API queries bound to a fixed position and side.
      * <p>
-     * NeoForge {@code BlockCapabilityCache} semantics apply (on Fabric, where no invalidation notifications exist, the
-     * cache simply re-queries and the listener is never invoked):
+     * NeoForge {@code BlockCapabilityCache} semantics apply (on Fabric, notifications are delivered by AE2's own
+     * invalidation registry, i.e. only for AE2's {@code invalidateApis} call sites; the cache additionally re-queries
+     * on every {@code get}, so changes without a notification are still observed by re-querying consumers):
      * <ul>
      * <li>{@link AEApiCache#get()} returns null while the target position is not loaded.</li>
      * <li>{@code isValid} is checked when an invalidation notification arrives; once it returns false, the cache is
