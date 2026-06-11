@@ -59,8 +59,8 @@ public abstract class AEBaseBlockEntityHooks extends BlockEntity implements Rend
      * subclass overrides target NeoForge's injected {@code IBlockEntityExtension#onChunkUnloaded} hook instead, whose
      * default is an equivalent no-op.
      * <p>
-     * TODO (fabric, Phase 2b): must be invoked from a {@code ServerChunkEvents.CHUNK_UNLOAD} (and client equivalent)
-     * handler for all AE2 block entities of the unloading chunk.
+     * Invoked from the {@code ServerChunkEvents.CHUNK_UNLOAD} handler in {@code AppEngFabric} for all AE2 block
+     * entities of the unloading chunk. TODO (fabric, Phase 3): also invoke from the client chunk-unload event.
      */
     public void onChunkUnloaded() {
     }

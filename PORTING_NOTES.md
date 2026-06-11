@@ -1050,6 +1050,8 @@ If any subtle Phase 1 edit in these 3 files is missed, `:neoforge:build` (451 te
 
 ### Remaining Phase 2b (runtime gate) TODO list
 
+(STATUS: all items below were addressed in "Phase 2b (part 1)" — see that section for outcomes.)
+
 - Wire `AEBaseBlockEntityHooks#onChunkUnloaded` from `ServerChunkEvents.CHUNK_UNLOAD`.
 - Wire the `appeng.hooks.extensions` shims (see per-hook list above).
 - `FabricLoaderPlatform#computeSavedDataIfAbsent`: validate `SAVED_DATA_COMMAND_STORAGE` DFU behavior on
@@ -1057,6 +1059,117 @@ If any subtle Phase 1 edit in these 3 files is missed, `:neoforge:build` (451 te
 - `FabricLoaderPlatform#tooltipHasShiftDown`: Phase 3 client entrypoint must call `setShiftDownSupplier`.
 - night-config TOML must be shipped (jar-in-jar `include` or shade) before runtime.
 - TinyTNT flammability/ignition parity check (fire spread does not call the hook on fabric yet).
+
+## Phase 2b (part 1) — Fabric dedicated-server boot (gate M2 part 1 REACHED)
+
+`:fabric:runServer` boots to `Done (3.174s)!` on a fresh world (creates overworld/nether/end +
+`ae2:spatial_storage`, writes `ae2-client.toml`/`ae2-common.toml` via night-config) and to
+`Done (0.195s)!` on the reload of that world. No crash during mod init; payload types + server
+receivers registered by `FabricNetworkInit` without error. Boot loop: pre-created
+`loader/fabric/run/eula.txt`, `perl -e 'alarm 240; exec @ARGV' ./gradlew :fabric:runServer`
+(macOS has no `timeout`); the server run config got `programArgs 'nogui'`.
+`:fabric:build` GREEN, `:neoforge:build` GREEN (451 tests, 1 skipped — unchanged),
+`grep -rl "net.neoforged" src/main/java | wc -l` → 0.
+
+### Shim dispatch wiring (the Phase 2a TODO list)
+
+All call-site research was done against the NeoForge-patched merged sources
+(`~/.gradle/caches/neoformruntime/.../mergeWithSources_*.jar`, `// Neo:`-commented) vs the vanilla
+decompile (`decompile_*.jar`), and every bytecode injection point was verified with `javap -c`
+against the fabric-loom `minecraft-merged.jar`. New mixins live in `appeng.fabric.mixins`
+(loader/fabric), registered via the NEW `ae2-fabric.mixins.json` in `fabric.mod.json`
+(shared `ae2.mixins.json` untouched).
+
+| Hook | Neo call site | Fabric wiring |
+|---|---|---|
+| `onChunkUnloaded` (AEBaseBlockEntityHooks) | `LevelChunk#clearAllBlockEntities` (runs after ChunkEvent.Unload, see `ChunkMap#scheduleUnload`) | third `ServerChunkEvents.CHUNK_UNLOAD` handler in AppEngFabric (after the TickHandler + ChunkLogger forwarders = Neo order), iterating `chunk.getBlockEntities().values()` |
+| `ItemUseFirstHook` | `ServerPlayerGameMode#useItemOn`: `itemStack.onItemUseFirst(context)` after the RightClickBlock event, before block use; never for spectators | second `UseBlockCallback` in AppEngFabric (after WrenchHook = the RightClickBlock wrapper; Fabric fires same-event listeners in registration order); spectator-guarded; non-PASS result cancels the use chain — same short-circuit |
+| `SneakBypassUseHook` | `useItemOn`: `suppressUsingBlock = (secondary && haveItems) && !(main.doesSneakBypassUse && off.doesSneakBypassUse)`; Neo's ItemStack overload returns TRUE for empty stacks | `SneakBypassUseMixin`: @Redirect of the single `ServerPlayer.isSecondaryUseActive()Z` call — `(a && !c) && b == (a && b) && !c`. Client twin (MultiPlayerGameMode) is Phase 3 |
+| `BlockExplodedHook` | `BlockBehaviour#onExplosionHit`: trailing `setBlock(AIR)+wasExploded` pair replaced by `state.onBlockExploded(...)` (default = that pair) | `BlockExplodedMixin`: cancellable @Inject at the `ServerLevel.setBlock` INVOKE (drops already handled = Neo order), calls the hook + cancels for implementors |
+| `EntityDestroyHook` (dragon) | `EnderDragon#checkWalls`: `CommonHooks.canEntityDestroy(...)` gates `removeBlock` | `EnderDragonEntityDestroyMixin`: @Redirect of `ServerLevel.removeBlock` — veto returns false. Nuance: a vetoed block does not set Neo's `hitWall=true` (no collision response); fine for the matrix frame |
+| `EntityDestroyHook` (wither) | `WitherBoss#customServerAiStep`: `state.canEntityDestroy(...)` gates `destroyBlock` | `WitherBossEntityDestroyMixin`: @Redirect of `ServerLevel.destroyBlock` |
+| `EntityDestroyHook` (wither skull / mob goals) | `WitherSkull#getBlockExplosionResistance` caps resistance at 0.8 unless vetoed; BreakDoorGoal/RemoveBlockGoal | NOT wired: the skull's explosion still cannot destroy a matrix frame because `BlockExplodedMixin` makes it explosion-immune regardless of the resistance cap; the mob goals never target AE2 blocks |
+| `LadderHook` | `LivingEntity#onClimbable`: CLIMBABLE-tag check replaced by `state.isLadder(...)` (CommonHooks.isLivingOnLadder) | `LivingEntityLadderMixin`: cancellable HEAD @Inject replicating the vanilla pre-checks (spectator, glide-through) then substituting the hook verdict both ways (@Shadow `lastClimbablePos`; mixin extends Entity for the inherited members) |
+| `NeighborChangeHook` | `Level#updateNeighbourForOutputSignal`: Neo calls `state.onNeighborChange` on every direct neighbor, horizontal then vertical | `LevelNeighborChangeMixin`: HEAD @Inject doing the same 6-direction loop for implementors before the vanilla comparator updates |
+| `CloneItemStackHook` | `ServerGamePacketListenerImpl#handlePickItemFromBlock`: player-aware `getCloneItemStack(pos, level, includeData, player)` | `PickBlockCloneItemStackMixin`: @Redirect of the vanilla 3-arg `BlockState.getCloneItemStack`, passing `this.player` (public field) to the hook. Client pick-block path is Phase 3 |
+| `RedstoneConnectHook` | — | NOT wired, deliberately: `canConnectRedstone` has ZERO call sites in NeoForge 26.1's patched vanilla AND in neoforge's own sources (only the extension declarations) — the hook is vestigial on 26.1; wiring it on Fabric would create NEW behavior NeoForge doesn't have. Revisit if Neo re-adds the RedStoneWireBlock patch |
+| `BlockCaughtFireHook` | `FireBlock#checkBurnOut` calls `state.onCaughtFire` for burned-out blocks | NOT wired, parity holds: fire spread only burns blocks with registered burn odds; AE2 registers no flammability anywhere (verified), so TinyTNT never burns on EITHER loader. Vanilla's TntBlock special case doesn't apply (TinyTNTBlock is not a TntBlock); flint&steel/fire charge ignition is TinyTNTBlock's own `useItemOn`; AE2's entropy-manipulator call site goes through `LoaderPlatform#onCaughtFire` (Phase 2a) |
+| `ReequipAnimationHook` | client-only (ItemInHandRenderer) | Phase 3 |
+
+### Boot incident log (symptom → root cause → fix)
+
+1. **Mixin apply error: `AnvilMenuMixin` target `createResultInternal` not found** → NeoForge renames
+   the vanilla `createResult()` body to `createResultInternal()` (`createResult()` becomes a wrapper
+   adding an event hook; the wrapper contains no `isDamageableItem` call) → shared mixin now lists
+   BOTH method names (`method = {"createResultInternal", "createResult"}`); on each loader exactly one
+   name resolves to the real body and the other contributes nothing, so Neo behavior is unchanged
+   (require=1 satisfied by the single expression match).
+2. **`IllegalStateException: Registry entry ae2:flawless_budding_quartz ... not registered yet` from
+   `FabricRegistrar.registerAll`** → FabricRegistrar flushed registries in FIRST-SEEN collector order;
+   AEParts/AEItems class-init touches ITEM before AEBlocks collects BLOCK, so block-item factories
+   resolved unbound block entries. NeoForge never sees this because `RegisterEvent` fires in
+   `GameData#getRegistrationOrder` order → FabricRegistrar now sorts the collected registry keys the
+   same way: ATTRIBUTE, DATA_COMPONENT_TYPE, PARTICLE_TYPE pinned first, then root-registry raw-id
+   order (= vanilla bootstrap order; BLOCK < ITEM), modded registries (raw ids past vanilla) last.
+3. **`:fabric:processResources` configuration-cache failure** (`rootProject` referenced from a closure
+   at execution time) → hoist `rootProject.file(...).toPath()` into a local before `filesMatching`.
+
+### Pre-empted (fixed before they could crash the boot)
+
+- **`data/ae2/worldgen/biome/spatial_storage.json` carries `"attributes"` with
+  `neoforge:custom_clouds/custom_skybox/custom_weather_effects`** — these are NeoForge-REGISTERED
+  vanilla `EnvironmentAttribute`s (26.1's attribute system replaced Neo's custom sky render events);
+  vanilla's `EnvironmentAttributeMap` codec (`Codec.dispatchedMap` over the attribute registry)
+  hard-fails on unknown keys, and worldgen registry load errors are FATAL at server start.
+  Fix: `loader/fabric/src/main/resources` ships the same biome minus `"attributes"`, and
+  :fabric:processResources excludes the generated copy (Phase 3: spatial sky via Fabric's
+  `DimensionRenderingRegistry`, code-driven, no biome attributes needed). DATAGEN-PARITY note:
+  needs per-loader emission.
+- **night-config jar-in-jar**: `include "com.electronwill.night-config:{core,toml}"` (include pulls no
+  transitives — core listed explicitly). Verified nested under `META-INF/jars/` + `jars` entries in
+  the built fabric.mod.json.
+
+### Non-fatal datapack errors (documented, for the datagen-parity step)
+
+- **67 matter-cannon ammo recipes** (`data/ae2/recipe/matter_cannon/nuggets/*.json`) log
+  `Couldn't parse data file ... Missing tag: 'c:nuggets/...'`. NOT the `neoforge:conditions` key
+  (unknown top-level keys are ignored by the map codec): on NeoForge these recipes are
+  condition-disabled when the `c:nuggets/*` tag is empty; on Fabric the condition is ignored, the
+  ingredient parses eagerly and fails because the tag doesn't exist. Vanilla 26.1's error-capturing
+  data pipeline logs and skips them — when another mod provides the tag, the recipe loads and works,
+  which matches the Neo behavior exactly, just noisier. Proper fix in datagen parity: also emit
+  `fabric:load_conditions`.
+- **5 cable "clean" recipes** (`data/ae2/recipe/network/cables/*_fluix_clean.json`) fail on the
+  `neoforge:difference` custom ingredient (`No key fabric:type`). Fabric has an equivalent
+  (`fabric:difference` via fabric-recipe-api custom ingredients); until datagen parity these 5
+  crafting-based cable-cleaning recipes are missing on Fabric (the water-cauldron path is unaffected).
+- `Failed to load properties from file: server.properties` on FIRST boot only — vanilla logs this
+  before writing the initial file; benign.
+- WARN `duplicate API provider registration for block: ae2:condenser` — expected: `initCondenser()`
+  registers the condenser-specific `ItemStorage` provider, then the generic
+  `AEBaseInvBlockEntity` loop hits the same BE type; Fabric keeps the FIRST registration, which is the
+  specific one — same effective priority as NeoForge's specific-before-generic provider order.
+
+### Validated Phase 2a follow-ups
+
+- `computeSavedDataIfAbsent` / `SAVED_DATA_COMMAND_STORAGE`: second boot loads the existing world
+  (incl. `ae2:spatial_storage` dimension dir) cleanly. AE2 SavedData files are created lazily and none
+  existed yet on the reload — the DFU path gets full coverage once gametests/players touch
+  PlayerRegistry/CompassRegion data; current DataVersion files are a no-op fix anyway.
+- Fabric gametests stay UNWIRED (placeholder `AEFabricGameTests` documented: Fabric's gametest API on
+  26.1 has no dynamic-registration hook for `GameTestPlotAdapter.registerAll`); no
+  `fabric-gametest` entrypoint added.
+- Dist arrangement: `AppEngFabric.onInitialize` constructs `AppEngServer` only under
+  `EnvType.SERVER`; client construction stays with the Phase 3 client entrypoint (no
+  double-construction possible).
+
+### Remaining for Phase 2b part 2 / Phase 3
+
+- SkyStoneBreakSpeed (needs a small `Player#getDestroySpeed` mixin; documented TODO in AppEngFabric).
+- Server-synced recipe push (`OnDatapackSyncEvent#sendRecipes` equivalent) — runtime/networking step.
+- Sneak-bypass + pick-block client twins (`MultiPlayerGameMode`), `ReequipAnimationHook`,
+  client chunk-unload forwarding for `onChunkUnloaded` — Phase 3.
+- Datagen parity: fabric load conditions + `fabric:difference` ingredient + per-loader biome json.
 
 ## Open questions
 

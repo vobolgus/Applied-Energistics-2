@@ -21,7 +21,11 @@ public abstract class AnvilMenuMixin extends ItemCombinerMenu {
         throw new AssertionError();
     }
 
-    @ModifyExpressionValue(method = "createResultInternal", at = @At(value = "INVOKE", target = "net/minecraft/world/item/ItemStack.isDamageableItem()Z", ordinal = 1))
+    // NeoForge renames the vanilla createResult() body to createResultInternal() (createResult() becomes a
+    // wrapper that adds an event hook and contains no isDamageableItem call). Listing both names targets the
+    // real body on either loader; the unmatched/expression-free sibling contributes no injection.
+    @ModifyExpressionValue(method = { "createResultInternal",
+            "createResult" }, at = @At(value = "INVOKE", target = "net/minecraft/world/item/ItemStack.isDamageableItem()Z", ordinal = 1))
     public boolean setAnnihilationPlaneThreadLocal(boolean isDamageable) {
         if (AEParts.ANNIHILATION_PLANE.is(inputSlots.getItem(0))
                 && AEParts.ANNIHILATION_PLANE.is(inputSlots.getItem(1))) {

@@ -67,6 +67,9 @@ loom {
             property 'appeng.tests', 'true'
             property 'guideme.ae2.guide.sources', rootProject.file('guidebook').absolutePath
         }
+        server {
+            programArgs 'nogui'
+        }
     }
 }
 
@@ -114,8 +117,11 @@ dependencies {
     implementation "teamreborn:energy:${tr_energy_version}"
 
     // TOML config files matching NeoForge's format (NeoForge bundles the same library).
-    // TODO (fabric, runtime step): ship via jar-in-jar (include) or shade.
+    // Shipped jar-in-jar so the published jar carries it at runtime (the dev runtime gets it from
+    // `implementation`); `include` does not pull transitives, so the core module is listed explicitly.
     implementation "com.electronwill.night-config:toml:${night_config_version}"
+    include "com.electronwill.night-config:core:${night_config_version}"
+    include "com.electronwill.night-config:toml:${night_config_version}"
 
     // javax.annotation (@Nonnull etc.) is still used by a few shared files; NeoForge provides it transitively
     compileOnly "com.google.code.findbugs:jsr305:3.0.2"
@@ -147,6 +153,18 @@ processResources {
 
     filesMatching('fabric.mod.json') {
         expand expandProps
+    }
+
+    // The generated biome JSON carries NeoForge-registered environment attributes (custom sky/clouds/weather
+    // renderer ids); vanilla's EnvironmentAttributeMap codec hard-fails on unknown attribute keys, which would be
+    // FATAL at server start (worldgen registry loading). Ship the Fabric copy (same file minus "attributes",
+    // in loader/fabric/src/main/resources) instead; Phase 3 wires the spatial-storage sky via Fabric's
+    // DimensionRenderingRegistry, which is code-driven and needs no biome attributes.
+    def generatedResourcesPath = rootProject.file('src/generated/resources').toPath()
+    filesMatching('data/ae2/worldgen/biome/spatial_storage.json') {
+        if (it.file.toPath().startsWith(generatedResourcesPath)) {
+            it.exclude()
+        }
     }
 }
 

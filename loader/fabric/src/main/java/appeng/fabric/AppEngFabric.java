@@ -33,10 +33,13 @@ import net.fabricmc.fabric.api.event.registry.RegistryEntryAddedCallback;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.context.UseOnContext;
 
 import appeng.api.lookup.AEApiLookups;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypesInternal;
+import appeng.blockentity.AEBaseBlockEntityHooks;
 import appeng.core.AppEng;
 import appeng.core.AppEngBase;
 import appeng.core.AppEngServer;
@@ -57,6 +60,7 @@ import appeng.fabric.network.FabricNetworkAdapter;
 import appeng.fabric.network.FabricNetworkInit;
 import appeng.fabric.registration.FabricRegistrar;
 import appeng.hooks.WrenchHook;
+import appeng.hooks.extensions.ItemUseFirstHook;
 import appeng.hooks.ticking.TickHandler;
 import appeng.hotkeys.HotkeyActions;
 import appeng.init.InitAdvancementTriggers;
@@ -177,6 +181,17 @@ public class AppEngFabric implements ModInitializer {
         ServerChunkEvents.CHUNK_LOAD.register((level, chunk, newlyGenerated) -> ChunkLogger.chunkLoaded(level, chunk));
         ServerChunkEvents.CHUNK_UNLOAD.register((level, chunk) -> ChunkLogger.chunkUnloaded(level, chunk));
 
+        // Per-block-entity chunk-unload hook. NeoForge calls BlockEntity#onChunkUnloaded for every block entity
+        // from LevelChunk#clearAllBlockEntities, which runs after ChunkEvent.Unload — hence registered after the
+        // TickHandler/ChunkLogger forwarders above (Fabric fires same-event listeners in registration order).
+        ServerChunkEvents.CHUNK_UNLOAD.register((level, chunk) -> {
+            for (var blockEntity : chunk.getBlockEntities().values()) {
+                if (blockEntity instanceof AEBaseBlockEntityHooks hooks) {
+                    hooks.onChunkUnloaded();
+                }
+            }
+        });
+
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             base.onServerStopped();
             loaderPlatform.setCurrentServer(null);
@@ -186,6 +201,20 @@ public class AppEngFabric implements ModInitializer {
 
         // Mirrors the NeoForge RightClickBlock wrapper: a non-PASS result cancels the interaction.
         UseBlockCallback.EVENT.register(WrenchHook::onPlayerUseBlock);
+
+        // Mirrors NeoForge's IItemExtension#onItemUseFirst dispatch in ServerPlayerGameMode#useItemOn: runs after
+        // the RightClickBlock wrapper (the WrenchHook above), before any block interaction; a non-PASS result
+        // short-circuits the whole use. Spectators never reach the dispatch on NeoForge.
+        UseBlockCallback.EVENT.register((player, level, hand, hitResult) -> {
+            if (player.isSpectator()) {
+                return InteractionResult.PASS;
+            }
+            var stack = player.getItemInHand(hand);
+            if (stack.getItem() instanceof ItemUseFirstHook hook) {
+                return hook.onItemUseFirst(stack, new UseOnContext(player, hand, hitResult));
+            }
+            return InteractionResult.PASS;
+        });
 
         // TODO (fabric): SkyStoneBreakSpeed has no Fabric event equivalent (NeoForge: PlayerEvent.BreakSpeed).
         // Needs a small mixin into Player#getDestroySpeed in a later step. Impact: sky stone does not break

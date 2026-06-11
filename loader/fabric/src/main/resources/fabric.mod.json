@@ -16,7 +16,7 @@
   "entrypoints": {
     "main": ["appeng.fabric.AppEngFabric"]
   },
-  "mixins": ["ae2.mixins.json"],
+  "mixins": ["ae2.mixins.json", "ae2-fabric.mixins.json"],
   "accessWidener": "ae2.accesswidener",
   "depends": {
     "fabricloader": ">=${fabric_loader_version}",

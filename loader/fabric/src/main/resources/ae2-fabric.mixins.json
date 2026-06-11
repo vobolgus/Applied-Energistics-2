@@ -1,0 +1,20 @@
+{
+  "required": true,
+  "minVersion": "0.8.3",
+  "package": "appeng.fabric.mixins",
+  "compatibilityLevel": "JAVA_11",
+  "mixins": [
+    "BlockExplodedMixin",
+    "EnderDragonEntityDestroyMixin",
+    "LevelNeighborChangeMixin",
+    "LivingEntityLadderMixin",
+    "PickBlockCloneItemStackMixin",
+    "SneakBypassUseMixin",
+    "WitherBossEntityDestroyMixin"
+  ],
+  "client": [],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

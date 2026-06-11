@@ -18,10 +18,13 @@
 
 package appeng.fabric.registration;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Objects;
 
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 
 import appeng.core.registration.AERegistries;
@@ -29,8 +32,14 @@ import appeng.core.registration.AERegistryEntry;
 
 /**
  * Flushes the loader-neutral registration entries collected by {@link AERegistries} into the game registries. The
- * Fabric twin of {@code appeng.neoforge.registration.NeoForgeRegistrar}: registries are visited in first-seen collector
- * order, entries in insertion order, so raw registry ids are deterministic.
+ * Fabric twin of {@code appeng.neoforge.registration.NeoForgeRegistrar}: entries are registered in insertion order
+ * within each registry, so raw registry ids are deterministic.
+ * <p>
+ * Registries are visited in the order NeoForge fires its per-registry {@code RegisterEvent} (see
+ * {@code GameData#getRegistrationOrder}): attributes, data component types and particle types first (items/blocks
+ * depend on them at construction time), then the vanilla registries in root-registry registration order — this is what
+ * guarantees e.g. blocks are registered before the block items whose factories resolve them — and modded registries
+ * last.
  * <p>
  * All classes that collect entries into {@link AERegistries} must be loaded before this is called (i.e.
  * {@code registerContent()} must have run).
@@ -40,9 +49,40 @@ public final class FabricRegistrar {
     }
 
     public static void registerAll() {
-        for (var registryKey : AERegistries.registryKeys()) {
+        var registryKeys = new ArrayList<>(AERegistries.registryKeys());
+        registryKeys.sort(Comparator
+                .<ResourceKey<? extends Registry<?>>>comparingInt(FabricRegistrar::pinnedPriority)
+                .thenComparingInt(FabricRegistrar::rootRegistryRawId));
+        for (var registryKey : registryKeys) {
             registerEntries(castRegistryKey(registryKey));
         }
+    }
+
+    /**
+     * The registries NeoForge pins to the front because vanilla's bootstrap order under-orders them.
+     */
+    private static int pinnedPriority(ResourceKey<? extends Registry<?>> registryKey) {
+        var id = registryKey.identifier();
+        if (id.equals(Registries.ATTRIBUTE.identifier())) {
+            return 0;
+        }
+        if (id.equals(Registries.DATA_COMPONENT_TYPE.identifier())) {
+            return 1;
+        }
+        if (id.equals(Registries.PARTICLE_TYPE.identifier())) {
+            return 2;
+        }
+        return 3;
+    }
+
+    /**
+     * Raw ids in the root registry reflect the order the registries were created in (vanilla bootstrap order for
+     * vanilla registries, mod-init order for modded ones, which always come later).
+     */
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    private static int rootRegistryRawId(ResourceKey<? extends Registry<?>> registryKey) {
+        var registry = BuiltInRegistries.REGISTRY.getValue(registryKey.identifier());
+        return registry != null ? ((Registry) BuiltInRegistries.REGISTRY).getId(registry) : Integer.MAX_VALUE;
     }
 
     @SuppressWarnings("unchecked")
