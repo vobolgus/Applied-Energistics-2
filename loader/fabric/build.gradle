@@ -265,6 +265,94 @@ tasks.named('jar', Jar) {
     }
 }
 
+/**
+ * Datagen-parity transform for the generated recipe JSONs (see PORTING_NOTES.md, "Phase 4 datagen
+ * parity"). The generated tree (src/generated/resources) is produced by the NeoForge datagen and is
+ * kept byte-identical to upstream; NeoForge-specific JSON constructs are mapped to their Fabric API
+ * equivalents on copy:
+ *
+ *  - top-level "neoforge:conditions" -> "fabric:load_conditions" (fabric-resource-conditions-api-v1).
+ *    AE2's datagen only ever emits not(tag_empty(<item tag>)), which maps to the positive
+ *    fabric:tags_populated condition; its "registry" field is omitted because it defaults to
+ *    minecraft:item - exactly the registry neoforge:tag_empty checks. Any other condition shape
+ *    fails the build so upstream drift is caught here instead of at runtime.
+ *
+ *  - "neoforge:ingredient_type": "neoforge:difference" -> "fabric:type": "fabric:difference"
+ *    (fabric-recipe-api-v1 custom ingredients). The payload fields ("base"/"subtracted", both
+ *    vanilla Ingredient.CODEC) are identical on the two loaders, so only the dispatch key/type id
+ *    change. Any other custom ingredient type fails the build.
+ *
+ *  - guard: any remaining "neoforge:"-namespaced map key fails the build.
+ */
+class NeoForgeToFabricRecipeTransform extends FilterReader {
+    NeoForgeToFabricRecipeTransform(Reader input) {
+        super(new StringReader(transform(input.text)))
+    }
+
+    static String transform(String json) {
+        def root = rewriteIngredients(new groovy.json.JsonSlurper().parseText(json))
+        if (root instanceof Map && root.containsKey('neoforge:conditions')) {
+            def remapped = new LinkedHashMap<String, Object>()
+            remapped['fabric:load_conditions'] = root['neoforge:conditions'].collect { mapCondition(it) }
+            root.each { k, v ->
+                if (k != 'neoforge:conditions') {
+                    remapped[k] = v
+                }
+            }
+            root = remapped
+        }
+        assertNoNeoForgeKeys(root)
+        return groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(root))
+    }
+
+    private static Map<String, Object> mapCondition(Object condition) {
+        if (condition instanceof Map
+                && condition['type'] == 'neoforge:not'
+                && condition['value'] instanceof Map
+                && condition['value']['type'] == 'neoforge:tag_empty') {
+            return ['condition': 'fabric:tags_populated', 'values': [condition['value']['tag']]]
+        }
+        throw new IllegalStateException("Unmapped neoforge:conditions entry (extend the datagen-parity " +
+                "transform in loader/fabric/build.gradle): ${condition}")
+    }
+
+    private static Object rewriteIngredients(Object node) {
+        if (node instanceof Map) {
+            def out = new LinkedHashMap<String, Object>()
+            node.each { k, v ->
+                if (k == 'neoforge:ingredient_type') {
+                    if (v != 'neoforge:difference') {
+                        throw new IllegalStateException("Unmapped custom ingredient type (extend the " +
+                                "datagen-parity transform in loader/fabric/build.gradle): ${v}")
+                    }
+                    out['fabric:type'] = 'fabric:difference'
+                } else {
+                    out[k] = rewriteIngredients(v)
+                }
+            }
+            return out
+        }
+        if (node instanceof List) {
+            return node.collect { rewriteIngredients(it) }
+        }
+        return node
+    }
+
+    private static void assertNoNeoForgeKeys(Object node) {
+        if (node instanceof Map) {
+            node.each { k, v ->
+                if (k instanceof String && k.startsWith('neoforge:')) {
+                    throw new IllegalStateException("Unhandled neoforge-namespaced key '${k}' in a generated " +
+                            "recipe JSON (extend the datagen-parity transform in loader/fabric/build.gradle)")
+                }
+                assertNoNeoForgeKeys(v)
+            }
+        } else if (node instanceof List) {
+            node.each { assertNoNeoForgeKeys(it) }
+        }
+    }
+}
+
 processResources {
     def expandProps = [
             'version'              : project.version.toString(),
@@ -272,18 +360,27 @@ processResources {
             'fabric_loader_version': project.fabric_loader_version
     ]
     inputs.properties expandProps
-    // Gradle does not track the filter closure below as a task input; bump this property when changing it.
-    inputs.property 'ae2.blockstateCustomTypeKey', 'fabric:type'
 
     filesMatching('fabric.mod.json') {
         expand expandProps
     }
 
-    // The generated biome JSON carries NeoForge-registered environment attributes (custom sky/clouds/weather
-    // renderer ids); vanilla's EnvironmentAttributeMap codec hard-fails on unknown attribute keys, which would be
-    // FATAL at server start (worldgen registry loading). Ship the Fabric copy (same file minus "attributes",
-    // in loader/fabric/src/main/resources) instead; Phase 3 wires the spatial-storage sky via Fabric's
-    // DimensionRenderingRegistry, which is code-driven and needs no biome attributes.
+    // ---------------------------------------------------------------------------------------------
+    // DATAGEN-PARITY TRANSFORMS - the single place where generated (NeoForge-datagen) resources are
+    // rewritten for Fabric on copy. Inventory (kept in sync with PORTING_NOTES.md):
+    //   1. data/ae2/worldgen/biome/spatial_storage.json  -> generated copy EXCLUDED, fabric override
+    //   2. assets/ae2/blockstates/*.json                 -> "type" -> "fabric:type" dispatch key
+    //   3. data/ae2/recipe/**/*.json                     -> NeoForgeToFabricRecipeTransform (above)
+    // Gradle does NOT track filter closures/classes as task inputs; bump this property whenever any
+    // of the transforms below (or the transform class above) changes, or the task stays UP-TO-DATE.
+    inputs.property 'ae2.datagenParityTransform', 'v2'
+
+    // 1. The generated biome JSON carries NeoForge-registered environment attributes (custom
+    // sky/clouds/weather renderer ids); vanilla's EnvironmentAttributeMap codec hard-fails on unknown
+    // attribute keys, which would be FATAL at server start (worldgen registry loading). Ship the
+    // Fabric copy (same file minus "attributes", in loader/fabric/src/main/resources) instead;
+    // Phase 3 wires the spatial-storage sky via Fabric's DimensionRenderingRegistry, which is
+    // code-driven and needs no biome attributes.
     def generatedResourcesPath = rootProject.file('src/generated/resources').toPath()
     filesMatching('data/ae2/worldgen/biome/spatial_storage.json') {
         if (it.file.toPath().startsWith(generatedResourcesPath)) {
@@ -291,12 +388,21 @@ processResources {
         }
     }
 
-    // Custom block-state model dispatch: NeoForge's patched vanilla codec dispatches on the "type" key, while
-    // fabric-model-loading-api-v1 leaves the vanilla codec alone and dispatches on "fabric:type". The generated
-    // blockstate JSONs target NeoForge; rewrite the key on copy (vanilla variant objects never carry a "type"
-    // key, and only AE2's custom models use "ae2:"-namespaced type ids - the match cannot hit anything else).
+    // 2. Custom block-state model dispatch: NeoForge's patched vanilla codec dispatches on the "type"
+    // key, while fabric-model-loading-api-v1 leaves the vanilla codec alone and dispatches on
+    // "fabric:type". The generated blockstate JSONs target NeoForge; rewrite the key on copy (vanilla
+    // variant objects never carry a "type" key, and only AE2's custom models use "ae2:"-namespaced
+    // type ids - the match cannot hit anything else).
     filesMatching('assets/ae2/blockstates/*.json') {
         filter { String line -> line.replace('"type": "ae2:', '"fabric:type": "ae2:') }
+    }
+
+    // 3. Recipe resource conditions + custom ingredient types (see the transform class above). Covers
+    // the 67 matter-cannon ammo recipes (neoforge:conditions tag gate) and the 5 cable "clean" recipes
+    // (neoforge:difference ingredient); applied to the whole recipe tree so upstream additions are
+    // either mapped or fail the build.
+    filesMatching('data/ae2/recipe/**/*.json') {
+        filter(NeoForgeToFabricRecipeTransform)
     }
 }
 

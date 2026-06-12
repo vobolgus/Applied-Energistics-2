@@ -1729,6 +1729,73 @@ The `@JeiPlugin`/`@WailaPlugin` annotations stay on the shared classes (inert on
   same as NeoForge's annotation scan).
 - Grep invariants: `net.neoforged` 0/0 in src/main+src/client, 0 under loader/fabric; spotless clean.
 
+## Phase 4 datagen parity — NeoForge resource conditions/ingredients mapped to Fabric
+
+Closes the two known non-fatal datapack-error classes from Phase 2b (67 matter-cannon + 5 cable-clean
+recipe load errors — in truth 64+5=69 ERROR lines: the iron/gold/copper ammo recipes always parsed
+because their `c:nuggets/*` tags exist on Fabric too; only the 64 with genuinely absent tags errored).
+
+**Approach chosen: build-time transform in :fabric:processResources** (option (a); same precedent as
+the `fabric:type` blockstate rewrite and the spatial-storage biome replacement). The generated tree
+stays byte-identical to upstream; datagen (NeoForge-only by design) is untouched. This remains the
+long-term arrangement until upstream grows multiloader datagen — there is deliberately NO Fabric
+datagen entrypoint.
+
+### Schema mapping (verified by javap against the resolved fabric-api 0.151.0+26.1.2 module jars)
+
+- **Resource conditions** (fabric-resource-conditions-api-v1 6.1.0): top-level key
+  `fabric:load_conditions`, list of objects dispatched on the **`condition`** key (NOT `type`).
+  AE2's only emitted shape `not(neoforge:tag_empty(tag))` maps to the POSITIVE
+  `{"condition": "fabric:tags_populated", "values": [<tag>]}` — the codec's `registry` field is
+  `orElse(minecraft:item)`, exactly the registry `neoforge:tag_empty` checks, so it is omitted.
+  Conditions are stripped/evaluated by fabric's `SimpleJsonResourceReloadListenerMixin` BEFORE codec
+  parsing, so unsatisfied recipes are skipped silently (DEBUG `Rejected resource ...`) instead of
+  erroring on the missing-tag ingredient.
+- **Custom ingredients** (fabric-recipe-api-v1 9.0.15): dispatch key **`fabric:type`**, type id
+  `fabric:difference`; payload fields `base`/`subtracted` use vanilla `Ingredient.CODEC` — byte-
+  identical names and value shapes to NeoForge's `neoforge:difference`, so only the dispatch
+  key/type id are rewritten.
+
+### Transform inventory (ONE consolidated block in loader/fabric/build.gradle processResources)
+
+| # | JSON kind (match) | Rewrite rule | Verified by |
+|---|---|---|---|
+| 1 | `data/ae2/worldgen/biome/spatial_storage.json` (generated copy) | EXCLUDED; fabric override without `"attributes"` ships from loader/fabric/src/main/resources (Phase 2b) | server boots — worldgen registry load is fatal on failure |
+| 2 | `assets/ae2/blockstates/*.json` | `"type": "ae2:` → `"fabric:type": "ae2:` (Phase 3b) | zero blockstate-parse errors at client boot |
+| 3 | `data/ae2/recipe/**/*.json` | `NeoForgeToFabricRecipeTransform` (Groovy FilterReader, structural JSON rewrite): `neoforge:conditions`→`fabric:load_conditions` (mapping above), `neoforge:ingredient_type: neoforge:difference`→`fabric:type: fabric:difference`; **any other condition shape, ingredient type, or remaining `neoforge:`-prefixed key FAILS THE BUILD** (upstream drift is caught at build time on rebases) | runServer log: 0 ERROR lines, `Loaded 2007 recipes` |
+
+Cache-correctness gotcha consolidated too: Gradle tracks NONE of the filter closures/classes as task
+inputs — the single `inputs.property 'ae2.datagenParityTransform', 'v2'` must be bumped whenever any
+transform (or the FilterReader class) changes.
+
+### Active-recipe accounting per loader (identical sets — true parity)
+
+- Both loaders ship exactly `c:nuggets/{iron,gold,copper}` (fabric-convention-tags-v2 4.6.1 jar;
+  neoforge-26.1.2.21-beta universal jar — vanilla 26.1 has copper nuggets).
+- **Fabric**: 3/67 matter-cannon ammo recipes active (iron, gold, copper), 64 condition-skipped
+  (debug log: exactly 64 unique `Rejected resource of type recipe ... matter_cannon/nuggets/*`,
+  none of them iron/gold/copper; no other resources rejected); all 5 cable-clean recipes active.
+  Recipe count 2002 → **2007** (= the 5 cables; the 3 active nuggets were already loading before).
+- **NeoForge**: unchanged — same 3 nuggets active via `neoforge:conditions`, 64 condition-disabled,
+  5 cables active. More mods providing `c:nuggets/*` enable more ammo recipes on either loader.
+
+### Other `neoforge:`-namespaced data in the shipped resources (full inventory)
+
+`grep -rl '"neoforge:' src/generated/resources` → exactly 73 files = 67 nuggets + 5 cables (both
+handled by transform 3) + 1 biome (handled by transform 1). No loot conditions, advancement
+triggers, or other condition carriers exist in the generated tree. Separately, 33 HANDWRITTEN part
+models (`src/main/resources/assets/ae2/models/part/*_has_channel.json` etc.) carry per-face
+`"neoforge_data"` lightmap values — NOT datagen output, ignored by vanilla's lenient model parser on
+Fabric (cosmetic fullbright-LED gap, already on the Phase 3a risk list); left as-is.
+
+### Gate status (all green, 2026-06-12)
+
+- `:fabric:runServer` → `Done (0.253s)`, **0 ERROR lines / 0 `Couldn't parse data file`** (was 69),
+  `Loaded 2007 recipes` (was 2002).
+- `:fabric:runGametest` 68/68; `:fabric:build` GREEN; `:neoforge:build` GREEN (451 tests — :neoforge
+  never reads loader/fabric/build.gradle, its jar is bit-identical w.r.t. resources).
+- Grep invariants `net.neoforged` 0/0; spotlessApply clean (no Java touched).
+
 ## Open questions
 
 - TR Energy 5.0.0: confirm it targets MC 26.1 Fabric API at compile time.
