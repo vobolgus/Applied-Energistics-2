@@ -18,9 +18,9 @@ import net.minecraft.util.ARGB;
 import net.minecraft.world.level.Level;
 
 import appeng.api.stacks.AEFluidKey;
+import appeng.client.ClientLoaderHooks;
 import appeng.client.api.AEKeyRenderer;
 import appeng.client.gui.style.FluidBlitter;
-import appeng.neoforge.transfer.NeoForgeResources;
 import appeng.util.Platform;
 
 public class FluidKeyRenderer implements AEKeyRenderer<AEFluidKey, FluidKeyRenderer.RenderState> {
@@ -43,16 +43,10 @@ public class FluidKeyRenderer implements AEKeyRenderer<AEFluidKey, FluidKeyRende
 
     @Override
     public void extract(RenderState state, AEFluidKey what, @Nullable Level level, int seed) {
-        var fluidStack = NeoForgeResources.toFluidStack(what, 1);
-        var fluidModel = Minecraft.getInstance().getModelManager().getFluidStateModelSet()
-                .get(what.getFluid().defaultFluidState());
-        var tintSource = fluidModel.fluidTintSource();
-        if (tintSource != null) {
-            state.color = tintSource.colorAsStack(fluidStack);
-        } else {
-            state.color = -1;
-        }
-        state.sprite = fluidModel.stillMaterial().sprite();
+        // Fluid tinting goes through the loader seam (NeoForge: fluidTintSource() patch; Fabric: vanilla tint source)
+        var renderInfo = ClientLoaderHooks.get().getFluidRenderInfo(what);
+        state.color = renderInfo.color();
+        state.sprite = renderInfo.sprite();
     }
 
     @Override
@@ -106,7 +100,8 @@ public class FluidKeyRenderer implements AEKeyRenderer<AEFluidKey, FluidKeyRende
     @Override
     public List<Component> getTooltip(AEFluidKey stack) {
         var tooltip = new ArrayList<Component>();
-        tooltip.add(NeoForgeResources.toFluidStack(stack, 1).getHoverName());
+        // Same value as FluidStack#getHoverName on NeoForge (routed through the shared FluidPlatform seam)
+        tooltip.add(stack.getDisplayName());
 
         // Heuristic: If the last line doesn't include the modname, add it ourselves
         var modName = Platform.formatModName(stack.getModId());

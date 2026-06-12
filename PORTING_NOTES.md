@@ -1253,6 +1253,179 @@ and subnets (`SubnetPlots`, `TestPlots` bus plots, `AnnihilationPlaneTests`), P2
 - Flaky-looking `[unregistered]` shown as the batch environment name in the log is cosmetic: plot
   adapters use `Holder.direct(TestEnvironmentDefinition.AllOf())` (same on NeoForge).
 
+## Phase 3a — Fabric client COMPILE gate (`:fabric:build` GREEN with shared client sources)
+
+Gates re-verified at the end of this step: `:fabric:build` GREEN (shared src/client compiled in),
+`:neoforge:build` GREEN (451 tests, 1 skipped — unchanged), `:fabric:runGametest` 68/68,
+`:fabric:runServer` boots to `Done (0.212s)!` (client classes in the single jar do not leak onto the
+server path — vanilla only loads them on the client). Grep invariants: `net.neoforged` in src/main +
+src/client = 0/0; zero `net.neoforged` anywhere under loader/fabric.
+
+### Build setup
+
+- `loader/fabric/build.gradle`: the `ae2.fabric.client` block now adds root `src/client/java` +
+  `src/client/resources` + the NEW fabric client overlay dir `loader/fabric/src/client/java` into the
+  MAIN source set (mirrors :neoforge's single-jar layout; loom's splitEnvironmentSourceSets deliberately
+  NOT used — the known main-source client leak makes a strict split impossible, and the dedicated-server
+  boot remains the leak gate). `ae2.fabric.client=true` is now the default in gradle.properties.
+- Client-dir exclusions: `appeng/client/integration/{rei,emi}/**` (mirrors :neoforge, TODO 1.21.11),
+  plus fabric-only gates until the Phase 4 integrations step: `appeng/client/integrations/jei/**`,
+  `appeng/client/api/integrations/jei/**` (compile against the JEI API, not wired in :fabric) and
+  `appeng/client/api/integrations/emi/**` (EMI API, :neoforge wires emi-neoforge:api clientCompileOnly).
+  `appeng/client/guidebook/**` is NOT excluded — it compiles against guideme-fabric as-is
+  (RecipeTypeContributions already called the surviving `renderFluid(Fluid)` overload; the removed
+  `renderFluid(FluidStack)` overload had no shared callers). datagen was already moved to the :neoforge
+  overlay in step 14 — nothing to exclude.
+
+### AT/AW additions (shared loader-neutral code now uses widened vanilla members)
+
+NEW AT entries (mirrored 1:1 in ae2.accesswidener, GuideME precedent):
+`GuiGraphicsExtractor.scissorStack` + `GuiGraphicsExtractor$ScissorStack` class +
+`GuiGraphicsExtractor.guiRenderState` (replace the Neo `peekScissorStack()`/
+`submitGuiElementRenderState()`/`submitPictureInPictureRenderState()` patches),
+`RenderPipelines.GUI_TEXTURED_SNIPPET` (replaces `RenderPipeline#toBuilder()` in Blitter).
+AW-only entries (Neo patches vanilla access directly, no AT needed): `Screen.renderables`
+(private→accessible; AEBaseScreen/PatternAccessTermScreen), `ParticleResources$SpriteParticleRegistration`
+(package-private interface in the AppEngClient.SpriteSetRegistrar signature),
+`KeyMapping$Category.SORT_ORDER` (category registration, see lifecycle table).
+
+### Silent-patch table additions (client sweep; same format as Phase 2a)
+
+| Vanilla member | NeoForge patch | Resolution |
+|---|---|---|
+| `Slot#getContainerSlot()` | `getSlotIndex()` alias | renamed 5 remaining client uses (AEBaseScreen ×3, PatternAccessTermScreen, InterfaceScreen) |
+| `GuiGraphicsExtractor` (private members) | adds `peekScissorStack()`/`submitGuiElementRenderState()`/`submitPictureInPictureRenderState()` | AT+AW widened `scissorStack.peek()` / `guiRenderState.addGuiElement/addPicturesInPictureState` (Blitter, FluidBlockRendering) |
+| `RenderPipelines.GUI_TEXTURED` | adds `toBuilder()` | `RenderPipeline.builder(GUI_TEXTURED_SNIPPET)` — vanilla GUI_TEXTURED is exactly builder(snippet)+location (AT+AW for the private snippet) |
+| `setTooltipForNextFrame(Font,List,Optional,int,int)` | adds ItemStack-carrying overload (feeds tooltip events) | seam op `ClientLoaderHooks#setTooltipForNextFrame`; Neo impl keeps the stack overload, fabric impl uses the vanilla one (MEStorageScreen) |
+| `KeyMapping` (no such method) | adds `getKey()` | seam op `ClientLoaderHooks#getBoundKey` (Neo: `getKey()`; fabric: `KeyMappingHelper.getBoundKeyOf`) — AppEngClient.onKeyInput |
+| `FluidModel` (record) | adds `fluidTintSource()` (FluidStack-aware) + Neo `FluidType` | seam op `ClientLoaderHooks#getFluidRenderInfo(AEFluidKey)` → (sprite, tint, lighterThanAir); fabric impl: vanilla `tintSource().color(legacyBlock)` + `FluidVariantAttributes.isLighterThanAir` (FluidKeyRenderer, SkyStoneTankRenderer, fabric FluidBlitter twin) |
+| `EntityRenderState` (no such field) | adds `partialTick` | TinyTNTPrimedRenderer now folds partial ticks into `fuseRemainingInTicks` at extract time, exactly like vanilla TntRenderer (`getFuse() - partialTicks + 1`); flash cadence cast to int like vanilla |
+| `BlockEntityRenderer` (no such method) | injects `getRenderBoundingBox(T)` (default `new AABB(pos)`) | NEW client shim `appeng.client.hooks.extensions.RenderBoundingBoxHook` (appeng.hooks.extensions precedent); SkyStoneChestRenderer implements it. NOT dispatched on fabric yet (3b) |
+| `BlockStateBase` (no such method) | adds `isEmpty()` (AIR/CAVE_AIR/VOID_AIR) | `isAir()` — equivalent for the air default-states FacadeItemModel checks |
+| `UnbakedModel` | Neo makes it extend `ResolvableModel` | BasicUnbakedModel (dead code) now extends `UnbakedModel, ResolvableModel` explicitly |
+| `Minecraft#hasShiftDown()` | (vanilla! Screen#hasShiftDown no longer exists in 26.1) | `FabricLoaderPlatform.setShiftDownSupplier(() -> Minecraft.getInstance().hasShiftDown())` — resolves the Phase 2a tooltipHasShiftDown TODO; same accessor Neo's ClientTooltipFlag uses |
+| `BlockStateModel` world-aware overloads | Neo `BlockStateModelExtension` `collectParts/materialFlags/particleMaterial/createGeometryKey(level,pos,state[,random])` | FRAPI-injected `FabricBlockStateModel` equivalents (same names; the world-aware `materialFlags`/`createGeometryKey` additionally take RandomSource) — used by the fabric model twins only; shared code has no world-aware model calls |
+
+### Lifecycle wiring table (AppEngClient op → fabric mechanism, in AppEngFabricClient)
+
+| Loader-free op (step 14 surface) | Fabric mechanism |
+|---|---|
+| construction | `AppEngFabricClient extends AppEngClient implements ClientModInitializer`; vanilla `KeyMapping` ctor (no key conflict contexts on Fabric); `AppEngFabric.init(this)` runs the common init (main entrypoint defers on the client) |
+| `registerClientCommands` | NOT bridged: fabric client commands use `FabricClientCommandSource`, not CommandSourceStack — the single debug command (`ae2client highlight_gui_areas`) is mirrored natively via `ClientCommandRegistrationCallback` |
+| `registerClientTooltipComponents` | `ClientTooltipComponentCallback.EVENT` (instanceof dispatch per registered class) |
+| key mappings + `Hotkeys.finalizeRegistration` | `KeyMappingHelper.registerKeyMapping`; category: `Hotkeys.CATEGORY` added to AW'd `KeyMapping.Category.SORT_ORDER` (vanilla `Category.register` only constructs NEW instances) |
+| `clientSetup()` | called directly at the end of `onInitializeClient` (mod init runs on the main thread; Neo enqueued on FMLClientSetupEvent) |
+| `onMouseWheel` / `onKeyInput` | NEW client mixins `appeng.fabric.mixins.client.{MouseScrollMixin,KeyInputMixin}` — javap-verified against the Neo firing points (`MouseHandler#onScroll` after `ScrollWheelHandler.onMouseScroll`, recomputing the scaled offset with the vanilla formula; `KeyboardHandler#keyPress` TAIL with a window-handle guard) |
+| `clientTickStart`/`clientTickEnd` | `ClientTickEvents.START/END_CLIENT_TICK` (Neo registered start with LOWEST priority; fabric order not controllable — 3b risk note) |
+| `onPlayerLoggingIn` | `ClientPlayConnectionEvents.JOIN` |
+| `receiveRecipes` | NEW chunked payload `ae2:sync_recipes` (`appeng.fabric.network.{SyncRecipesPayload,RecipeSync}`, GuideME precedent): server sends on `ServerPlayConnectionEvents.JOIN` + `END_DATA_PACK_RELOAD` (guarded by `canSend`), client receiver rebuilds `RecipeMap.create` when the type-id payload arrives |
+| entity / BE renderers, layer definitions | `EntityRendererRegistry` / `BlockEntityRendererRegistry` (raw-typed adapter for the wildcard mismatch) / `ModelLayerRegistry.registerModelLayer` |
+| particles | `ParticleProviderRegistry.getInstance().register(type, registration::create)` (FabricSpriteSet extends SpriteSet) + `ParticleGroupRegistry.register` (exact signature match) |
+| render pipelines | NOT pre-registered (no fabric API; backend compiles lazily on first use — GuideME precedent) |
+| item model properties / item models / item tint sources | AW'd vanilla mappers `RangeSelectItemModelProperties/ItemModels/ItemTintSources.ID_MAPPER::put` (fabric transitive AWs widen them) |
+| block tint sources | `BlockColorRegistry.register` (exact signature match) |
+| block state model codecs | `CustomUnbakedBlockStateModel.register` (fabric-model-loading; same interface shape as Neo's) for all 8 models |
+| standalone models | `ModelLoadingPlugin` + `ExtraModelKey`/`SimpleUnbakedExtraModel` (crank handle as BlockStateModelPart, storage-cell models via `blockStateModel(id)`; the plugin lambda reads StorageCellModels freshly per load) |
+| part model types / part renderers | NEW addon-facing entrypoint `ae2:client_registration` (`appeng.fabric.client.AE2FabricClientRegistration`); `FabricClientLoaderHooks` posts the fabric twins of Register{PartModels,PartRenderer}Event through it; AE2 registers itself as the first entrypoint |
+| `initCustomClientRegistries()` | called directly in `onInitializeClient` (before resource/model loading starts) |
+| `initGuide()` | called directly (guideme-fabric API is loader-neutral) |
+| `InitScreens` | `InitScreens.init(MenuScreens::register)` — vanilla private method, fabric transitive AW widens it |
+| reload listeners (PartRendererDispatcher, styles) | `ResourceManagerHelper` + NEW `FabricReloadListenerWrapper` (GuideME precedent). Neo orders the dispatcher BEFORE the vanilla BER listener; fabric runs mod listeners after vanilla — only queried at render time, noted for 3b verification |
+| client packet receivers | NEW `FabricClientNetworkInit` → `ClientPlayNetworking.registerGlobalReceiver` per `AEClientboundPacketHandler.Registrar` entry |
+| `setShiftDownSupplier` | `Minecraft.getInstance().hasShiftDown()` (Phase 2a TODO resolved) |
+| config screen extension | none (needs ModMenu integration; deferred) |
+| IMC (darkmodeeverywhere, framedblocks GLASS_STATE) | nothing to do — both are NeoForge-only mods; the fabric QuartzGlassModel twin drops the write-only `GLASS_STATE` ModelProperty |
+
+### Fabric twins (same FQN, loader/fabric/src/client/java) and the FRAPI quad pipeline
+
+Mechanical twins (≈verbatim, Neo APIs swapped): StorageCellModels (`StandaloneModelKey` →
+`ExtraModelKey`), RegisterPartModelsEvent/RegisterPartRendererEvent (plain classes driven by the
+entrypoint), FluidBlitter (fluid seam), BlockAttackHook (`AttackBlockCallback`), RenderBlockOutlineHook
+(`LevelRenderEvents.BEFORE_BLOCK_OUTLINE`; extraction+render merged; returning false ≙ Neo renderer
+returning true), AreaOverlayRenderer (`LevelRenderEvents.END_EXTRACTION` + injected
+`FabricRenderState.setData` on LevelRenderState, render at `END_MAIN` ≈ Neo AfterWeather),
+FluidBlockPictureInPictureRenderer (Neo `VertexConsumerWrapper` → plain delegating VertexConsumer),
+CrankRenderer/MEChestRenderer (`getStandaloneModel` → AW-free `FabricModelManager#getModel`;
+world-aware part collection downgraded to the context-free vanilla calls — both models are static).
+
+Model twins ride on the NEW glue `appeng.fabric.client.render.FabricDynamicBlockStateModel`
+(mirror of Neo's DynamicBlockStateModel: world-aware `collectParts` + FRAPI `emitQuads` default that
+emits the collected parts), with `NeoForgeRenderData.unwrap(level.getModelData(pos))` →
+`((FabricBlockGetter) level).getBlockEntityRenderData(pos)`: QnbFormedModel, SpatialPylonModel,
+PaintSplotchesModel (`ModelData` pass-through → plain `Object`), DriveModel (`ComposedModelState` →
+fabric-glue mirror), CraftingCubeModel, QuartzGlassModel (`QuadBakingVertexConsumer` → direct vanilla
+BakedQuad construction), SingleSpinnableVariant, P2PFrequencyPartModel/PlanePartModel/
+MeteoriteCompassModel (`QuadTransforms` → fabric-glue mirror transforming positions only).
+
+Quad pipeline (the deep rewrite):
+- **Vanilla 26.1 BakedQuad carries NO per-vertex colors and NO normals — both are NeoForge record
+  patches (`bakedColors`/`bakedNormals`).** This is the central FRAPI impedance. Colors are carried
+  through the NEW side channel `appeng.fabric.client.render.QuadColors` (Guava weakKeys = identity);
+  the fabric model twins re-apply them when re-emitting through FRAPI meshes (whose format does store
+  per-vertex colors). Normals: Neo bakes face normals — the render default — so dropping them is lossless.
+- fabric CubeBuilder twin: same public surface (`Consumer<BakedQuad>`), builds vanilla BakedQuads
+  directly — positions verbatim from Neo's `MutableQuad#setCubeFaceFromSpriteCoords`, UV packing via
+  vanilla `UVPair.pack`, material resolution verbatim from `MutableQuad#setSprite` (transparency →
+  ChunkSectionLayer/item RenderType), emissive → MaterialInfo.lightEmission(15). Colors → QuadColors.
+- codechicken transformers (7 files): ported VERBATIM onto FRAPI `MutableQuadView`
+  (`positionComponent→posByIndex`, `direction()→nominalFace()`, setter renames); InterpHelper copied
+  unchanged (pure math). They had ALREADY been written against this API shape pre-26.1
+  (`appeng.thirdparty.fabric` era) — the current Neo MutableQuad versions are the same math.
+- fabric FacadeBuilder twin: pipeline runs on a scratch `Renderer.get().quadEmitter()` (never emitted):
+  `clear→fromBakedQuad→clamper→faceStripper→kicker→reInterpolator→tintIndex(-1)→toBakedQuad(sprite)`;
+  pre-baked block tints go into QuadColors. Facade source model parts are collected with the
+  context-free vanilla `collectParts` (facades are full blocks without BEs — no render-data models).
+- fabric CableBusModel twin: overrides FRAPI `emitQuads`; cable-model and facade parts are re-emitted
+  color-aware from QuadColors, part models emit via the injected `BlockStateModelPart#emitQuads`
+  default; `createGeometryKey` returns the CableBusRenderState (content-equality, mirrors the Neo
+  cache semantics).
+
+### Phase 3b runtime-risk / minimal-implementation list (compile gate accepted these)
+
+1. **Spatial storage dimension visuals**: no fabric-api 26.1 equivalent of
+   RegisterCustomEnvironmentEffectRendererEvent; the SpatialStorage{Sky,Clouds,WeatherEffects}Renderer
+   twins were NOT created — the dimension renders the vanilla default sky (the fabric biome json already
+   ships without the Neo environment attributes). Needs investigation (vanilla environment-attribute
+   registry mixin?).
+2. **CableBusBlockClientExtensions** (Neo IClientBlockExtensions): particle/sound hooks for cable busses
+   not twinned — vanilla fallback break/run particles+sounds on fabric.
+3. **Per-vertex color loss on vanilla-pipeline paths**: QuadColors only helps where AE2's fabric twins
+   re-emit quads. Lost on: MemoryCardItemModel hash colors (vanilla item path), FacadeItemModel
+   (facade ITEM rendering of tinted blocks, e.g. grass facades), CellLedRenderer-adjacent paths are
+   unaffected (submit-time QuadInstance colors are vanilla). Candidate fix: FabricLayerRenderState mesh
+   support or tint sources.
+4. **RenderBoundingBoxHook** not dispatched (SkyStoneChest lid may cull at screen edges).
+5. `clientTickStart` ordering: Neo used LOWEST priority; fabric registration order — cable render mode
+   refresh may run before other mods' tick handlers.
+6. Mixin risk: KeyInputMixin @At("TAIL") assumes the fall-through return is last in bytecode;
+   MouseScrollMixin fires before the discrete-scroll zero-check (Neo fires after) — sub-threshold
+   discrete scrolls can reach AE2 slightly earlier; verify both in runClient.
+7. `KeyMapping.Category.SORT_ORDER` direct add: verify the controls screen lists the AE2 category.
+8. Reload-listener ordering (PartRendererDispatcher after vanilla BER listener) — verify part renderers
+   after F3+T.
+9. Facade `collectParts` is context-free on fabric (Neo passes level/pos) — dynamic facade source
+   models (none known in practice) would render their fallback state.
+10. BEFORE_BLOCK_OUTLINE runs once per frame (Neo renders its custom outline renderers possibly in two
+    passes via `translucentPass`) — verify part placement preview depth behavior.
+11. Recipe-sync payload size: 250-recipe chunks (GuideME precedent) — verify with large packs.
+12. `ae2:interface_slot_filtering` NeoForge-only gametest plot still needs a fabric capability-overlay
+    twin (pre-existing, Phase 2b).
+
+### Gotchas
+
+- fabric-api 26.1 renamed/moved several client APIs: `WorldRenderEvents` → `LevelRenderEvents`
+  (fabric-rendering-v1), key bindings → `KeyMappingHelper` (fabric-key-mapping-api-v1; the old
+  fabric-key-binding-api-v1 jar in the cache is an intermediary-named leftover), block colors →
+  `BlockColorRegistry`, render data → `FabricBlockGetter` (fabric-block-getter-api-v2).
+- `BlockStateModel`/`BlockStateModelPart`/`MaterialBaker`/`TextureAtlas`/`ModelManager` get FRAPI
+  interface injections (`FabricBlockStateModel#emitQuads` etc.) via transitive class tweakers — shared
+  code could even call the world-aware overloads, but only the fabric twins do.
+- `ClientCommands` name clash: fabric's `net.fabricmc...command.v2.ClientCommands` vs AE2's
+  `appeng.client.commands.ClientCommands` — the entrypoint imports the fabric one.
+- Generic-method functional interfaces (SpriteSetRegistrar, ClientTooltipComponentRegistrar,
+  BlockEntityRendererRegistrar) need anonymous classes or method refs — lambdas do not compile
+  (step-14 note still applies).
+
 ## Open questions
 
 - TR Energy 5.0.0: confirm it targets MC 26.1 Fabric API at compile time.

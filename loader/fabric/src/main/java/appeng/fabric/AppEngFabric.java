@@ -220,9 +220,9 @@ public class AppEngFabric implements ModInitializer {
         // Needs a small mixin into Player#getDestroySpeed in a later step. Impact: sky stone does not break
         // faster with the appropriate tools until then.
 
-        // TODO (fabric): server-synced recipe push (NeoForge: OnDatapackSyncEvent#sendRecipes for
-        // base.getServerSyncedRecipeTypes()) has no Fabric equivalent yet. AE2's crafting terminal recipe
-        // features and GuideME need these on the client; resolve in the runtime/networking step.
+        // Server-synced recipe push (NeoForge: OnDatapackSyncEvent#sendRecipes for
+        // base.getServerSyncedRecipeTypes()): replicated with a chunked custom payload, GuideME precedent.
+        appeng.fabric.network.RecipeSync.init(base);
 
         HotkeyActions.init();
     }

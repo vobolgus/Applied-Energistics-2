@@ -14,10 +14,12 @@ public final class FluidBlockRendering {
 
         var rect = new ScreenRectangle(x - 16, y - 16, width + 32, height + 32);
         var screenBounds = rect.transformMaxBounds(guiGraphics.pose());
-        var scissorArea = guiGraphics.peekScissorStack();
+        // Was guiGraphics.peekScissorStack() / submitPictureInPictureRenderState (NeoForge patches);
+        // the AT/AW-widened vanilla members are used directly instead.
+        var scissorArea = guiGraphics.scissorStack.peek();
         // Pre-apply scissor area
         screenBounds = scissorArea != null ? scissorArea.intersection(screenBounds) : screenBounds;
-        guiGraphics.submitPictureInPictureRenderState(new FluidBlockPictureInPictureRenderer.State(
+        guiGraphics.guiRenderState.addPicturesInPictureState(new FluidBlockPictureInPictureRenderer.State(
                 new Matrix3x2f(guiGraphics.pose()),
                 rect.left(),
                 rect.top(),

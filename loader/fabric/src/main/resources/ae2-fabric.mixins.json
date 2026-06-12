@@ -13,7 +13,7 @@
     "SneakBypassUseMixin",
     "WitherBossEntityDestroyMixin"
   ],
-  "client": [],
+  "client": ["client.KeyInputMixin", "client.MouseScrollMixin"],
   "server": [],
   "injectors": {
     "defaultRequire": 1

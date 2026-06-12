@@ -65,6 +65,7 @@ import appeng.api.storage.AEKeyFilter;
 import appeng.api.storage.ILinkStatus;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
+import appeng.client.ClientLoaderHooks;
 import appeng.client.Hotkeys;
 import appeng.client.Point;
 import appeng.client.api.AEKeyRendering;
@@ -722,9 +723,10 @@ public class MEStorageScreen<C extends MEStorageMenu>
         // Special case to support the Item API of visual tooltip components
         if (entry.getWhat() instanceof AEItemKey itemKey) {
             var stack = itemKey.getReadOnlyStack();
-            // By using the overload of the renderTooltip method that takes an ItemStack, we support the Forge tooltip
-            // event system
-            guiGraphics.setTooltipForNextFrame(font, currentToolTip, stack.getTooltipImage(), stack, x, y);
+            // The ItemStack-carrying overload is a NeoForge patch (it feeds the stack to tooltip events);
+            // routed through the loader seam so the vanilla overload is used on Fabric.
+            ClientLoaderHooks.get().setTooltipForNextFrame(guiGraphics, font, currentToolTip,
+                    stack.getTooltipImage(), stack, x, y);
         } else {
             guiGraphics.setComponentTooltipForNextFrame(font, currentToolTip, x, y);
         }

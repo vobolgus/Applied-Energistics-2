@@ -23,7 +23,6 @@ import com.mojang.blaze3d.vertex.QuadInstance;
 
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.Sheets;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
@@ -34,8 +33,8 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 
 import appeng.blockentity.storage.SkyStoneTankBlockEntity;
+import appeng.client.ClientLoaderHooks;
 import appeng.client.render.CubeBuilder;
-import appeng.neoforge.transfer.NeoForgeResources;
 
 public final class SkyStoneTankRenderer
         implements BlockEntityRenderer<SkyStoneTankBlockEntity, SkyStoneTankRenderState> {
@@ -62,20 +61,13 @@ public final class SkyStoneTankRenderer
             return;
         }
 
-        var fluid = storedFluid.getFluid();
-        var fluidStack = NeoForgeResources.toFluidStack(storedFluid, 1);
-
         state.fill = (float) amount / capacity;
-        var fluidModel = Minecraft.getInstance().getModelManager().getFluidStateModelSet()
-                .get(fluid.defaultFluidState());
-        state.sprite = fluidModel.stillMaterial().sprite();
-        var tintSource = fluidModel.fluidTintSource();
-        if (tintSource != null) {
-            state.color = tintSource.colorAsStack(fluidStack);
-        } else {
-            state.color = -1;
-        }
-        state.lighterThanAir = fluid.getFluidType().isLighterThanAir();
+        // Fluid tinting + gravity behavior go through the loader seam (NeoForge: fluidTintSource()/FluidType
+        // patches; Fabric: vanilla tint source + FluidVariantAttributes)
+        var renderInfo = ClientLoaderHooks.get().getFluidRenderInfo(storedFluid);
+        state.sprite = renderInfo.sprite();
+        state.color = renderInfo.color();
+        state.lighterThanAir = renderInfo.lighterThanAir();
     }
 
     @Override

@@ -43,10 +43,12 @@ import net.minecraft.world.phys.Vec3;
 import appeng.block.storage.SkyStoneChestBlock;
 import appeng.block.storage.SkyStoneChestBlock.Type;
 import appeng.blockentity.storage.SkyStoneChestBlockEntity;
+import appeng.client.hooks.extensions.RenderBoundingBoxHook;
 import appeng.core.AppEng;
 
 // This is mostly a copy&paste job of the vanilla chest TESR
-public class SkyStoneChestRenderer implements BlockEntityRenderer<SkyStoneChestBlockEntity, SkyStoneChestRenderState> {
+public class SkyStoneChestRenderer implements BlockEntityRenderer<SkyStoneChestBlockEntity, SkyStoneChestRenderState>,
+        RenderBoundingBoxHook<SkyStoneChestBlockEntity> {
 
     public static ModelLayerLocation MODEL_LAYER = new ModelLayerLocation(AppEng.makeId("sky_chest"), "main");
 

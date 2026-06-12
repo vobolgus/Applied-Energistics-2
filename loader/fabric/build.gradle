@@ -111,9 +111,35 @@ if (includeSharedSources) {
     }
 }
 if (includeSharedClientSources) {
-    // Phase 3: define the client source set (likely via loom's splitEnvironmentSourceSets) and add
-    // rootProject src/client/java + src/client/resources here, excluding rei/emi/datagen like :neoforge.
-    throw new GradleException("ae2.fabric.client is not implemented yet (Phase 3)")
+    // Phase 3a: the shared CLIENT sources are compiled into the MAIN source set (mirroring :neoforge's
+    // single-jar layout; vanilla only loads client classes on the client). loom's splitEnvironmentSourceSets
+    // is deliberately NOT used: the shared main sources already contain client-referencing classes (the known
+    // "main-source client leak"), and the dedicated-server boot test remains the actual leak gate.
+    sourceSets {
+        main {
+            java {
+                srcDir rootProject.file('src/client/java')
+                // Fabric client overlay (twins of the NeoForge client overlay classes + appeng.fabric.client glue)
+                srcDir 'src/client/java'
+                // TODO 1.21.11 (kept in sync with :neoforge's client source set excludes)
+                exclude 'appeng/client/integration/rei/**'
+                exclude 'appeng/client/integration/emi/**'
+                // The JEI plugin and the addon-facing JEI converter API compile against the JEI API only, but
+                // that artifact is not wired into :fabric yet. Gated out until the Phase 4 integrations step.
+                exclude 'appeng/client/integrations/jei/**'
+                exclude 'appeng/client/api/integrations/jei/**'
+                // The addon-facing EMI converter API compiles against the EMI API (:neoforge wires
+                // emi-neoforge:api as clientCompileOnly); no EMI artifact in :fabric yet (Phase 4).
+                exclude 'appeng/client/api/integrations/emi/**'
+                // NOTE: appeng/client/guidebook/** is NOT excluded: it compiles against guideme-fabric
+                // (renderFluid(Fluid) etc.). appeng/datagen/** no longer exists in the shared client tree
+                // (moved to the :neoforge overlay in Phase 1 step 14) - nothing to exclude for it.
+            }
+            resources {
+                srcDir rootProject.file('src/client/resources')
+            }
+        }
+    }
 }
 
 dependencies {

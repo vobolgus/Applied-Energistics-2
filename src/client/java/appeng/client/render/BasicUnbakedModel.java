@@ -21,19 +21,22 @@ package appeng.client.render;
 import java.util.Collection;
 import java.util.Collections;
 
+import net.minecraft.client.resources.model.ResolvableModel;
 import net.minecraft.client.resources.model.UnbakedModel;
 import net.minecraft.resources.Identifier;
 
 /**
  * An unbaked model that has standard models as a dependency and produces a custom baked model as a result.
  */
-public interface BasicUnbakedModel extends UnbakedModel {
+// ResolvableModel is listed explicitly: on NeoForge UnbakedModel already extends it (a NeoForge patch),
+// on Fabric (vanilla) it does not.
+public interface BasicUnbakedModel extends UnbakedModel, ResolvableModel {
     default Collection<Identifier> getDependencies() {
         return Collections.emptyList();
     }
 
     @Override
-    default void resolveDependencies(Resolver resolver) {
+    default void resolveDependencies(ResolvableModel.Resolver resolver) {
         for (Identifier dependency : getDependencies()) {
             resolver.markDependency(dependency);
         }

@@ -86,7 +86,9 @@ public class FacadeItemModel implements ItemModel {
         }
 
         var facadeBlockState = itemFacade.getTextureBlockState(stack);
-        if (facadeBlockState.isEmpty()) {
+        // was the NeoForge BlockStateBase#isEmpty() extension (AIR/CAVE_AIR/VOID_AIR); isAir() is
+        // equivalent for the air default-states the facade item falls back to
+        if (facadeBlockState.isAir()) {
             missingItemModel.update(renderState, stack, itemModelResolver, displayContext, level, owner, seed);
             return;
         }

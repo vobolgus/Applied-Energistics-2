@@ -18,14 +18,26 @@
 
 package appeng.client;
 
+import java.util.List;
+import java.util.Optional;
+
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.serialization.MapCodec;
 
 import org.jetbrains.annotations.Nullable;
 
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.ExtraCodecs;
+import net.minecraft.world.inventory.tooltip.TooltipComponent;
+import net.minecraft.world.item.ItemStack;
 
 import appeng.api.parts.IPart;
+import appeng.api.stacks.AEFluidKey;
 import appeng.client.api.model.parts.PartModel;
 import appeng.client.api.renderer.parts.PartRenderer;
 
@@ -56,6 +68,34 @@ public interface ClientLoaderHooks {
     interface PartRendererCollector {
         <T extends IPart> void register(String modId, Class<T> partClass, PartRenderer<? super T, ?> renderer);
     }
+
+    /**
+     * The currently bound key of the given key mapping (NeoForge: the {@code KeyMapping#getKey()} patch; Fabric:
+     * {@code KeyMappingHelper.getBoundKeyOf}).
+     */
+    InputConstants.Key getBoundKey(KeyMapping keyMapping);
+
+    /**
+     * Resolves the still sprite, tint color and gravity behavior used to render the given fluid (NeoForge: the
+     * {@code FluidModel#fluidTintSource()} patch + {@code FluidType}; Fabric: the vanilla {@code FluidModel} tint
+     * source + {@code FluidVariantAttributes}).
+     */
+    FluidRenderInfo getFluidRenderInfo(AEFluidKey fluid);
+
+    /**
+     * Render information for a fluid: the still sprite, the ARGB tint color (-1 if untinted) and whether the fluid is
+     * lighter than air (gases render top-down).
+     */
+    record FluidRenderInfo(TextureAtlasSprite sprite, int color, boolean lighterThanAir) {
+    }
+
+    /**
+     * Schedules an item tooltip for the next frame. On NeoForge this uses the patched overload that carries the
+     * {@link ItemStack} so tooltip-event listeners of other mods receive the stack context; the vanilla (Fabric)
+     * overload drops the stack parameter.
+     */
+    void setTooltipForNextFrame(GuiGraphicsExtractor guiGraphics, Font font, List<Component> lines,
+            Optional<TooltipComponent> image, ItemStack stack, int x, int y);
 
     static ClientLoaderHooks get() {
         var instance = Holder.INSTANCE;

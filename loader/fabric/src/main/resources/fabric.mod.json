@@ -14,7 +14,14 @@
   "icon": "assets/ae2/icon.png",
   "environment": "*",
   "entrypoints": {
-    "main": ["appeng.fabric.AppEngFabric"]
+    "main": ["appeng.fabric.AppEngFabric"],
+    "client": ["appeng.fabric.client.AppEngFabricClient"],
+    "ae2:client_registration": [
+      {
+        "adapter": "default",
+        "value": "appeng.fabric.client.AppEngFabricClient"
+      }
+    ]
   },
   "mixins": ["ae2.mixins.json", "ae2-fabric.mixins.json"],
   "accessWidener": "ae2.accesswidener",

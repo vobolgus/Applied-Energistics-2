@@ -339,7 +339,8 @@ public class AppEngClient extends AppEngBase {
      * @param action a GLFW input action ({@link InputConstants#PRESS}, {@link InputConstants#REPEAT} or release)
      */
     public void onKeyInput(int key, int action) {
-        if (key == partPlacementOpposite.getKey().getValue()) {
+        // getBoundKey: KeyMapping#getKey() is a NeoForge patch; routed through the loader seam
+        if (key == ClientLoaderHooks.get().getBoundKey(partPlacementOpposite).getValue()) {
             var player = Minecraft.getInstance().player;
 
             if (player != null) {

@@ -110,3 +110,26 @@ accessible method net/minecraft/world/level/block/TntBlock prime (Lnet/minecraft
 # RecipeManager#recipes is private in vanilla (Neo patches in a recipeMap() accessor);
 # used by FabricLoaderPlatform#getRecipeMap
 accessible field net/minecraft/world/item/crafting/RecipeManager recipes Lnet/minecraft/world/item/crafting/RecipeMap;
+
+# --- Phase 3a (client) additions ---
+
+# Mirrors the new AT entries: used by shared client code in place of NeoForge's
+# GuiGraphicsExtractor patches (peekScissorStack()/submitGuiElementRenderState())
+accessible field net/minecraft/client/gui/GuiGraphicsExtractor scissorStack Lnet/minecraft/client/gui/GuiGraphicsExtractor$ScissorStack;
+accessible class net/minecraft/client/gui/GuiGraphicsExtractor$ScissorStack
+accessible field net/minecraft/client/gui/GuiGraphicsExtractor guiRenderState Lnet/minecraft/client/renderer/state/gui/GuiRenderState;
+
+# Mirrors the new AT entry: used by Blitter in place of NeoForge's RenderPipeline#toBuilder() patch
+accessible field net/minecraft/client/renderer/RenderPipelines GUI_TEXTURED_SNIPPET Lcom/mojang/blaze3d/pipeline/RenderPipeline$Snippet;
+
+# Silent NeoForge patches (no AT entries exist; Neo patches vanilla directly):
+# Screen#renderables is private in vanilla (Neo: protected); used by AEBaseScreen/PatternAccessTermScreen
+accessible field net/minecraft/client/gui/screens/Screen renderables Ljava/util/List;
+# ParticleResources$SpriteParticleRegistration is package-private in vanilla (Neo: public);
+# part of the AppEngClient.SpriteSetRegistrar signature
+accessible class net/minecraft/client/particle/ParticleResources$SpriteParticleRegistration
+
+# KeyMapping.Category registration: vanilla only offers Category.register(Identifier) which constructs a NEW
+# category; AE2's category instance is created in shared code (Hotkeys.CATEGORY). The fabric client entrypoint
+# adds it to the sort order directly, mirroring NeoForge's RegisterKeyMappingsEvent#registerCategory.
+accessible field net/minecraft/client/KeyMapping$Category SORT_ORDER Ljava/util/List;

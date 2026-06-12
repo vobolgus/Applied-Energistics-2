@@ -53,7 +53,9 @@ public class TinyTNTPrimedRenderer extends EntityRenderer<TinyTNTPrimedEntity, T
     @Override
     public void extractRenderState(TinyTNTPrimedEntity entity, TntRenderState state, float partialTick) {
         super.extractRenderState(entity, state, partialTick);
-        state.fuseRemainingInTicks = entity.getFuse();
+        // Mirrors vanilla TntRenderer: partial ticks are folded into the extracted fuse value
+        // (NeoForge instead exposes a patched EntityRenderState#partialTick, which Fabric lacks)
+        state.fuseRemainingInTicks = entity.getFuse() - partialTick + 1.0F;
         blockModelResolver.update(state.blockState, entity.getBlockState(), BLOCK_DISPLAY_CONTEXT);
 
     }
@@ -65,8 +67,8 @@ public class TinyTNTPrimedRenderer extends EntityRenderer<TinyTNTPrimedEntity, T
         poseStack.translate(0, 0.5F, 0);
         float f2;
 
-        if (renderState.fuseRemainingInTicks - renderState.partialTick + 1.0F < 10.0F) {
-            f2 = 1.0F - (renderState.fuseRemainingInTicks - renderState.partialTick + 1.0F) / 10.0F;
+        if (renderState.fuseRemainingInTicks < 10.0F) {
+            f2 = 1.0F - renderState.fuseRemainingInTicks / 10.0F;
 
             if (f2 < 0.0F) {
                 f2 = 0.0F;
@@ -91,7 +93,7 @@ public class TinyTNTPrimedRenderer extends EntityRenderer<TinyTNTPrimedEntity, T
                     poseStack,
                     nodes,
                     renderState.lightCoords,
-                    renderState.fuseRemainingInTicks / 5 % 2 == 0,
+                    (int) renderState.fuseRemainingInTicks / 5 % 2 == 0,
                     renderState.outlineColor);
         }
         poseStack.popPose();

@@ -18,19 +18,32 @@
 
 package appeng.neoforge.client;
 
+import java.util.List;
+import java.util.Optional;
+
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.serialization.MapCodec;
 
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.ExtraCodecs;
+import net.minecraft.world.inventory.tooltip.TooltipComponent;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModLoader;
 import net.neoforged.fml.ModWorkManager;
 
 import appeng.api.parts.IPart;
+import appeng.api.stacks.AEFluidKey;
 import appeng.client.ClientLoaderHooks;
 import appeng.client.api.model.parts.PartModel;
 import appeng.client.api.model.parts.RegisterPartModelsEvent;
 import appeng.client.api.renderer.parts.PartRenderer;
 import appeng.client.api.renderer.parts.RegisterPartRendererEvent;
+import appeng.neoforge.transfer.NeoForgeResources;
 
 /**
  * NeoForge implementation of the {@link ClientLoaderHooks} seam: posts the addon-facing {@link RegisterPartModelsEvent}
@@ -60,5 +73,30 @@ public class NeoForgeClientLoaderHooks implements ClientLoaderHooks {
                                 collector.register(modContainer.getModId(), partClass, renderer);
                             }
                         }));
+    }
+
+    @Override
+    public InputConstants.Key getBoundKey(KeyMapping keyMapping) {
+        return keyMapping.getKey();
+    }
+
+    @Override
+    public FluidRenderInfo getFluidRenderInfo(AEFluidKey fluid) {
+        var fluidModel = Minecraft.getInstance().getModelManager().getFluidStateModelSet()
+                .get(fluid.getFluid().defaultFluidState());
+        var fluidStack = NeoForgeResources.toFluidStack(fluid, 1);
+        var tintSource = fluidModel.fluidTintSource();
+        var color = tintSource != null ? tintSource.colorAsStack(fluidStack) : -1;
+        return new FluidRenderInfo(
+                fluidModel.stillMaterial().sprite(),
+                color,
+                fluid.getFluid().getFluidType().isLighterThanAir());
+    }
+
+    @Override
+    public void setTooltipForNextFrame(GuiGraphicsExtractor guiGraphics, Font font, List<Component> lines,
+            Optional<TooltipComponent> image, ItemStack stack, int x, int y) {
+        // The stack-carrying overload is a NeoForge patch that passes the stack to tooltip gather events
+        guiGraphics.setTooltipForNextFrame(font, lines, image, stack, x, y);
     }
 }
