@@ -1796,6 +1796,152 @@ Fabric (cosmetic fullbright-LED gap, already on the Phase 3a risk list); left as
   never reads loader/fabric/build.gradle, its jar is bit-identical w.r.t. resources).
 - Grep invariants `net.neoforged` 0/0; spotlessApply clean (no Java touched).
 
+## Phase 5 — CI matrix + alpha readiness
+
+### CI (.github/workflows/build.yml rewritten for the loader split)
+
+The upstream single `build` job assumed the pre-split layout (root `build/libs`, unqualified task
+names — which after the split would fan out to BOTH loaders by Gradle's name matching and break on
+the unresolvable guideme-fabric). New job matrix:
+
+- **`build-neoforge`** — the upstream job 1:1, with task names qualified (`:neoforge:runData`,
+  `:neoforge:printProjectVersion :neoforge:build :neoforge:publish`, `:neoforge:runGametest`) and
+  artifact paths moved to `loader/neoforge/build/{libs,repo}`. The `publish` (Maven Central
+  snapshot) job's `needs`/paths updated to match. Artifact `dist` renamed `dist-neoforge`
+  (no other workflow consumed the old name; release.yml has its own independent build job).
+  The gradle-setup composite action is now referenced by local path (`./.github/actions/...`)
+  instead of `...@main` so the fork never resolves upstream's copy.
+- **`build-fabric`** — `:fabric:build` (jar/sources/javadoc + validateAccessWidener), uploads
+  `dist-fabric` from `loader/fabric/build/libs`.
+- **`gametest-fabric`** — `:fabric:runGametest` as a separate job (headless vanilla GameTestServer
+  via `-Dfabric-api.gametest=true`; no display needed on the hosted runner). Separate so a gametest
+  regression doesn't mask the build/artifact signal; uploads the gametest server log on failure.
+
+**GuideME artifact strategy (option (a) with a placeholder gate)**: guideme-fabric exists ONLY in
+mavenLocal (our GuideME clone is upstream `AppliedEnergistics/GuideME` + the unpushed local branch
+`fabric-26.1`; there is no remote to clone from in CI yet). New composite action
+`.github/actions/guideme-fabric-mavenlocal` checks out `${GUIDEME_REPO}@${GUIDEME_REF}` and runs
+`./gradlew :fabric:publishToMavenLocal` before the AE2 fabric build. Both fabric jobs are gated
+`if: vars.GUIDEME_REPO != ''` — they are SKIPPED (not failed) until the GuideME fork is pushed and
+the repository variables are set (e.g. `GUIDEME_REPO=<owner>/GuideME`, `GUIDEME_REF=fabric-26.1`).
+The NeoForge job runs regardless. NOTE: also push OUR AE2 fabric branch's GuideME prerequisite
+before flipping the variables; private forks need a read token via the action's `token` input.
+
+### Version derivation fix (0.0.0-SNAPSHOT → 26.1.10-alpha)
+
+Root cause was NOT the defaultBranches suffix logic: this fork carries **zero git tags** (GitHub
+forks don't copy tags; `git ls-remote --tags origin` = 0), so `ProjectVersionSource.findTag()`'s
+`git describe --tags` always throws and `obtain()` falls back to `0.0.0-SNAPSHOT` — locally AND in
+CI, on every branch. Accepting `fabric/*` in defaultBranches would not have helped.
+
+Fix chosen (GuideME-port precedent, zero buildSrc diff → zero upstream-rebase surface in build
+logic): pin `version=26.1.10-alpha` in `gradle.properties`. `ProjectDefaultsPlugin` reads the
+`version` Gradle property FIRST and skips git entirely; a release `TAG` env var still overrides.
+The branch sits one commit past upstream's `v26.1.9-alpha` (tag verified at `6cdee350c` via the
+GitHub API), so the pinned version equals what git-describe would derive (`26.1.10-alpha.N+…`)
+minus the unavailable offset metadata. Verified in the built jar: `fabric.mod.json` `"version":
+"26.1.10-alpha"`; jars now named `appliedenergistics2{,-fabric}-26.1.10-alpha*.jar`. **Bump the
+pin deliberately per release / on upstream rebase**; collision warning: upstream will eventually
+release its own (NeoForge-only) 26.1.10-alpha — the loader is disambiguated by artifact name only.
+
+### Final gate sweep (2026-06-12, all green, in order)
+
+| Gate | Result |
+|---|---|
+| `:neoforge:build` | GREEN — 451 tests, 0 failures, 1 skipped (unchanged) |
+| `:fabric:build` | GREEN — fabric.mod.json version expands to 26.1.10-alpha in the jar |
+| `:fabric:runGametest` | 68/68 required tests passed |
+| `:fabric:runServer` | `Done (0.245s)!`, 0 ERROR lines |
+| `:neoforge:runGametest` | 69/69 required tests passed (baseline incl. interface_slot_filtering) |
+| grep invariants | `net.neoforged`: 0 in src/main/java, 0 in src/client/java, 0 under loader/fabric |
+
+### Release artifacts (dist/, git-ignored — the `/*` allowlist excludes it; explicit entry added)
+
+| File | Size | SHA-256 |
+|---|---|---|
+| `dist/appliedenergistics2-fabric-26.1.10-alpha.jar` | 8 963 482 B | `2de5c9f3015d81b6d8a8bab25f831aca38fdf7dd25374d58bad0cf71a6514c4a` |
+| `dist/guideme-fabric-26.1.10-alpha.jar` | 10 148 294 B | `093663d5129647297eda8f8952d8a00b2e67698bc981db84840380abea926484` |
+
+(guideme-fabric copied from `~/.m2/repository/org/appliedenergistics/guideme-fabric/26.1.10-alpha/`.)
+
+## Status & remaining work (wrap-up)
+
+### Done — phases & gates
+
+| Phase / gate | Commit | Evidence |
+|---|---|---|
+| Phase 0–2a: dual-loader build split, full NeoForge decoupling (gate M1: 0 net.neoforged in shared sources), Fabric platform layer, compile gate | `52516862d` | `:fabric:build` + `:neoforge:build` (451 tests) green |
+| Phase 2b part 1: Fabric dedicated server boots (gate M2 part 1) | `84a9735a6` | `runServer` → `Done (…)`, clean reload |
+| Phase 2b part 2: Fabric gametests (gate M2 complete) | `50753d14a` | 68/68; capability-invalidation registry bug found & fixed |
+| Phase 3a: Fabric client compiles (shared src/client + FRAPI quad pipeline) | `9171df845` | `:fabric:build` with client sources |
+| Phase 3b: Fabric client boots to gameplay | `4e851a221` | title screen + singleplayer world, 0 AE2 load errors |
+| REI integration restored (compiled, runtime blocked upstream) | `07801e764` | both loaders compile; entrypoints inert |
+| Phase 4: JEI + Jade (+WTHIT plumbing) wired on Fabric | `4ffc830f1` | JEI categories + Jade plugin load at runtime |
+| Phase 4: datagen parity (conditions/ingredients/biome/blockstates) | `136b535a7` | runServer 0 ERROR, 2007 recipes |
+| Phase 5: CI matrix, version pin, release artifacts | (this commit) | gate-sweep table above |
+
+### Deferred / known issues (consolidated)
+
+1. **REI runtime blocked upstream** — no REI build for MC 26.1 exists anywhere (newest: 21.11.814
+   for 1.21.11, intermediary-mapped on fabric). Integration is fully restored and compiles on both
+   loaders; flip `runtime_itemlist_mod=rei` + bump `rei_version` + work the grep-able
+   `TODO (REI 26.1)` markers when it ships (checklist in "REI restoration").
+2. **`ae2:interface_slot_filtering` gametest twin** — the capability-asserting plot is
+   NeoForge-only (`InterfaceCapabilityTestPlots` overlay); Fabric needs a BlockApiLookup-based twin
+   (`FabricTestPlotPlatform` TODO). Hence fabric 68 vs neoforge 69.
+3. **Part LED emissive (fullbright) gap** — 33 handwritten part models carry per-face
+   `neoforge_data` lightmaps that vanilla's parser ignores on Fabric; status LEDs render unlit.
+   Fix direction: FRAPI emissive material re-emission in the part model baking path, together with
+   the QuadColors per-vertex-color follow-ups (MemoryCardItemModel hashes, FacadeItemModel tints —
+   Phase 3a risk item 3).
+4. **Spatial storage sky/clouds/weather** — vanilla default sky on Fabric (Neo environment
+   attributes stripped from the biome; no fabric-api 26.1 equivalent of the effect-renderer
+   registration found — candidate: environment-attribute registry mixin).
+5. **`RenderBoundingBoxHook` not dispatched on Fabric** — SkyStoneChest lid may cull at screen
+   edges (client shim exists, needs a BER-dispatch mixin).
+6. **guideme-fabric is ProGuard-less** — the Fabric GuideME jar skips upstream's shrink step
+   (bigger jar, functionally identical). Revisit if jar size matters for the modpack.
+7. **WTHIT runtime needs badpackets** — `runtime_tooltip_mod=wthit` is wired but badpackets is not
+   on the dev runtime (same gap as :neoforge upstream).
+8. **In-world visual checklist not yet executed** — the interactive items from the Phase 3a risk
+   list (cable-bus FRAPI visuals, QuadColors paths, part renderers after F3+T, controls-screen
+   category, scroll/key mixin behavior, block-outline depth) plus the JEI/Jade and REI user
+   checklists. Server-side behavior is covered by the 68 gametests; rendering is not.
+9. Minor: CableBusBlock break/run particles+sounds use vanilla fallback on Fabric
+   (IClientBlockExtensions not twinned); no ModMenu config screen; `clientTickStart` ordering
+   vs other mods is registration-order on Fabric (Neo used LOWEST priority).
+
+### Rebase playbook (upstream-alpha rebases)
+
+1. **Rebase onto the upstream tag** (e.g. `v26.1.11-alpha`), not main-HEAD, so the version pin
+   stays truthful. Expected conflict hotspots: `gradle.properties` (fabric block + version pin —
+   bump it to the new next-alpha), `settings.gradle` (PREFER_PROJECT + repo list), the root/loader
+   build split, `.github/workflows/build.yml`. Gradle wrapper: upstream is on 9.2.1, this branch
+   needs ≥9.5.1 for loom 1.17 — keep ours.
+2. **AT ↔ AW sync**: diff upstream changes to `src/main/resources/META-INF/accesstransformer.cfg`
+   and mirror them into `loader/fabric/src/main/resources/ae2.accesswidener` using the translation
+   rules in "AT → AW translation" (descriptors via javap on the fabric-loom merged jar; `protected`
+   on overridden privates → `extendable`, mutators → `mutable` only where access already suffices).
+   Gate: `:fabric:validateAccessWidener`.
+3. **Datagen transform inventory**: regenerate (`:neoforge:runData`), then `:fabric:processResources`
+   — any NEW `neoforge:`-namespaced condition/ingredient/key in the generated tree **fails the
+   fabric build by design** (`NeoForgeToFabricRecipeTransform` assertion). Extend the mapping in
+   `loader/fabric/build.gradle` and **bump `inputs.property 'ae2.datagenParityTransform'`** (filter
+   closures are not tracked as task inputs). Same file owns the biome exclusion and the
+   `fabric:type` blockstate rewrite.
+4. **New shared code using silent NeoForge patches** will fail `:fabric:compileJava` — consult the
+   Phase 2a + Phase 3a silent-patch tables for the established resolution patterns (vanilla
+   equivalent > AW > LoaderPlatform/ClientLoaderHooks seam op > `appeng.hooks.extensions` shim with
+   a fabric mixin dispatch).
+5. **Addon-facing surface**: keep `appeng.neoforge.*` overlay equivalents for anything removed from
+   the shared API (precedents: AENeoForgeCapabilities, AENeoForgeP2PAttunement,
+   SearchInventoryEvent's addStackSource).
+6. **GuideME**: rebase `../GuideME` branch `fabric-26.1` onto upstream GuideME, republish
+   `:fabric:publishToMavenLocal`, bump `guideme_fabric_version`/`guideme_version` if changed.
+7. **Re-run the full gate sweep in order** (see Phase 5 table): `:neoforge:build` →
+   `:fabric:build` → `:fabric:runGametest` → `:fabric:runServer` (Done + 0 ERROR) →
+   `:neoforge:runGametest` → grep invariants (`net.neoforged` 0/0/0).
+
 ## Open questions
 
 - TR Energy 5.0.0: confirm it targets MC 26.1 Fabric API at compile time.

@@ -49,3 +49,6 @@ build
 
 # Explicit ignores
 Thumbs.db
+# Final release jars staged by the Fabric porting workflow (already excluded by the /* allowlist
+# above - listed explicitly so it is never allowlisted by accident)
+dist/

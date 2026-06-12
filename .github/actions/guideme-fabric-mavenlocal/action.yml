@@ -1,0 +1,40 @@
+name: 'Publish guideme-fabric to mavenLocal'
+description: >
+  AE2's :fabric project depends on org.appliedenergistics:guideme-fabric, which is NOT published to
+  any remote Maven repository yet: the Fabric port of GuideME lives on a fork branch (local branch
+  "fabric-26.1" on top of upstream GuideME main, see PORTING_NOTES.md) and AE2's :fabric build
+  resolves it from mavenLocal only. This action checks out that fork/branch and publishes the
+  guideme-fabric artifact to mavenLocal so the AE2 fabric jobs can resolve it.
+
+  PLACEHOLDER CONFIGURATION: until the GuideME fabric branch is pushed to a reachable repository,
+  the calling jobs are gated on the repository variables GUIDEME_REPO / GUIDEME_REF being set
+  (Settings > Secrets and variables > Actions > Variables), e.g.
+    GUIDEME_REPO = <owner>/GuideME
+    GUIDEME_REF  = fabric-26.1
+  If the repository is private, pass a token with read access via the "token" input.
+inputs:
+  repository:
+    description: 'GuideME repository in <owner>/<repo> form (the fork carrying the fabric branch)'
+    required: true
+  ref:
+    description: 'Branch/tag/SHA of the GuideME fabric port'
+    required: true
+  token:
+    description: 'Token used to check out the GuideME repository (defaults to github.token; only works for public or same-owner repos)'
+    required: false
+    default: ${{ github.token }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout GuideME (fabric port)
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.ref }}
+        token: ${{ inputs.token }}
+        path: guideme-src
+
+    - name: Publish guideme-fabric to mavenLocal
+      shell: bash
+      working-directory: guideme-src
+      run: ./gradlew :fabric:publishToMavenLocal --max-workers 1

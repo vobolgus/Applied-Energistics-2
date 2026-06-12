@@ -14,8 +14,20 @@ concurrency:
   group: ci-build-${{ github.ref }}
   cancel-in-progress: true
 
+# Loader matrix (Fabric port branch):
+#   build-neoforge  - the upstream job, paths updated for the loader/neoforge project split.
+#   build-fabric    - :fabric:build (jar + javadoc + sources + validateAccessWidener).
+#   gametest-fabric - :fabric:runGametest, the headless GameTestServer (68 plot tests). Runs as a
+#                     separate job so a gametest regression doesn't mask build/artifact signal.
+#
+# GuideME artifact strategy: the fabric jobs need org.appliedenergistics:guideme-fabric, which only
+# exists in mavenLocal (built from an unpushed GuideME fork branch - see PORTING_NOTES.md). Both
+# fabric jobs therefore first run .github/actions/guideme-fabric-mavenlocal, and are SKIPPED until
+# the repository variables GUIDEME_REPO / GUIDEME_REF point at a pushed copy of that branch
+# (e.g. GUIDEME_REPO=<owner>/GuideME, GUIDEME_REF=fabric-26.1). The NeoForge job is unaffected.
+
 jobs:
-  build:
+  build-neoforge:
     # Only run the pull-request build if the pull-request was opened from another repository,
     # since we already run this workflow for the branch the pull request was made from.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
@@ -27,9 +39,9 @@ jobs:
           fetch-depth: 50
       - run: git fetch origin --tags
         shell: bash
-      - uses: AppliedEnergistics/Applied-Energistics-2/.github/actions/gradle-setup@main
+      - uses: ./.github/actions/gradle-setup
       - name: Generate assets
-        run: ./gradlew runData
+        run: ./gradlew :neoforge:runData
       - name: Check that datagen ran
         run: test -d ./src/generated/resources/.cache
       - name: Make sure that generated files in the repo are up-to-date
@@ -39,13 +51,13 @@ jobs:
           if [ -n "$(git status --porcelain)" ]; then exit 1; fi
 
       - name: Build with Gradle
-        run: ./gradlew printProjectVersion build publish --max-workers 1
+        run: ./gradlew :neoforge:printProjectVersion :neoforge:build :neoforge:publish --max-workers 1
         env:
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_KEY }}
           ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.GPG_KEY_PASSWORD }}
 
       - name: Run Game Tests
-        run: ./gradlew runGametest
+        run: ./gradlew :neoforge:runGametest
       - name: Upload new Source Text Strings to Crowdin
         run: ./gradlew uploadToCrowdin
         env:
@@ -67,21 +79,21 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: dist
-          path: build/libs/
+          name: dist-neoforge
+          path: loader/neoforge/build/libs/
 
       - name: Prepare artifact metadata. Note that VERSION is set by the gradle script.
         id: prepare_artifact_metadata
         run: |
-          echo ARTIFACT_PATH=./build/libs/appliedenergistics2-${VERSION}.jar >> $GITHUB_OUTPUT
+          echo ARTIFACT_PATH=./loader/neoforge/build/libs/appliedenergistics2-${VERSION}.jar >> $GITHUB_OUTPUT
           echo ARTIFACT_NAME=appliedenergistics2-${VERSION}.jar >> $GITHUB_OUTPUT
-          echo JAVADOC_PATH=./build/libs/appliedenergistics2-${VERSION}-javadoc.jar >> $GITHUB_OUTPUT
+          echo JAVADOC_PATH=./loader/neoforge/build/libs/appliedenergistics2-${VERSION}-javadoc.jar >> $GITHUB_OUTPUT
           echo JAVADOC_NAME=appliedenergistics2-${VERSION}-javadoc.jar >> $GITHUB_OUTPUT
-          echo API_PATH=./build/libs/appliedenergistics2-${VERSION}-api.jar >> $GITHUB_OUTPUT
+          echo API_PATH=./loader/neoforge/build/libs/appliedenergistics2-${VERSION}-api.jar >> $GITHUB_OUTPUT
           echo API_NAME=appliedenergistics2-${VERSION}-api.jar >> $GITHUB_OUTPUT
           echo VERSION=${VERSION} >> $GITHUB_OUTPUT
       - name: Archive build results
-        run: tar -I zstd -cf build.tar.zst build/libs build/repo
+        run: tar -I zstd -cf build.tar.zst loader/neoforge/build/libs loader/neoforge/build/repo
       - name: Upload build and gradle folders
         uses: actions/upload-artifact@v4
         with:
@@ -90,9 +102,69 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+  build-fabric:
+    # Skipped until the GuideME fabric fork is pushed and GUIDEME_REPO/GUIDEME_REF are configured
+    # (see the GuideME artifact strategy note above).
+    if: |
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)
+      && vars.GUIDEME_REPO != ''
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+      - run: git fetch origin --tags
+        shell: bash
+      - uses: ./.github/actions/gradle-setup
+      - name: Build guideme-fabric into mavenLocal
+        uses: ./.github/actions/guideme-fabric-mavenlocal
+        with:
+          repository: ${{ vars.GUIDEME_REPO }}
+          ref: ${{ vars.GUIDEME_REF }}
+
+      - name: Build with Gradle
+        run: ./gradlew :fabric:printProjectVersion :fabric:build --max-workers 1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-fabric
+          path: loader/fabric/build/libs/
+
+  gametest-fabric:
+    # Headless vanilla GameTestServer via fabric-api's gametest hook (-Dfabric-api.gametest=true);
+    # no display needed, runs fine on the hosted runner. Same GuideME gating as build-fabric.
+    if: |
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)
+      && vars.GUIDEME_REPO != ''
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+      - run: git fetch origin --tags
+        shell: bash
+      - uses: ./.github/actions/gradle-setup
+      - name: Build guideme-fabric into mavenLocal
+        uses: ./.github/actions/guideme-fabric-mavenlocal
+        with:
+          repository: ${{ vars.GUIDEME_REPO }}
+          ref: ${{ vars.GUIDEME_REF }}
+
+      - name: Run Game Tests
+        run: ./gradlew :fabric:runGametest
+
+      - name: Upload gametest server log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fabric-gametest-logs
+          path: loader/fabric/build/gametest/logs/
+
   publish:
     name: Publish Snapshot to Maven Central
-    needs: build
+    needs: build-neoforge
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
@@ -103,11 +175,11 @@ jobs:
       - name: Unpack build artifact
         run: tar axf build.tar.zst
       - name: Validate artifacts exist
-        run: test -d ./build
+        run: test -d ./loader/neoforge/build
       - name: Publish to Maven Central
         uses: AppliedEnergistics/maven-publish-action@main
         with:
-          local-repository-path: build/repo
+          local-repository-path: loader/neoforge/build/repo
           remote-repository-url: https://central.sonatype.com/repository/maven-snapshots/
           remote-repository-username: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           remote-repository-password: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
