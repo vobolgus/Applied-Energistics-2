@@ -55,8 +55,8 @@ import appeng.server.testworld.GameTestPlotAdapter;
  * where the plot entries already arrive over the wire - registering them again throws a duplicate-key error and aborts
  * the client's configuration phase (Phase 3b boot incident #4). NeoForge gates its equivalent
  * {@code RegisterGameTestsEvent} on the same distinction (the {@code fromResources} parameter of
- * {@code RegistryDataLoader#load}). Registration is gated on the {@code appeng.tests} system property, exactly like
- * the NeoForge twin. The {@code ae2:plot_adapter} test-instance type codec is registered by
+ * {@code RegistryDataLoader#load}). Registration is gated on the {@code appeng.tests} system property, exactly like the
+ * NeoForge twin. The {@code ae2:plot_adapter} test-instance type codec is registered by
  * {@code AppEngFabric#onInitialize}.
  */
 @Mixin(RegistryLoadTask.class)

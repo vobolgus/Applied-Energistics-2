@@ -40,7 +40,6 @@ sourceSets {
         java {
             srcDirs = [rootProject.file('src/main/java'), 'src/main/java']
             // TODO 1.21.11
-            exclude 'appeng/integration/modules/rei/**'
             exclude 'appeng/integration/modules/theoneprobe/**'
         }
         resources {
@@ -56,7 +55,6 @@ sourceSets {
 
         // TODO 1.21.11
         java {
-            exclude 'appeng/client/integration/rei/**'
             exclude 'appeng/client/integration/emi/**'
         }
     }

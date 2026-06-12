@@ -103,7 +103,6 @@ if (includeSharedSources) {
             java {
                 srcDir rootProject.file('src/main/java')
                 // TODO 1.21.11 (kept in sync with :neoforge)
-                exclude 'appeng/integration/modules/rei/**'
                 exclude 'appeng/integration/modules/theoneprobe/**'
                 // Jade/WTHIT plugins need their (loader-specific) API jars; gated out until the
                 // Fabric integrations step. The shared CuriosSupport seam itself stays compiled.
@@ -131,7 +130,6 @@ if (includeSharedClientSources) {
                 // Fabric client overlay (twins of the NeoForge client overlay classes + appeng.fabric.client glue)
                 srcDir 'src/client/java'
                 // TODO 1.21.11 (kept in sync with :neoforge's client source set excludes)
-                exclude 'appeng/client/integration/rei/**'
                 exclude 'appeng/client/integration/emi/**'
                 // The JEI plugin and the addon-facing JEI converter API compile against the JEI API only, but
                 // that artifact is not wired into :fabric yet. Gated out until the Phase 4 integrations step.
@@ -149,6 +147,12 @@ if (includeSharedClientSources) {
             }
         }
     }
+}
+
+// Dev-runtime-only mods (twin of :neoforge's localRuntimeOnly): on the run configs' classpath, never published.
+configurations {
+    localRuntimeOnly
+    runtimeClasspath.extendsFrom localRuntimeOnly
 }
 
 dependencies {
@@ -172,9 +176,32 @@ dependencies {
     // javax.annotation (@Nonnull etc.) is still used by a few shared files; NeoForge provides it transitively
     compileOnly "com.google.code.findbugs:jsr305:3.0.2"
 
-    // The addon-facing REI converter API in src/main/java/appeng/api/integrations/rei (matches :neoforge's
-    // compileOnly on the REI api)
-    compileOnly "me.shedaniel:RoughlyEnoughItems-api-fabric:${rei_version}"
+    // REI compile-time API for the restored integration (appeng/integration/modules/rei + the addon-facing
+    // converter API in appeng/api/integrations/rei). The -neoforge artifacts are used DELIBERATELY: they are
+    // mojmap-named (1.21.11 mojmap already carries the ResourceLocation->Identifier rename that 26.1 inherited),
+    // while the -fabric artifacts of the same version are intermediary-mapped (pre-26.1 fabric toolchain) and
+    // cannot be compiled against on unobfuscated 26.1. These jars never ship and are never on the runtime
+    // classpath; at runtime the (future) REI 26.1 fabric build provides the real classes.
+    // transitive=false: their poms pull cloth-config-neoforge etc., which we neither need nor want resolved here;
+    // architectury (REI's fluid entry type dev.architectury.fluid.FluidStack) is pinned explicitly instead.
+    compileOnly("me.shedaniel:RoughlyEnoughItems-api-neoforge:${rei_version}") { transitive = false }
+    compileOnly("me.shedaniel:RoughlyEnoughItems-default-plugin-neoforge:${rei_version}") { transitive = false }
+    compileOnly("dev.architectury:architectury-neoforge:${architectury_version}") { transitive = false }
+    compileOnly("me.shedaniel.cloth:basic-math:${cloth_basic_math_version}") { transitive = false }
+
+    // Dev-runtime item-list mod, mirroring :neoforge's runtime_itemlist_mod switch. REI is the primary recipe
+    // viewer for the Fabric port (the Create Fly modpack uses REI natively). BLOCKED ON UPSTREAM: REI has no
+    // MC 26.1 build yet (latest is 21.11.814 for MC 1.21.11, intermediary-mapped - it cannot load on an
+    // unobfuscated 26.1 runtime). The wiring below is the final shape; flip runtime_itemlist_mod to "rei" once
+    // a 26.1.x REI fabric build exists, and verify the version on maven.shedaniel.me first.
+    switch (project.runtime_itemlist_mod) {
+        case "rei":
+            localRuntimeOnly "me.shedaniel:RoughlyEnoughItems-fabric:${rei_version}"
+            break
+        default:
+            // "jei"/"emi" have no Fabric wiring here (yet); the dev client runs without an item-list mod.
+            break
+    }
 
     if (includeSharedSources) {
         // Published by the GuideME Fabric port (Workstream A) to mavenLocal until released

@@ -21,7 +21,9 @@
         "adapter": "default",
         "value": "appeng.fabric.client.AE2ClientSelfRegistration"
       }
-    ]
+    ],
+    "rei_common": ["appeng.integration.modules.rei.ReiPlugin"],
+    "rei_client": ["appeng.client.integration.rei.ReiClientPlugin"]
   },
   "mixins": ["ae2.mixins.json", "ae2-fabric.mixins.json"],
   "accessWidener": "ae2.accesswidener",

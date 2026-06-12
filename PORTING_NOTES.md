@@ -1520,6 +1520,139 @@ in `loader/fabric/run/saves/` before the run is hands-off (created once via the 
   paths, part renderers after F3+T, controls-screen category listing, scroll-wheel mixin behavior,
   spatial sky, SkyStoneChest render bounds. Server-side BE coverage comes from the 68 gametests.
 
+## REI restoration (gate M3 DoD "REI shows AE2 recipes", primary recipe viewer on Fabric)
+
+### THE upstream blocker (read first)
+
+**REI has NO MC 26.1 build.** Verified 2026-06-12 on maven.shedaniel.me (directory listing), Modrinth
+(`/project/rei/version`) and CurseForge: the newest release anywhere is **21.11.814 for MC 1.21.11**.
+The fabric artifacts of that line are *intermediary-mapped* (pre-26.1 toolchain) and cannot load on an
+unobfuscated 26.1 runtime at all; the neoforge artifacts are 1.21.11-mojmap. This is exactly why
+upstream AE2 DELETED its whole REI integration in the 26.1 commit (`adf39bca8`) and kept only the
+addon-facing converter API — the "TODO 1.21.11" excludes in the loader build files pointed at
+directories that no longer existed.
+
+Consequently the runtime half of the gate ("REI logs AE2 plugin registration in runClient") is
+**blocked on REI shipping a 26.1 build** — there is nothing that can be put on the dev runtime
+classpath. What WAS delivered: the full integration restored from git history (`adf39bca8^`, 25 files),
+ported to the current REI 21.11 API + MC 26.1 + the post-Phase-1 AE2 internals, compiling in BOTH
+loaders, with Fabric entrypoints declared and runtime wiring in final shape. When REI releases for
+26.1.x: bump `rei_version`, flip `runtime_itemlist_mod=rei`, work the TODO (REI 26.1) markers (all
+grep-able), boot, verify visually.
+
+### Version/artifact decisions
+
+- `rei_version` bumped **21.9.812 → 21.11.814**: the 21.9 line is pre-rename mojmap
+  (`net.minecraft.resources.ResourceLocation` in ABSTRACT API methods — `Display#getDisplayLocation`
+  is abstract `Optional<ResourceLocation>`, unimplementable on 26.1 where the class is `Identifier`);
+  1.21.11 mojmap already carries the `Identifier` rename, so 21.11 is the only line AE2 can compile
+  displays against. This is the "newer build fixes API churn" case from the task brief.
+- **:fabric compiles against the REI *-neoforge* api artifacts** (`RoughlyEnoughItems-api-neoforge`,
+  `RoughlyEnoughItems-default-plugin-neoforge`, + `dev.architectury:architectury-neoforge:19.0.1` and
+  `me.shedaniel.cloth:basic-math:0.6.1` for REI's FluidStack/CompoundEventResult/math types), all
+  `compileOnly` + `transitive = false`. Rationale: on unobfuscated 26.1 there is no mapping split
+  anymore; the -fabric artifacts are intermediary and unusable; the -neoforge jars carry the identical
+  API in mojmap names. None of this ships or reaches any runtime classpath. (The previous
+  `RoughlyEnoughItems-api-fabric` compileOnly — intermediary! — was replaced; the addon-facing
+  `appeng/api/integrations/rei` converter API now compiles against real signatures on :fabric too.)
+- :neoforge keeps the upstream single-fat-jar pattern (`RoughlyEnoughItems-neoforge` compileOnly +
+  clientCompileOnly), just version-bumped; architectury arrives transitively there.
+- `runtime_itemlist_mod=rei` now has a :fabric twin (new `localRuntimeOnly` configuration extending
+  `runtimeClasspath`, mirroring :neoforge). It resolves `me.shedaniel:RoughlyEnoughItems-fabric` —
+  verified via `:fabric:dependencies --configuration localRuntimeOnly -Pruntime_itemlist_mod=rei` —
+  but the global default stays `jei` (a fabric no-op): flipping to `rei` today would put the
+  intermediary 1.21.11 jar on the runtime and crash the boot gates. Documented at the switch.
+
+### Plugin discovery / entrypoint wiring
+
+- REI fabric discovers plugins via fabric.mod.json entrypoint keys **`rei_common`** (common/server,
+  interface `REICommonPlugin` — RENAMED from `REIServerPlugin` in 21.11) and **`rei_client`**
+  (`REIClientPlugin`). Verified against REI's own fabric.mod.json (the 21.9.812-fabric jar lists its
+  Default*Plugins under exactly these keys). Wired: `rei_common` → `ReiPlugin`, `rei_client` →
+  `ReiClientPlugin`. Unknown entrypoint keys are lazily ignored by fabric-loader when REI is absent —
+  verified by the green boot gates; entrypoint class FQNs verified present in the built jar.
+- The `@REIPluginCommon`/`@REIPluginClient` annotations are NeoForge-only (`me.shedaniel.rei.forge`)
+  → stripped from the shared classes; tiny annotated subclasses live in the loader overlay
+  (`loader/neoforge/.../NeoForgeReiPlugin`, `NeoForgeReiClientPlugin`) for runtime-REI parity on
+  NeoForge (also dormant until an REI 26.1 neoforge build exists).
+- `ItemListMod.setAdapter(new ReiItemListModAdapter())` MOVED from the common plugin ctor into
+  `ReiClientPlugin`'s ctor: `REIRuntime` is a client class and `rei_common` is instantiated on
+  dedicated servers (pre-existing latent crash upstream). `ReiItemListModAdapter` made public for the
+  cross-package call.
+
+### API churn fixed (REI 16-era code → REI 21.11 + MC 26.1 + post-Phase-1 AE2)
+
+| Old | New |
+|---|---|
+| `REIServerPlugin` | `REICommonPlugin` |
+| `Display#getSerializer` didn't exist | abstract; all 6 displays return `null` (not server-synced; AE2 ships its own transfer handlers) |
+| `Display#getDisplayLocation` default | abstract; `Optional<Identifier>` (CondenserOutputDisplay returns empty — no backing recipe) |
+| `DisplayRegistry#registerRecipeFiller(Class, RecipeType, Function)` | REMOVED in 21.x; replaced with explicit `registry.add(display, holder)` loops over **AE2's own recipe sync** (`AppEngClient.getRecipeMapForType(...).byType(...)`, the same source the JEI 26.1 integration uses — vanilla stopped syncing recipes in 1.21.2). Passing the `RecipeHolder` as the display ORIGIN keeps `DisplayRegistry#getDisplayOrigin` working for the transfer handlers. Guarded on `level == null` (REI reloads plugins on world join). |
+| `StorageCellUpgradeRecipe` crafting filler | DROPPED — vanilla 26.1 syncs crafting recipes as `RecipeDisplay`s which REI's builtin crafting plugin consumes (JEI 26.1 dropped it too) |
+| hand-built `CategoryIdentifier.of("minecraft", "plugins/crafting")` | `BuiltinPlugin.CRAFTING` |
+| `recipe.canCraftInDimensions(3,3)` (TODO 1.21.4) | `!placementInfo().isImpossibleToPlace() && slotsToIngredientIndex().size() <= 9` (JEI-26.1 pattern) |
+| `CraftingHelper.performTransfer` TODO 1.21.4 | resolved: `performTransfer(menu, recipeId, recipe, craftMissing)` |
+| `Ingredient.of(Stream<ItemStack>)` (fake recipe) | `Ingredient.of(Item...)`; fake `ShapedRecipe` rebuilt with the 26.1 ctor (`Recipe.CommonInfo` + `CraftingRecipe.CraftingBookInfo` + non-empty `ItemStackTemplate` result — result is never read) |
+| `recipe.getResultItem()` / `getIngredient()` / `getIngredients()` | `result().create()` (`ItemStackTemplate`, pkg `net.minecraft.world.item`!) / `ingredient()` / `ingredients()` |
+| `EntropyRecipe.getDrops()` → `List<ItemStack>` | `List<ItemStackTemplate>` → `drop.create()` |
+| `FluidStackHooksForge.toForge/fromForge` + `AEFluidKey.toStack` | loader-neutral `FluidStack.create(fluid, amount, patch)` / `AEFluidKey.of(fluid, patch)` (see fluid units below) |
+| `Item#getName()` / `getHoverName()` mix | `ItemStack#getHoverName()` |
+| facade recipe id `Optional.of(...)` ctor bits | 26.1 `RecipeHolder(ResourceKey.create(Registries.RECIPE, id), ShapedRecipe(commonInfo, bookInfo, pattern, template))` |
+| `appeng.client.integration.itemlists.*` imports | `appeng.client.integrations.itemlists.*` (Phase-1 path) |
+| InscriberRecipeDisplay input list | BUG FIX: the old code dropped the middle ingredient (missing `inputs.add`) and mis-indexed the fixed slot order when top was absent; now always 3 entries (top/middle/bottom, `EntryIngredient.empty()` placeholders) |
+
+### Unportable until REI ships a 26.1 build — `TODO (REI 26.1)` markers in code
+
+`net.minecraft.client.gui.GuiGraphics` was RENAMED to `GuiGraphicsExtractor` in 26.1, and REI 21.11's
+render-callback interfaces (`Renderer#render`, `EntryRenderer#render`, `DrawableConsumer`,
+`TransferHandlerRenderer`) take the OLD class in their abstract signatures → cannot be implemented on
+26.1 without faking MC classes. Degraded gracefully, original code recoverable from git history:
+
+- `FluidBlockRenderer` (3D fluid-block entry renderer) DELETED; TransformCategory renders catalyst
+  fluids with the stock fluid entry renderer (sources only, like JEI 26.1).
+- EntropyRecipeCategory: icon = item entry instead of the texture-blitting Renderer lambda; the
+  "consumed" red-cross overlay reduced to its tooltip marker.
+- Transfer handlers: red/blue missing/craftable SLOT highlight overlays dropped (`Result#renderer`);
+  the + button colors and tooltips (`overrideTooltipRenderer`) survive.
+- CondenserCategory: hover-tooltip DrawableConsumer replaced by stock `Widgets.createTooltip`
+  (equivalent, NOT degraded).
+
+### Fluid units (REI boundary)
+
+REI's fluid entry type is `dev.architectury.fluid.FluidStack`, whose amounts are PLATFORM-native
+(mB on NeoForge, droplets on Fabric). The shared `FluidIngredientConverter` converts AE2-internal mB
+through `FluidStack.bucketAmount()` (runtime-reported units-per-bucket) — loader-neutral by
+construction, **no loader seam and no 81/81000 literals needed**. REI→AE2 rounds down (FluidUnits
+policy); AE2→REI is exact. `appeng.fabric.transfer.FluidUnits` remains the choke point for the Fabric
+*transfer API* boundary specifically; this is the architectury/REI boundary (documented in both
+places).
+
+### Gate status (all green, 2026-06-12)
+
+- `:fabric:build` GREEN, `:neoforge:build` GREEN (**451 tests, 1 skipped — unchanged**), spotless clean.
+- Grep invariants: `net.neoforged` 0/0 in src/main+src/client, 0 under loader/fabric; no fabric
+  imports in the shared REI dirs (loader-specific REI glue = the 2 neoforge overlay subclasses + the
+  fabric.mod.json entrypoints).
+- `:fabric:runGametest` 68/68; `:fabric:runServer` → `Done (0.213s)!` (zero REI lines — entrypoints
+  inert without REI; ReiItemListModAdapter move keeps the server path client-class-free);
+  `:fabric:runClient` title screen + `:fabric:runGametestWorld` in-world idle: no new errors (only the
+  documented pre-existing noise: c:nuggets datagen-parity, offline-session 401s).
+- Built-jar check: `rei_common`/`rei_client` entrypoint FQNs resolve to classes in the fabric jar.
+
+### User checklist when REI 26.1 lands (visual verification)
+
+1. Verify the new version on maven.shedaniel.me, bump `rei_version`, set `runtime_itemlist_mod=rei`.
+2. runClient → REI logs AE2 plugin registration ("Registering AE2 REI common plugin…" /
+   "Registering AE2 REI client categories" are AE2's own info logs); zero plugin-reload errors.
+3. In-world: inscriber/charger/condenser/entropy/transform/attunement categories show recipes
+   (join a world first — displays come from AE2's recipe sync); facade recipes for e.g. stone;
+   + button on inscriber recipes; drag fluid/item ghosts onto pattern terminal slots; recipe transfer
+   into crafting terminal (incl. ctrl-click autocraft-missing); search-field sync (AE2 terminal
+   search ⇄ REI search); facades collapsed into one REI entry group; debug items hidden.
+4. Work the `TODO (REI 26.1)` markers (grep) against REI's updated render interfaces.
+
 ## Open questions
 
 - TR Energy 5.0.0: confirm it targets MC 26.1 Fabric API at compile time.
+- REI for MC 26.1: watch maven.shedaniel.me / Modrinth — unblocks the runtime half of gate M3
+  (see "REI restoration" section).
