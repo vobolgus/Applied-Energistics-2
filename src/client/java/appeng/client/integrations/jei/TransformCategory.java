@@ -13,7 +13,6 @@ import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.helpers.IGuiHelper;
 import mezz.jei.api.helpers.IJeiHelpers;
 import mezz.jei.api.helpers.IPlatformFluidHelper;
-import mezz.jei.api.neoforge.NeoForgeTypes;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.recipe.types.IRecipeType;
 
@@ -39,8 +38,6 @@ public class TransformCategory extends ViewBasedCategory<RecipeHolder<TransformR
 
     private final IPlatformFluidHelper<?> fluidHelper;
 
-    private final FluidBlockRenderer fluidRenderer;
-
     public TransformCategory(IJeiHelpers helpers) {
         super(helpers);
         IGuiHelper guiHelper = helpers.getGuiHelper();
@@ -49,7 +46,6 @@ public class TransformCategory extends ViewBasedCategory<RecipeHolder<TransformR
                 AEItems.CERTUS_QUARTZ_CRYSTAL_CHARGED.stack());
         arrow = guiHelper.createDrawable(JEIPlugin.TEXTURE, 0, 17, 24, 17);
         fluidHelper = helpers.getPlatformFluidHelper();
-        fluidRenderer = new FluidBlockRenderer();
     }
 
     @Override
@@ -131,7 +127,9 @@ public class TransformCategory extends ViewBasedCategory<RecipeHolder<TransformR
                         slot.add(fluid, fluidHelper.bucketVolume());
                     }
 
-                    slot.setCustomRenderer(NeoForgeTypes.FLUID_STACK, fluidRenderer);
+                    // The JEI fluid ingredient type is loader-specific (NeoForge FluidStack vs Fabric
+                    // IJeiFluidIngredient); the loader-duplicated helper installs the matching renderer.
+                    JeiFluidRendering.setFluidSlotRenderer(slot);
                 } else if (recipe.circumstance.isExplosion()) {
                     builder.addSlot(RecipeIngredientRole.CRAFTING_STATION, 55 + 1, yOffset + 1)
                             .setSlotName("explosion")

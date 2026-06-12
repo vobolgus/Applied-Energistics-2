@@ -49,6 +49,7 @@ import appeng.api.config.CondenserOutput;
 import appeng.api.features.P2PTunnelAttunementInternal;
 import appeng.api.ids.AEComponents;
 import appeng.client.AppEngClient;
+import appeng.client.ClientLoaderHooks;
 import appeng.client.api.integrations.jei.IngredientConverters;
 import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.implementations.InscriberScreen;
@@ -364,7 +365,10 @@ public class JEIPlugin implements IModPlugin {
     // Copy-pasted from JEI since it doesn't seem to expose these
     public static void drawHoveringText(GuiGraphicsExtractor guiGraphics, List<Component> textLines, int x, int y) {
         var font = Minecraft.getInstance().font;
-        guiGraphics.setTooltipForNextFrame(font, textLines, Optional.empty(), ItemStack.EMPTY, x, y);
+        // The ItemStack-carrying setTooltipForNextFrame overload is a NeoForge patch; the seam uses it there
+        // and drops the (empty) stack on the vanilla (Fabric) overload.
+        ClientLoaderHooks.get().setTooltipForNextFrame(guiGraphics, font, textLines, Optional.empty(),
+                ItemStack.EMPTY, x, y);
     }
 
     public static IJeiRuntime instance() {

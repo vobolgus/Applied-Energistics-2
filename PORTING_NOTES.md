@@ -1651,6 +1651,84 @@ places).
    search ⇄ REI search); facades collapsed into one REI entry group; debug items hidden.
 4. Work the `TODO (REI 26.1)` markers (grep) against REI's updated render interfaces.
 
+## Phase 4 integrations — JEI + Jade (+ WTHIT) on Fabric
+
+Replaces the REI runtime criterion of gate M3/M4 (REI has no MC 26.1 build — see "REI restoration"):
+**JEI shows AE2 recipe categories in the Fabric client** and **Jade overlays AE2 blocks**, both
+verified at runtime via logs. The REI integration stays compiled-but-inert, untouched.
+
+### Artifact wiring (all verified live 2026-06-12)
+
+| Mod | :fabric compile | :fabric dev runtime (switch) | :neoforge (unchanged) | Repo |
+|---|---|---|---|---|
+| JEI | `mezz.jei:jei-26.1.2-fabric-api:29.5.0.26` (pulls `jei-26.1.2-common-api` transitively) | `runtime_itemlist_mod=jei` → `mezz.jei:jei-26.1.2-fabric:29.5.0.26` | `jei-26.1.2-neoforge(-api):29.5.0.26` | maven.blamejared.com |
+| Jade | `maven.modrinth:jade:26.1.0+fabric` (full mod jar as API) | `runtime_tooltip_mod=jade` → same artifact | `curse.maven:jade-324717:7938398` | api.modrinth.com/maven (`includeGroup maven.modrinth`) |
+| WTHIT | `mcp.mobius.waila:wthit-api:fabric-19.0.1` | `runtime_tooltip_mod=wthit` → `wthit:fabric-19.0.1` (NOTE: needs badpackets at runtime, not wired — same gap as :neoforge) | `wthit-api:neo-19.0.1` | maven2.bai.lol |
+
+- **No jei_version bump needed**: blamejared publishes the SAME version (29.5.0.26) for both loaders of
+  26.1.2, so both loaders compile the shared plugin against the identical common API. (Newest fabric
+  build there is 29.6.2.31; staying on the upstream pin.)
+- :fabric declares all repos project-level (PREFER_PROJECT — settings repos are ignored for :fabric).
+  Modrinth maven added as `exclusiveContent`.
+
+### Plugin discovery per loader (verified against the artifacts' own metadata/bytecode)
+
+| Integration | NeoForge | Fabric |
+|---|---|---|
+| JEI | `@JeiPlugin` annotation scan | fabric.mod.json entrypoint **`jei_mod_plugin`** (interface `IModPlugin`; verified in `FabricPluginFinder`). Loaded only by JEI's client `ClientLifecycleHandler` — never instantiated on dedicated servers, so the client-class plugin is server-safe |
+| Jade | `@WailaPlugin` annotation scan | fabric.mod.json entrypoint **`jade`** (interface `IWailaPlugin`; verified in Jade's `CommonProxy.loadEntrypoints`) |
+| WTHIT | `wthit_plugins.json` in jar root | SAME — WTHIT's `PluginLoader` scans `waila_plugins.json`/`wthit_plugins.json` from every mod jar on both loaders; the shared resource already ships in the fabric jar. Zero fabric-specific wiring needed |
+
+The `@JeiPlugin`/`@WailaPlugin` annotations stay on the shared classes (inert on Fabric, required on NeoForge).
+
+### Shared-code churn fixed (silent NeoForge patches in the previously-gated JEI sources)
+
+| Old (NeoForge-only) | New (loader-neutral) |
+|---|---|
+| `JEIPlugin.drawHoveringText`: `guiGraphics.setTooltipForNextFrame(font, lines, Optional, ItemStack, x, y)` (Neo's stack-carrying overload) | existing seam `ClientLoaderHooks#setTooltipForNextFrame` (Phase 3a; Neo keeps the stack overload, fabric drops the stack) |
+| `EntropyManipulatorCategory`: `fluid.getFluidType().getDescription()` (Neo FluidType) | `Platform.getFluidDisplayName(fluid)` (existing Phase 1 seam; the Neo impl reads exactly the FluidType description) |
+| `TransformCategory`: `slot.setCustomRenderer(NeoForgeTypes.FLUID_STACK, fluidRenderer)` | NEW loader-duplicated `appeng.client.integrations.jei.JeiFluidRendering#setFluidSlotRenderer(IRecipeSlotBuilder)` — the JEI fluid ingredient type is loader-specific and cannot be named from shared code |
+
+### Fabric twins added (same FQN as the :neoforge overlay classes, loader/fabric/src/client/java)
+
+- `appeng.client.integrations.jei.FluidIngredientConverter` — `IngredientConverter<IJeiFluidIngredient>`
+  over `FabricTypes.FLUID_STACK`; AE2 mB ↔ JEI-fabric droplets via the existing `FluidUnits` choke point
+  (droplets→mB rounds down, min 1 droplet on the way out per the converter contract).
+- `appeng.client.integrations.jei.FluidBlockRenderer` — `IIngredientRenderer<IJeiFluidIngredient>`
+  delegating to the shared `FluidBlockRendering`; tooltip via `FluidVariantAttributes.getName`.
+- `appeng.client.integrations.jei.JeiFluidRendering` — see churn table (Neo twin added too).
+- Jade/WTHIT needed NO twins: the shared modules compile as-is against the fabric API jars
+  (`WthitModule` has one deprecation warning on fabric-19.0.1, fine).
+
+### Runtime evidence (loader/fabric/run/logs/latest.log)
+
+- `runClient` (title screen): `(Jade) Start loading plugin from Applied Energistics 2:
+  appeng.integration.modules.jade.JadeModule` → `loaded: 11.21 ms`; JEI boots (gui atlas built);
+  zero AE2/integration errors (only the documented offline-401 + datagen-parity noise).
+- `runGametestWorld` (in-world): JEI starts on world join — `Registering recipes: ae2:core took
+  11.29 milliseconds` (the AE2 plugin uid), `Added recipe manager plugin: class
+  appeng.client.integrations.jei.FacadeRegistryPlugin`, `Ingredients are being removed at runtime:
+  432 ItemStack` (= `onRuntimeAvailable` ran: facade/debug-item hiding), `Starting JEI took 591.6
+  milliseconds`, zero exceptions, idle in-world afterwards.
+
+### User checklist (visual verification)
+
+1. `runClient`, join the GametestWorld: JEI overlay appears; inscriber / charger / condenser /
+   transform / entropy / attunement / certus-growth categories show recipes; facade recipes for
+   e.g. stone appear; recipe transfer + button into crafting terminal works.
+2. Place a controller / drive / cable parts: Jade overlay shows AE2 names/icons/body lines
+   (channel/power info via the ServerDataProviders).
+3. Optional: flip `runtime_tooltip_mod=wthit` (requires adding badpackets to the runtime) to check
+   the WTHIT overlay.
+
+### Gate status (all green, 2026-06-12)
+
+- `:fabric:build` GREEN; `:neoforge:build` GREEN (**451 tests, 1 skipped, 0 failures — unchanged**).
+- `:fabric:runGametest` 68/68; `:fabric:runServer` boots to `Done (` with JEI+Jade inert on the
+  server path (Jade's `jade` entrypoint loads the main-source `JadeModule` on servers by design —
+  same as NeoForge's annotation scan).
+- Grep invariants: `net.neoforged` 0/0 in src/main+src/client, 0 under loader/fabric; spotless clean.
+
 ## Open questions
 
 - TR Energy 5.0.0: confirm it targets MC 26.1 Fabric API at compile time.

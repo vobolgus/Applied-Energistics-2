@@ -39,6 +39,30 @@ repositories {
             includeGroup 'dev.architectury'
         }
     }
+    maven {
+        url = 'https://maven.blamejared.com/'
+        content {
+            includeGroup 'mezz.jei'
+        }
+    }
+    maven {
+        url = 'https://maven2.bai.lol'
+        content {
+            includeGroup 'mcp.mobius.waila'
+            includeGroup 'lol.bai'
+        }
+    }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'Modrinth'
+                url = 'https://api.modrinth.com/maven'
+            }
+        }
+        filter {
+            includeGroup 'maven.modrinth'
+        }
+    }
     mavenCentral()
 }
 
@@ -104,10 +128,9 @@ if (includeSharedSources) {
                 srcDir rootProject.file('src/main/java')
                 // TODO 1.21.11 (kept in sync with :neoforge)
                 exclude 'appeng/integration/modules/theoneprobe/**'
-                // Jade/WTHIT plugins need their (loader-specific) API jars; gated out until the
-                // Fabric integrations step. The shared CuriosSupport seam itself stays compiled.
-                exclude 'appeng/integration/modules/jade/**'
-                exclude 'appeng/integration/modules/wthit/**'
+                // Jade/WTHIT (Phase 4): compiled against the loader-specific API jars wired below.
+                // Discovery: Jade via the `jade` entrypoint in fabric.mod.json; WTHIT via the shared
+                // wthit_plugins.json (scanned from the mod jar root on both loaders).
             }
             resources {
                 srcDir rootProject.file('src/main/resources')
@@ -131,10 +154,9 @@ if (includeSharedClientSources) {
                 srcDir 'src/client/java'
                 // TODO 1.21.11 (kept in sync with :neoforge's client source set excludes)
                 exclude 'appeng/client/integration/emi/**'
-                // The JEI plugin and the addon-facing JEI converter API compile against the JEI API only, but
-                // that artifact is not wired into :fabric yet. Gated out until the Phase 4 integrations step.
-                exclude 'appeng/client/integrations/jei/**'
-                exclude 'appeng/client/api/integrations/jei/**'
+                // JEI (Phase 4): the shared plugin + the addon-facing converter API compile against the JEI
+                // common API (pulled in by the jei-fabric-api compileOnly below). Discovery on Fabric is the
+                // `jei_mod_plugin` entrypoint in fabric.mod.json (NeoForge uses @JeiPlugin annotation scanning).
                 // The addon-facing EMI converter API compiles against the EMI API (:neoforge wires
                 // emi-neoforge:api as clientCompileOnly); no EMI artifact in :fabric yet (Phase 4).
                 exclude 'appeng/client/api/integrations/emi/**'
@@ -189,6 +211,19 @@ dependencies {
     compileOnly("dev.architectury:architectury-neoforge:${architectury_version}") { transitive = false }
     compileOnly("me.shedaniel.cloth:basic-math:${cloth_basic_math_version}") { transitive = false }
 
+    // JEI compile-time API (Phase 4): jei-26.1.2-fabric-api carries the Fabric-only classes
+    // (mezz.jei.api.fabric.*, e.g. FabricTypes/IJeiFluidIngredient used by the fluid converter twins) and
+    // pulls jei-26.1.2-common-api transitively, which is what the shared plugin code compiles against.
+    // Same version as :neoforge's jei-26.1.2-neoforge-api pin - the shared-code API is identical.
+    compileOnly "mezz.jei:jei-${jei_minecraft_version}-fabric-api:${jei_version}"
+
+    // Jade compile-time API (Phase 4): the Modrinth maven ships the full Fabric mod jar; only used to
+    // compile the shared appeng/integration/modules/jade plugin (snownee.jade.api.*).
+    compileOnly "maven.modrinth:jade:${jade_fabric_version}"
+
+    // WTHIT compile-time API (Phase 4), Fabric edition of the same wthit-api the :neoforge build uses.
+    compileOnly "mcp.mobius.waila:wthit-api:fabric-${wthit_version}"
+
     // Dev-runtime item-list mod, mirroring :neoforge's runtime_itemlist_mod switch. REI is the primary recipe
     // viewer for the Fabric port (the Create Fly modpack uses REI natively). BLOCKED ON UPSTREAM: REI has no
     // MC 26.1 build yet (latest is 21.11.814 for MC 1.21.11, intermediary-mapped - it cannot load on an
@@ -198,8 +233,22 @@ dependencies {
         case "rei":
             localRuntimeOnly "me.shedaniel:RoughlyEnoughItems-fabric:${rei_version}"
             break
+        case "jei":
+            localRuntimeOnly "mezz.jei:jei-${jei_minecraft_version}-fabric:${jei_version}"
+            break
         default:
-            // "jei"/"emi" have no Fabric wiring here (yet); the dev client runs without an item-list mod.
+            // "emi" has no Fabric wiring here (yet); the dev client runs without an item-list mod.
+            break
+    }
+
+    // Dev-runtime tooltip mod, mirroring :neoforge's runtime_tooltip_mod switch.
+    switch (project.runtime_tooltip_mod) {
+        case "wthit":
+            // NOTE: wthit additionally requires badpackets at runtime (not wired; same gap as :neoforge).
+            localRuntimeOnly "mcp.mobius.waila:wthit:fabric-${wthit_version}"
+            break
+        case "jade":
+            localRuntimeOnly "maven.modrinth:jade:${jade_fabric_version}"
             break
     }
 

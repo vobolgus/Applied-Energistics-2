@@ -33,6 +33,7 @@ import appeng.core.localization.ItemModText;
 import appeng.items.tools.powered.EntropyManipulatorItem;
 import appeng.recipes.AERecipeTypes;
 import appeng.recipes.entropy.EntropyRecipe;
+import appeng.util.Platform;
 
 public class EntropyManipulatorCategory extends ViewBasedCategory<RecipeHolder<EntropyRecipe>> {
     public static final IRecipeType<RecipeHolder<EntropyRecipe>> TYPE = IRecipeType.create(AERecipeTypes.ENTROPY);
@@ -160,7 +161,9 @@ public class EntropyManipulatorCategory extends ViewBasedCategory<RecipeHolder<E
                 slot.addRichTooltipCallback((recipeSlotView, tooltip) -> {
                     tooltip.getLines().set(
                             0,
-                            Either.left(ItemModText.FLOWING_FLUID_NAME.text(fluid.getFluidType().getDescription())));
+                            // Platform.getFluidDisplayName is the loader-neutral equivalent of NeoForge's
+                            // fluid.getFluidType().getDescription() (the NeoForge seam impl reads exactly that).
+                            Either.left(ItemModText.FLOWING_FLUID_NAME.text(Platform.getFluidDisplayName(fluid))));
                 });
             } else {
                 slot.add(fluid, fluidHelper.bucketVolume());
