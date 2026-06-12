@@ -124,7 +124,7 @@ public class P2PTestPlots {
         });
     }
 
-    @TestPlot("p2p_light")
+    @TestPlot(value = "p2p_light", maxTicks = 300 /* network boot + light propagation flake on slow CI runners */)
     public static void light(PlotBuilder plot) {
         var origin = BlockPos.ZERO;
         placeTunnel(plot, AEParts.LIGHT_P2P_TUNNEL);
