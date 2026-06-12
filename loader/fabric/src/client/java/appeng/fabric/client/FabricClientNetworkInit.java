@@ -6,10 +6,12 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 import appeng.client.AEClientboundPacketHandler;
 import appeng.core.network.ClientboundPacket;
+import appeng.fabric.network.FabricNetworkAdapter;
 
 /**
  * Registers the shared {@link AEClientboundPacketHandler} handlers with Fabric's client play networking (which invokes
- * them on the client main thread, like NeoForge's client payload handler registry). Fabric twin of
+ * them on the client main thread, like NeoForge's client payload handler registry), and injects the client→server
+ * sender into the (server-safe) {@link FabricNetworkAdapter}. Fabric twin of
  * {@code appeng.neoforge.client.NeoForgeClientNetworkInit}.
  */
 public final class FabricClientNetworkInit {
@@ -17,6 +19,10 @@ public final class FabricClientNetworkInit {
     }
 
     public static void init() {
+        // Client→server sends (NeoForge twin: ClientPacketDistributor.sendToServer). Without this
+        // injection, ANY client-initiated AE2 packet (compass requests, menu actions) crashes.
+        FabricNetworkAdapter.setClientPacketSender(ClientPlayNetworking::send);
+
         new AEClientboundPacketHandler().registerAll(new AEClientboundPacketHandler.Registrar() {
             @Override
             public <T extends ClientboundPacket> void register(CustomPacketPayload.Type<T> type,
