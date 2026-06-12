@@ -1426,6 +1426,100 @@ Quad pipeline (the deep rewrite):
   BlockEntityRendererRegistrar) need anonymous classes or method refs — lambdas do not compile
   (step-14 note still applies).
 
+## Phase 3b — Fabric client RUNTIME boot (title screen + singleplayer world)
+
+`:fabric:runClient` boots through mod init + full resource reload to the TITLE SCREEN with zero
+AE2-related load errors, and `:fabric:runGametestWorld` (NEW loom run config, the twin of :neoforge's
+`gametestWorld`: client run with `--username AE2Dev --quickPlaySingleplayer GametestWorld`) loads into
+the singleplayer world without render-thread exceptions. Boot loop on macOS:
+`perl -e 'alarm 300; exec @ARGV' ./gradlew :fabric:runClient` (no `timeout` binary), log-based
+verification against both the gradle stdout tee AND `loader/fabric/run/logs/latest.log` (the gradle
+stdout pipe buffers heavily — the run log is authoritative for tail-of-run events).
+NOTE: vanilla 26.1 quickplay does NOT create missing worlds (`QuickPlay#joinSingleplayerWorld` shows a
+DisconnectedScreen when `levelExists()` fails — same on NeoForge); the `GametestWorld` save must exist
+in `loader/fabric/run/saves/` before the run is hands-off (created once via the world-creation screen).
+
+### Boot incident log (symptom → root cause → fix)
+
+1. **`IdentifierException: Non [a-z0-9/._-] character in path of location: minecraft:AE2_LIGHTNING`
+   crash in `onInitializeClient`** → fabric-particles-v1's `ParticleGroupRegistry.getId` derives a
+   group-ordering `Identifier` from `ParticleRenderType#name()` via `Identifier.parse` for MODDED render
+   types (the four vanilla types are special-cased to lowercase+default-namespace); AE2's group was named
+   `AE2_LIGHTNING` → shared `LightningFXGroup.GROUP` renamed to `"ae2:lightning"`. Loader-neutral: on
+   NeoForge the name is a debug label only (single shared instance, no other constructions of the name).
+2. **`IllegalStateException` from `AppEngBase.<init>` while loading entries for the
+   `ae2:client_registration` entrypoint** → fabric.mod.json listed `AppEngFabricClient` under BOTH the
+   `client` and `ae2:client_registration` entrypoint keys; Fabric Loader instantiates a fresh object per
+   key, so the second construction tripped the AppEngBase single-instance guard → NEW delegating class
+   `appeng.fabric.client.AE2ClientSelfRegistration implements AE2FabricClientRegistration` (calls
+   `AppEngClient.instance()` registration methods; the entrypoint only runs after the client entrypoint
+   constructed the singleton). Lesson for addon docs: never reuse a stateful entrypoint class across keys.
+3. **All 15 custom-model blockstate definitions fail to parse** (`Failed to load blockstate definition
+   ae2:cable_bus ... Neither 'variants' nor 'multipart' found`, plus the drive.json cascade: its variants
+   carry vanilla-parseable `"model": "ae2:drive_base"` keys, so the vanilla fallback parsed them and
+   requested the UNPREFIXED `ae2:drive_base` as a block model → `Missing block model` + `Rejecting block
+   model ... missingno` warnings) → NeoForge's patched vanilla codec dispatches custom block-state models
+   on the `"type"` key; fabric-model-loading-api-v1 leaves the vanilla codec alone and dispatches on
+   **`"fabric:type"`** (`CustomUnbakedBlockStateModelRegistry.KeyExistsCodec`) → :fabric:processResources
+   rewrites `"type": "ae2:` → `"fabric:type": "ae2:` in `assets/ae2/blockstates/*.json` on copy (vanilla
+   variant objects never carry a `type` key — the match is precise). DATAGEN-PARITY note: emit per-loader
+   keys properly in the datagen step. **Gradle gotcha**: `filter {}` closures inside `filesMatching` are
+   NOT tracked as task inputs — the first run was silently UP-TO-DATE; an explicit
+   `inputs.property 'ae2.blockstateCustomTypeKey', ...` now busts the cache (bump when changing the filter).
+4. **Client disconnects during SP world join: `Adding duplicate key 'ResourceKey[minecraft:test_instance /
+   ae2:annihilation_plane_seed_farm]'` in `RegistryDataCollector.loadNewElementsAndTags`** → the Phase 2b
+   assumption "test_instance is not in SYNCHRONIZED_REGISTRIES" was WRONG on 26.1: the server syncs the
+   registered plot entries to the connecting client, the client deserializes them through the
+   `ae2:plot_adapter` codec (registered unconditionally on both dists), and `GameTestRegistryLoadTaskMixin`
+   then fired AGAIN on the client's network registry load and re-registered every plot → duplicate-key
+   error aborts the configuration phase → mixin now returns early unless
+   `this instanceof ResourceManagerRegistryLoadTask` (the datapack path; the network path is
+   `NetworkRegistryLoadTask`). This mirrors NeoForge exactly: its `RegisterGameTestsEvent` is gated on the
+   `fromResources` parameter of `RegistryDataLoader#load`.
+5. **`UnsupportedOperationException` from `Platform.assertServerThread` in `TickHandler.shutdown` when the
+   integrated server stops** (and `Platform.isServer()` wrong on the integrated server thread generally) →
+   the documented Phase 3 TODO in `FabricLoaderPlatform.getServerThreadGroup()` (placeholder ThreadGroup on
+   the client) → NEW `ServerThreadGroupMixin`: `@Redirect`s the `Thread` constructor in
+   `MinecraftServer#spin` to start the server main thread in the static
+   `FabricLoaderPlatform.SERVER_THREAD_GROUP` — byte-for-byte the NeoForge patch (Neo passes
+   `SidedThreadGroups.SERVER` there). `getServerThreadGroup()` now returns that group on BOTH dists
+   (integrated, dedicated and gametest servers all spin through the same method). Side effect on the
+   dedicated server: main-thread init code now counts as "client" for `Platform.isServer()` — which is
+   exactly NeoForge's behavior (threads outside the group are client-ish), so parity improved.
+
+### Verified at the gate (log evidence)
+
+- Title screen: `Sound engine started` + all atlases created, idle past the reload with no crash.
+- Zero `Failed to load blockstate` / `JsonParseException` / `Missing model` / `Rejecting block model`
+  ae2 lines after fix #3 (was 15 errors + a 48-line drive_base cascade).
+- World load: `AE2Dev[local:...] logged in` + `AE2Dev joined the game`, spatial_storage dimension
+  created/saved alongside the vanilla dimensions, in-world idle with no render-thread exceptions
+  (normal `Resizing ... UBO` chunk-render lines only).
+- Recipe sync: `ae2:sync_recipes` payload registered; client receives and rebuilds the RecipeMap on the
+  integrated connection (no errors; the 67 `c:nuggets/*` + 5 `neoforge:difference` recipe-load errors
+  are the known pre-existing datagen-parity noise, unchanged counts).
+- `ae2-client.toml` written; GuideME fabric loads all 125 guidebook pages + dev source watcher works —
+  **no GuideME changes needed** (guideme-fabric 26.1.10-alpha from mavenLocal boots as-is).
+
+### Cosmetic-warning inventory (non-fatal, for the in-world checklist)
+
+- Part status-indicator models (`assets/ae2/models/part/*_has_channel.json` etc.) carry per-face
+  `"neoforge_data": {"block_light": 15, "sky_light": 15}` — vanilla's lenient parser ignores it on
+  Fabric: indicator LEDs render without fullbright glow. Candidate fix: FRAPI material emissive
+  re-emission in the part model baking path (goes with the Phase 3a risk-list item 3 color work).
+- `Encountered duplicate API provider registration for block: ae2:condenser` — pre-existing/expected
+  (Phase 2b note: first registration wins, matches Neo priority).
+- `Failed to get system info for Render Extensions` + `Can't getDevice() before it was initialized`
+  inside crash-report generation — vanilla macOS/loom-dev noise, not AE2.
+- `Could not authorize you against Realms server` / `Failed to fetch user properties` (401) — offline
+  dev session noise.
+- fabric-convention-tags `Untranslated Item Tags` dev warning — tag translation keys, datagen-parity
+  candidate, fabric-only logger.
+- Phase 3a risk-list items NOT yet exercised in-world (no AE2 blocks placed in the quickplay world;
+  blocked on the interactive in-world checklist): cable-bus FRAPI re-emission visuals, QuadColors
+  paths, part renderers after F3+T, controls-screen category listing, scroll-wheel mixin behavior,
+  spatial sky, SkyStoneChest render bounds. Server-side BE coverage comes from the 68 gametests.
+
 ## Open questions
 
 - TR Energy 5.0.0: confirm it targets MC 26.1 Fabric API at compile time.

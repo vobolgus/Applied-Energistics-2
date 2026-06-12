@@ -67,8 +67,6 @@ import appeng.client.AppEngClient;
 import appeng.client.ClientLoaderHooks;
 import appeng.client.Hotkeys;
 import appeng.client.InitScreens;
-import appeng.client.api.model.parts.RegisterPartModelsEvent;
-import appeng.client.api.renderer.parts.RegisterPartRendererEvent;
 import appeng.client.areaoverlay.AreaOverlayRenderer;
 import appeng.client.gui.style.StyleManager;
 import appeng.client.hooks.BlockAttackHook;
@@ -97,9 +95,10 @@ import appeng.fabric.network.SyncRecipesPayload;
  * (block state model codecs, extra models, reload listeners, model loading plugin).
  * <p>
  * AE2 registers its own part models/renderers through the same addon-facing mechanism it exposes to other mods: the
- * {@code ae2:client_registration} entrypoint (see {@link AE2FabricClientRegistration}).
+ * {@code ae2:client_registration} entrypoint (see {@link AE2ClientSelfRegistration} - a separate class because Fabric
+ * instantiates one object per entrypoint key, and this class must only be constructed once).
  */
-public class AppEngFabricClient extends AppEngClient implements ClientModInitializer, AE2FabricClientRegistration {
+public class AppEngFabricClient extends AppEngClient implements ClientModInitializer {
     /**
      * This modifier key has to be held to activate mouse wheel items. (NeoForge attaches its IN_GAME key conflict
      * context here; Fabric key mappings have no conflict contexts.)
@@ -257,21 +256,6 @@ public class AppEngFabricClient extends AppEngClient implements ClientModInitial
         // NeoForge runs clientSetup() enqueued on the main thread from FMLClientSetupEvent; on Fabric, mod
         // initialization already runs on the main thread after registration.
         clientSetup();
-    }
-
-    /**
-     * AE2's own registrations into its addon-facing part model/renderer entrypoint (declared under
-     * {@code ae2:client_registration} in fabric.mod.json, mirroring how the NeoForge entrypoint subscribes to its own
-     * addon events).
-     */
-    @Override
-    public void registerPartModels(RegisterPartModelsEvent event) {
-        registerPartModelTypes(event::registerModelType);
-    }
-
-    @Override
-    public void registerPartRenderers(RegisterPartRendererEvent event) {
-        registerPartRenderers(event::register);
     }
 
     /**

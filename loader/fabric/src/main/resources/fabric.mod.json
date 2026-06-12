@@ -19,7 +19,7 @@
     "ae2:client_registration": [
       {
         "adapter": "default",
-        "value": "appeng.fabric.client.AppEngFabricClient"
+        "value": "appeng.fabric.client.AE2ClientSelfRegistration"
       }
     ]
   },

@@ -19,7 +19,10 @@ import net.minecraft.util.Mth;
 import appeng.client.render.AERenderTypes;
 
 public class LightningFXGroup extends ParticleGroup<LightningFX> {
-    public static ParticleRenderType GROUP = new ParticleRenderType("AE2_LIGHTNING");
+    // The name must parse as an Identifier: fabric-particles-v1's ParticleGroupRegistry derives the group
+    // ordering id from it via Identifier.parse (vanilla render types are special-cased instead). On NeoForge
+    // the name is a debug label only, so this rename is loader-neutral.
+    public static ParticleRenderType GROUP = new ParticleRenderType("ae2:lightning");
 
     public LightningFXGroup(ParticleEngine engine) {
         super(engine);

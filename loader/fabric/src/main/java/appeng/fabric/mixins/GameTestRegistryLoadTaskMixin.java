@@ -33,6 +33,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTestInstance;
 import net.minecraft.resources.RegistryLoadTask;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceManagerRegistryLoadTask;
 
 import appeng.server.testworld.GameTestPlotAdapter;
 
@@ -48,10 +49,14 @@ import appeng.server.testworld.GameTestPlotAdapter;
  * {@link RegistryLoadTask#freezeRegistry} freezes the {@code test_instance} registry, all plot adapters are registered
  * into it.
  * <p>
- * {@code test_instance} is only listed in {@code RegistryDataLoader#WORLDGEN_REGISTRIES} (not in
- * {@code SYNCHRONIZED_REGISTRIES}), so this only ever fires for server-side datapack loads, never for the
- * network-received registry path. Registration is gated on the {@code appeng.tests} system property, exactly like the
- * NeoForge twin. The {@code ae2:plot_adapter} test-instance type codec is registered by
+ * {@code test_instance} IS part of {@code RegistryDataLoader#SYNCHRONIZED_REGISTRIES} on 26.1 (the server syncs the
+ * registered plots to the connecting client), so this must only fire for the server-side datapack load
+ * ({@link ResourceManagerRegistryLoadTask}) and never for the network-received path ({@code NetworkRegistryLoadTask}),
+ * where the plot entries already arrive over the wire - registering them again throws a duplicate-key error and aborts
+ * the client's configuration phase (Phase 3b boot incident #4). NeoForge gates its equivalent
+ * {@code RegisterGameTestsEvent} on the same distinction (the {@code fromResources} parameter of
+ * {@code RegistryDataLoader#load}). Registration is gated on the {@code appeng.tests} system property, exactly like
+ * the NeoForge twin. The {@code ae2:plot_adapter} test-instance type codec is registered by
  * {@code AppEngFabric#onInitialize}.
  */
 @Mixin(RegistryLoadTask.class)
@@ -64,6 +69,9 @@ public abstract class GameTestRegistryLoadTaskMixin<T> {
     @Inject(method = "freezeRegistry", at = @At("HEAD"))
     private void ae2$registerPlotGameTests(Map<ResourceKey<?>, Exception> loadingErrors,
             CallbackInfoReturnable<Boolean> cir) {
+        if (!((Object) this instanceof ResourceManagerRegistryLoadTask)) {
+            return; // Network-received registries already carry the plot entries synced from the server
+        }
         if ((Object) this.registry.key() == Registries.TEST_INSTANCE && Boolean.getBoolean("appeng.tests")) {
             @SuppressWarnings("unchecked")
             var testInstances = (WritableRegistry<GameTestInstance>) this.registry;

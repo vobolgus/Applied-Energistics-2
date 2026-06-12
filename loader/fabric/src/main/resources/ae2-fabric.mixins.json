@@ -10,6 +10,7 @@
     "LevelNeighborChangeMixin",
     "LivingEntityLadderMixin",
     "PickBlockCloneItemStackMixin",
+    "ServerThreadGroupMixin",
     "SneakBypassUseMixin",
     "WitherBossEntityDestroyMixin"
   ],

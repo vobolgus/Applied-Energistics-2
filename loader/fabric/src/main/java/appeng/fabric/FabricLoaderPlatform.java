@@ -72,6 +72,14 @@ public class FabricLoaderPlatform implements LoaderPlatform {
      */
     private static final ThreadLocal<@Nullable Player> CRAFTING_PLAYER = new ThreadLocal<>();
 
+    /**
+     * The thread group all server main threads run in, mirroring NeoForge's {@code SidedThreadGroups.SERVER}:
+     * {@code ServerThreadGroupMixin} redirects the {@code Thread} constructor in {@code MinecraftServer#spin} to start
+     * the server thread (integrated, dedicated and gametest server alike) in this group, which makes the thread-group
+     * based {@code Platform#isServer}/{@code isClient}/{@code assertServerThread} checks work on both dists.
+     */
+    public static final ThreadGroup SERVER_THREAD_GROUP = new ThreadGroup("AE2 Server");
+
     @Nullable
     private volatile MinecraftServer currentServer;
 
@@ -141,14 +149,11 @@ public class FabricLoaderPlatform implements LoaderPlatform {
 
     @Override
     public ThreadGroup getServerThreadGroup() {
-        if (FabricLoader.getInstance().getEnvironmentType() == EnvType.SERVER) {
-            // On a dedicated server every game thread lives in the main thread group; there is no client.
-            return Thread.currentThread().getThreadGroup();
-        }
-        // TODO (fabric, Phase 3): Fabric has no sided thread groups. On the client this placeholder group
-        // makes Platform.isClient() always true / isServer() always false, which is WRONG for the integrated
-        // server thread. Needs a server.isSameThread()-style rework of Platform before client support lands.
-        return new ThreadGroup("ae2-server-thread-placeholder");
+        // Phase 3b: resolves the former placeholder TODO. ServerThreadGroupMixin spins every server main
+        // thread inside this group (the exact NeoForge SidedThreadGroups.SERVER mechanics), on the dedicated
+        // server as well - threads outside the group (e.g. mod init on the main thread) count as "client",
+        // which is NeoForge's behavior too.
+        return SERVER_THREAD_GROUP;
     }
 
     @Override

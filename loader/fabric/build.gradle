@@ -81,6 +81,15 @@ loom {
             runDir 'build/gametest'
             property 'fabric-api.gametest', 'true'
         }
+        // Client boot straight into a singleplayer world (the twin of :neoforge's `gametestWorld`
+        // run). NOTE: vanilla quickplay does NOT create missing worlds - the `GametestWorld` save
+        // must exist in run/saves (create it once via the world-creation screen); afterwards the
+        // run is fully hands-off (`appeng.tests` comes from configureEach above).
+        gametestWorld {
+            client()
+            name 'Game Test World (Client)'
+            programArgs '--username', 'AE2Dev', '--quickPlaySingleplayer', 'GametestWorld'
+        }
     }
 }
 
@@ -187,6 +196,8 @@ processResources {
             'fabric_loader_version': project.fabric_loader_version
     ]
     inputs.properties expandProps
+    // Gradle does not track the filter closure below as a task input; bump this property when changing it.
+    inputs.property 'ae2.blockstateCustomTypeKey', 'fabric:type'
 
     filesMatching('fabric.mod.json') {
         expand expandProps
@@ -202,6 +213,14 @@ processResources {
         if (it.file.toPath().startsWith(generatedResourcesPath)) {
             it.exclude()
         }
+    }
+
+    // Custom block-state model dispatch: NeoForge's patched vanilla codec dispatches on the "type" key, while
+    // fabric-model-loading-api-v1 leaves the vanilla codec alone and dispatches on "fabric:type". The generated
+    // blockstate JSONs target NeoForge; rewrite the key on copy (vanilla variant objects never carry a "type"
+    // key, and only AE2's custom models use "ae2:"-namespaced type ids - the match cannot hit anything else).
+    filesMatching('assets/ae2/blockstates/*.json') {
+        filter { String line -> line.replace('"type": "ae2:', '"fabric:type": "ae2:') }
     }
 }
 
