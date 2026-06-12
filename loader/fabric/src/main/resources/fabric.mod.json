@@ -33,6 +33,7 @@
     "fabricloader": ">=${fabric_loader_version}",
     "fabric-api": "*",
     "minecraft": "~${minecraft_version}",
-    "team_reborn_energy": "*"
+    "team_reborn_energy": "*",
+    "guideme": "*"
   }
 }

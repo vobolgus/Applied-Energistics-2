@@ -185,8 +185,11 @@ dependencies {
     implementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
 
-    // Energy at the edges: Team Reborn Energy over the Fabric Transfer API
+    // Energy at the edges: Team Reborn Energy over the Fabric Transfer API.
+    // Shipped jar-in-jar so the published jar is self-contained (it is a library, not a mod
+    // players install themselves).
     implementation "teamreborn:energy:${tr_energy_version}"
+    include "teamreborn:energy:${tr_energy_version}"
 
     // TOML config files matching NeoForge's format (NeoForge bundles the same library).
     // Shipped jar-in-jar so the published jar carries it at runtime (the dev runtime gets it from
