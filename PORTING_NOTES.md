@@ -1942,8 +1942,28 @@ release its own (NeoForge-only) 26.1.10-alpha — the loader is disambiguated by
    `:fabric:build` → `:fabric:runGametest` → `:fabric:runServer` (Done + 0 ERROR) →
    `:neoforge:runGametest` → grep invariants (`net.neoforged` 0/0/0).
 
+## Kotlin DSL conversion (commit "Rewrite build from groovy to kotlin")
+
+- All build scripts converted: `settings.gradle.kts`, root `build.gradle.kts` (conventions),
+  `loader/neoforge/build.gradle.kts`, `loader/fabric/build.gradle.kts`, `buildSrc/build.gradle.kts`.
+  Groovy originals deleted in the same commit. Comments carried over (they hold rebase context).
+- The datagen-parity Groovy `FilterReader` moved to
+  `buildSrc/src/main/java/appengbuild/NeoForgeToFabricRecipeTransform.kt` (Kotlin DSL cannot define
+  Groovy classes). JSON handling: Groovy JsonSlurper/JsonOutput → Gson. Behavior identical incl. the
+  drift guard (build FAILS on unknown `neoforge:` keys); only cosmetic delta is JSON indentation in
+  the transformed jar entries (2-space vs 4-space).
+- ⚠ `.gitignore` is allowlist-style: `!build.gradle.kts` / `!settings.gradle.kts` entries were
+  REQUIRED — without them the root kts files are silently ignored and the branch is broken for fresh
+  clones (this actually happened; caught post-commit and amended).
+- Verified after conversion: `:neoforge:build` + `:fabric:build` green; jar equivalence checks
+  (67 `fabric:load_conditions` recipes, `fabric:difference`, `fabric:type` blockstates, 0 `neoforge:`
+  keys, nested core/energy/toml jars, expanded fabric.mod.json); `:fabric:runGametest` 68/68;
+  `:fabric:runServer` boots clean. Rebase note: upstream stays on Groovy — upstream build.gradle
+  changes must be hand-mirrored into loader/neoforge/build.gradle.kts (they no longer merge).
+
 ## Open questions
 
-- TR Energy 5.0.0: confirm it targets MC 26.1 Fabric API at compile time.
+- ~~TR Energy 5.0.0: confirm it targets MC 26.1 Fabric API at compile time~~ — RESOLVED: compiles,
+  passes gametests, shipped jar-in-jar.
 - REI for MC 26.1: watch maven.shedaniel.me / Modrinth — unblocks the runtime half of gate M3
   (see "REI restoration" section).
