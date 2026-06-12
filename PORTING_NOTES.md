@@ -1827,6 +1827,23 @@ the repository variables are set (e.g. `GUIDEME_REPO=<owner>/GuideME`, `GUIDEME_
 The NeoForge job runs regardless. NOTE: also push OUR AE2 fabric branch's GuideME prerequisite
 before flipping the variables; private forks need a read token via the action's `token` input.
 
+**`-Pae2.skipFabric=true` (learned from the first real CI run, 2026-06-12)**: fabric-loom resolves
+mod dependencies EAGERLY while the `:fabric` project is being *configured* — and Gradle configures
+every included project no matter which task is requested. So any job without the mavenLocal
+composite action (`build-neoforge`, `export_guide.yml`, `localization.yml`) died on the
+unresolvable guideme-fabric before its first task. Locally invisible (mavenLocal always has the
+artifact). Fix: `settings.gradle.kts` includes `:fabric` only when `ae2.skipFabric != "true"`, and
+those jobs pass the flag on every Gradle invocation. `release.yml` deliberately untouched (fires
+only on published releases; revisit when releasing from the fork — it runs unqualified `build`,
+which needs guideme in mavenLocal or the flag).
+
+Two more first-run findings: `export_guide.yml` post-processing paths updated to
+`loader/neoforge/build/guide` (export moved with the loader split; tar rooted via `-C` so the
+artifact keeps the `build/guide/...` layout downstream publish jobs expect), and `p2p_light` got
+`maxTicks = 300` (timed out at the default 150 on a hosted runner: ME network boot + two
+lever/light cycles; same precedent as `fe_charger`). Full matrix green as of `cebc7c4ed`:
+build-neoforge + build-fabric + gametest-fabric (68/68) + Export Guide.
+
 ### Version derivation fix (0.0.0-SNAPSHOT → 26.1.10-alpha)
 
 Root cause was NOT the defaultBranches suffix logic: this fork carries **zero git tags** (GitHub
