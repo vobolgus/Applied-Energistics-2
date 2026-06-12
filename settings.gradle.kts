@@ -121,5 +121,11 @@ rootProject.name = "ae2"
 include(":neoforge")
 project(":neoforge").projectDir = file("loader/neoforge")
 
-include(":fabric")
-project(":fabric").projectDir = file("loader/fabric")
+// :fabric cannot even be *configured* without org.appliedenergistics:guideme-fabric (fabric-loom
+// resolves mod dependencies eagerly during configuration), and that artifact only exists in
+// mavenLocal until GuideME ships a Fabric build. CI jobs that never touch :fabric (NeoForge build,
+// guide export, localization) pass -Pae2.skipFabric=true instead of building GuideME first.
+if (providers.gradleProperty("ae2.skipFabric").orNull != "true") {
+    include(":fabric")
+    project(":fabric").projectDir = file("loader/fabric")
+}

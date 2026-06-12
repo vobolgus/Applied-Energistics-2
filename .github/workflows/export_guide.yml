@@ -25,7 +25,7 @@ jobs:
         shell: bash
       - uses: AppliedEnergistics/Applied-Energistics-2/.github/actions/gradle-setup@main
       - name: Export Guide
-        run: DRI_PRIME=0 xvfb-run ./gradlew runGuideexport
+        run: DRI_PRIME=0 xvfb-run ./gradlew runGuideexport -Pae2.skipFabric=true
       - name: Optimize PNG compression
         run: |
           mkdir oxipng

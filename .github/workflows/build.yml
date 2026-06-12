@@ -24,7 +24,11 @@ concurrency:
 # exists in mavenLocal (built from an unpushed GuideME fork branch - see PORTING_NOTES.md). Both
 # fabric jobs therefore first run .github/actions/guideme-fabric-mavenlocal, and are SKIPPED until
 # the repository variables GUIDEME_REPO / GUIDEME_REF point at a pushed copy of that branch
-# (e.g. GUIDEME_REPO=<owner>/GuideME, GUIDEME_REF=fabric-26.1). The NeoForge job is unaffected.
+# (e.g. GUIDEME_REPO=<owner>/GuideME, GUIDEME_REF=fabric-26.1).
+#
+# Jobs that never touch :fabric pass -Pae2.skipFabric=true (drops the project in settings.gradle.kts):
+# merely configuring :fabric resolves guideme-fabric (loom does so eagerly), so without the flag the
+# NeoForge job fails at configuration before its first task even runs.
 
 jobs:
   build-neoforge:
@@ -41,7 +45,7 @@ jobs:
         shell: bash
       - uses: ./.github/actions/gradle-setup
       - name: Generate assets
-        run: ./gradlew :neoforge:runData
+        run: ./gradlew :neoforge:runData -Pae2.skipFabric=true
       - name: Check that datagen ran
         run: test -d ./src/generated/resources/.cache
       - name: Make sure that generated files in the repo are up-to-date
@@ -51,15 +55,15 @@ jobs:
           if [ -n "$(git status --porcelain)" ]; then exit 1; fi
 
       - name: Build with Gradle
-        run: ./gradlew :neoforge:printProjectVersion :neoforge:build :neoforge:publish --max-workers 1
+        run: ./gradlew :neoforge:printProjectVersion :neoforge:build :neoforge:publish --max-workers 1 -Pae2.skipFabric=true
         env:
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_KEY }}
           ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.GPG_KEY_PASSWORD }}
 
       - name: Run Game Tests
-        run: ./gradlew :neoforge:runGametest
+        run: ./gradlew :neoforge:runGametest -Pae2.skipFabric=true
       - name: Upload new Source Text Strings to Crowdin
-        run: ./gradlew uploadToCrowdin
+        run: ./gradlew uploadToCrowdin -Pae2.skipFabric=true
         env:
           GIT_BRANCH: master
           CROWDIN_TOKEN: ${{ secrets.CROWDIN_TOKEN }}
