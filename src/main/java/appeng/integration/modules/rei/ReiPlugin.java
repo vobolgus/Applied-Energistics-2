@@ -18,6 +18,7 @@
 
 package appeng.integration.modules.rei;
 
+import me.shedaniel.rei.api.common.entry.type.EntryTypeRegistry;
 import me.shedaniel.rei.api.common.plugins.REICommonPlugin;
 
 import appeng.api.integrations.rei.IngredientConverters;
@@ -35,8 +36,19 @@ import appeng.integration.modules.itemlists.CompatLayerHelper;
 // was REIServerPlugin + @me.shedaniel.rei.forge.REIPluginCommon: the interface was renamed to REICommonPlugin in
 // REI 21.11 and the annotation is NeoForge-only (moved to the loader overlay subclass).
 public class ReiPlugin implements REICommonPlugin {
-    public ReiPlugin() {
-        if (CompatLayerHelper.IS_LOADED) {
+    private boolean initialized;
+
+    // The constructor must stay EMPTY: REI instantiates this entrypoint during ITS OWN loader
+    // entrypoint, before AE2's initializer ran (LoaderPlatform not injected yet) — booting REI
+    // 26.1.819 crashed here while the body lived in the ctor. registerEntryTypes is the earliest
+    // REI callback and always runs post-init.
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
+
+        if (CompatLayerHelper.isLoaded()) {
             return;
         }
 
@@ -47,6 +59,11 @@ public class ReiPlugin implements REICommonPlugin {
 
         // NOTE: the ItemListMod adapter registration moved to ReiClientPlugin - REIRuntime is a client-only
         // class and this plugin is also instantiated on dedicated servers.
+    }
+
+    @Override
+    public void registerEntryTypes(EntryTypeRegistry registry) {
+        ensureInitialized();
     }
 
     @Override

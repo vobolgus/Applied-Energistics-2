@@ -205,11 +205,10 @@ dependencies {
     compileOnly("com.google.code.findbugs:jsr305:3.0.2")
 
     // REI compile-time API for the restored integration (appeng/integration/modules/rei + the addon-facing
-    // converter API in appeng/api/integrations/rei). The -neoforge artifacts are used DELIBERATELY: they are
-    // mojmap-named (1.21.11 mojmap already carries the ResourceLocation->Identifier rename that 26.1 inherited),
-    // while the -fabric artifacts of the same version are intermediary-mapped (pre-26.1 fabric toolchain) and
-    // cannot be compiled against on unobfuscated 26.1. These jars never ship and are never on the runtime
-    // classpath; at runtime the (future) REI 26.1 fabric build provides the real classes.
+    // converter API in appeng/api/integrations/rei). The -neoforge artifacts were chosen when the -fabric ones
+    // were still intermediary-mapped; since REI 26.1.x both flavors are mojmap and carry the identical API, so
+    // the pin is kept as-is (compile-only, never ships, never on any runtime classpath; the runtime jar below
+    // provides the real classes).
     // transitive=false: their poms pull cloth-config-neoforge etc., which we neither need nor want resolved here;
     // architectury (REI's fluid entry type dev.architectury.fluid.FluidStack) is pinned explicitly instead.
     compileOnly("me.shedaniel:RoughlyEnoughItems-api-neoforge:${prop("rei_version")}") { isTransitive = false }
@@ -231,10 +230,9 @@ dependencies {
     compileOnly("mcp.mobius.waila:wthit-api:fabric-${prop("wthit_version")}")
 
     // Dev-runtime item-list mod, mirroring :neoforge's runtime_itemlist_mod switch. REI is the primary recipe
-    // viewer for the Fabric port (the Create Fly modpack uses REI natively). BLOCKED ON UPSTREAM: REI has no
-    // MC 26.1 build yet (latest is 21.11.814 for MC 1.21.11, intermediary-mapped - it cannot load on an
-    // unobfuscated 26.1 runtime). The wiring below is the final shape; flip runtime_itemlist_mod to "rei" once
-    // a 26.1.x REI fabric build exists, and verify the version on maven.shedaniel.me first.
+    // viewer for the Fabric port. ACTIVATED 2026-07-04: REI shipped 26.1.819 for MC 26.1.2 (fabric+neoforge),
+    // rei_version bumped and runtime_itemlist_mod flipped to "rei"; both AE2 plugin providers register at boot
+    // (the ctor-timing crash this uncovered is fixed in ReiPlugin/ReiClientPlugin - see PORTING_NOTES).
     when (prop("runtime_itemlist_mod")) {
         "rei" -> localRuntimeOnly("me.shedaniel:RoughlyEnoughItems-fabric:${prop("rei_version")}")
         "jei" -> localRuntimeOnly("mezz.jei:jei-${prop("jei_minecraft_version")}-fabric:${prop("jei_version")}")

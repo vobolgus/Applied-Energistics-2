@@ -114,7 +114,7 @@ public class UseCraftingRecipeTransfer<T extends CraftingTermMenu>
     }
 
     private static Map<Integer, Ingredient> getGuiSlotToIngredientMap(Recipe<?> recipe) {
-        if (CompatLayerHelper.IS_LOADED) {
+        if (CompatLayerHelper.isLoaded()) {
             // TODO 26.1: return
             // appeng.integration.modules.rei.transfer.UseCraftingRecipeTransfer.getGuiSlotToIngredientMap(recipe);
         }

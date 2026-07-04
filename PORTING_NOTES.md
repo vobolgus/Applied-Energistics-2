@@ -1984,3 +1984,24 @@ release its own (NeoForge-only) 26.1.10-alpha — the loader is disambiguated by
   passes gametests, shipped jar-in-jar.
 - REI for MC 26.1: watch maven.shedaniel.me / Modrinth — unblocks the runtime half of gate M3
   (see "REI restoration" section).
+
+### REI activation — DONE 2026-07-04 (REI shipped 26.1.x)
+
+REI released `26.1.819` for MC 26.1.2 (fabric + neoforge, new MC-prefixed version scheme replacing
+21.x). Executed the June activation plan: `rei_version=26.1.819`, `runtime_itemlist_mod=rei`; the
+21.11.814-written integration compiled against 26.1.819 with ZERO source changes (the API held).
+
+**One real bug found by the first live boot — entrypoint-timing crash:** REI instantiates the
+`rei_common`/`rei_client` entrypoints during ITS OWN loader entrypoint; on the client AE2's
+`LoaderPlatform.init` runs later (client-init phase), so `CompatLayerHelper.IS_LOADED` (a static-final
+touching `LoaderPlatform.get()`) blew up plugin construction. Fix: `CompatLayerHelper` is now a lazy
+memoized `isLoaded()`, and both plugin ctors are EMPTY — bodies moved to the earliest REI registration
+callbacks (`ReiPlugin.registerEntryTypes` → `ensureInitialized`; `ReiClientPlugin.registerCategories`
+→ `ensureAdapterRegistered`), which always run post-init. This was a latent upstream-pattern bug that
+only REI's 26.1 lazy-reload behavior could expose.
+
+**Verification level:** build green both loaders; client boots with `Registered plugin provider AE2
+[ae2] for REICommonPlugin` + `ReiClientPlugin [ae2] for REIClientPlugin`, 0 errors. REI 26.1 defers
+the plugin RELOAD (category/display callbacks) to world join — the "REI shows AE2 recipes/categories
+in-world" check is on the Prism checklist. The 5 cosmetic `TODO (REI 26.1)` markers (slot-highlight
+overlays, icon textures) remain open — assess against the live 26.1 REI API after the in-world pass.

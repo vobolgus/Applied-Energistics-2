@@ -80,8 +80,18 @@ public class ReiClientPlugin implements REIClientPlugin {
 
     public static final Identifier TEXTURE = AppEng.makeId("textures/guis/jei.png");
 
-    public ReiClientPlugin() {
-        if (CompatLayerHelper.IS_LOADED) {
+    private boolean adapterRegistered;
+
+    // Ctor must stay EMPTY — same entrypoint-timing trap as ReiPlugin (REI instantiates rei_client
+    // before AE2's client init injected LoaderPlatform). The adapter registration runs from the first
+    // registration callback instead, which REI always calls post-init.
+    private void ensureAdapterRegistered() {
+        if (adapterRegistered) {
+            return;
+        }
+        adapterRegistered = true;
+
+        if (CompatLayerHelper.isLoaded()) {
             return;
         }
 
@@ -91,7 +101,8 @@ public class ReiClientPlugin implements REIClientPlugin {
 
     @Override
     public void registerCategories(CategoryRegistry registry) {
-        if (CompatLayerHelper.IS_LOADED) {
+        ensureAdapterRegistered();
+        if (CompatLayerHelper.isLoaded()) {
             return;
         }
 
@@ -109,7 +120,7 @@ public class ReiClientPlugin implements REIClientPlugin {
 
     @Override
     public void registerScreens(ScreenRegistry registry) {
-        if (CompatLayerHelper.IS_LOADED) {
+        if (CompatLayerHelper.isLoaded()) {
             return;
         }
 
@@ -138,7 +149,7 @@ public class ReiClientPlugin implements REIClientPlugin {
     @SuppressWarnings("unchecked")
     @Override
     public void registerExclusionZones(ExclusionZones zones) {
-        if (CompatLayerHelper.IS_LOADED) {
+        if (CompatLayerHelper.isLoaded()) {
             return;
         }
 
@@ -160,7 +171,7 @@ public class ReiClientPlugin implements REIClientPlugin {
             registry.registerGlobalDisplayGenerator(new FacadeRegistryGenerator());
         }
 
-        if (CompatLayerHelper.IS_LOADED) {
+        if (CompatLayerHelper.isLoaded()) {
             return;
         }
 
@@ -197,7 +208,7 @@ public class ReiClientPlugin implements REIClientPlugin {
 
     @Override
     public void registerTransferHandlers(TransferHandlerRegistry registry) {
-        if (CompatLayerHelper.IS_LOADED) {
+        if (CompatLayerHelper.isLoaded()) {
             return;
         }
 
