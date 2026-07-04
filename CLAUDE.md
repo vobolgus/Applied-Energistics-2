@@ -69,7 +69,7 @@ The modpack is assembled first from mods that already exist; the porting workspa
 ### UI / QoL
 | Mod | Notes |
 |---|---|
-| **JEI** (pack default) | JEI ships Fabric 26.1.2 (29.5.0.26+, maven.blamejared.com). **UPDATE 2026-07-04: REI now SHIPS 26.1.2 (and 26.2) Fabric builds** — ae2-fabric's dormant REI integration can be activated. Pack stays on JEI for now (create-addition's recipe plugin is JEI-only; all ports dev-tested with JEI); REI = activate integration + optionally offer as alternative, don't ship both by default (duplicate item panels/keybinds) |
+| **JEI** (pack default) | JEI ships Fabric 26.1.2 (29.5.0.26+, maven.blamejared.com). **REI integration ACTIVATED 2026-07-04** (rei 26.1.819; entrypoint-timing crash found+fixed; in-world category check on the Prism list). Pack stays on JEI for now (create-addition's recipe plugin is JEI-only; all ports dev-tested with JEI); REI = activate integration + optionally offer as alternative, don't ship both by default (duplicate item panels/keybinds) |
 | Jade | 26.1.2 Fabric |
 | Xaero's Minimap + World Map | 26.1.2 |
 | Mouse Tweaks, AppleSkin, Controlling, Clumps | 26.1.2 |
@@ -171,7 +171,7 @@ for Crafts & Additions — playtest bugs are expected, especially render fidelit
 
 | Mod | Newest upstream (07-04) | Port shape | Call |
 |---|---|---|---|
-| **REI** | ✅ **26.1.2 + 26.2 Fabric SHIPPED** | no port needed | **ACTION ITEM: activate ae2-fabric's dormant REI integration** (hours); JEI stays pack default (see UI table) |
+| **REI** | ✅ 26.1.819 shipped | no port needed | ✅ ae2-fabric integration ACTIVATED 07-04 (ctor-timing fix); JEI stays pack default; in-world check on Prism list |
 | **Enchantment Industry** (#4) | 1.21.1 NeoForge | exactly the Connected shape (NeoForge 1.21.1 + Create 6.x + Registrate) — the whole pipeline + cribs apply | **next port if porting continues** (~1–2 days by Connected precedent) |
 | Big Cannons (#8) | 1.21.1 neoforge+fabric | contraption physics + renderers — riskiest work type | stretch |
 | Steam 'n' Rails (#7) | ⚠ stuck on **1.20.1** | double forward-port + train internals | deprioritized; wait for upstream movement |
