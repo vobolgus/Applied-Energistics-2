@@ -69,7 +69,7 @@ The modpack is assembled first from mods that already exist; the porting workspa
 ### UI / QoL
 | Mod | Notes |
 |---|---|
-| **JEI** (not REI) | **REI has NO 26.1 build** (verified 2026-06-12: newest 21.11.814 targets MC 1.21.11). JEI ships Fabric 26.1.2 (29.5.0.26+, maven.blamejared.com). ae2-fabric's REI integration is wired but dormant — add REI alongside/instead when it ships |
+| **JEI** (pack default) | JEI ships Fabric 26.1.2 (29.5.0.26+, maven.blamejared.com). **UPDATE 2026-07-04: REI now SHIPS 26.1.2 (and 26.2) Fabric builds** — ae2-fabric's dormant REI integration can be activated. Pack stays on JEI for now (create-addition's recipe plugin is JEI-only; all ports dev-tested with JEI); REI = activate integration + optionally offer as alternative, don't ship both by default (duplicate item panels/keybinds) |
 | Jade | 26.1.2 Fabric |
 | Xaero's Minimap + World Map | 26.1.2 |
 | Mouse Tweaks, AppleSkin, Controlling, Clumps | 26.1.2 |
@@ -113,8 +113,8 @@ Create Fly deliberately diverges from the official Fabric fork's architecture:
 | 4 | Enchantment Industry | DragonsPlusMinecraft org | 🟡 Med — next up | Fluid handling via **Fabric Transfer API**; integration with Create Fly fluid network. |
 | 5 | Crafts & Additions | `mrh0/createaddition` | ✅ **DONE** 2026-06-30 (code) | `1.6.0-alpha.2`, MIT. Energy chain Prism-verified 06-16; full Prism pass pending (accumulator merge/split is the high-risk item). |
 | 6 | **Applied Energistics 2** | `AppliedEnergistics/Applied-Energistics-2` | ✅ **DONE** 2026-06-12 | Shipped (incl. GuideME): dual-loader fork, CI fully green. See dedicated section below. |
-| 7 | Steam 'n' Rails | `Layers-of-Railways/Railway` | 🔴 High | Train-system internals; mixins into Create train logic — highest coupling to Create Fly internals. Optional / stretch. |
-| 8 | Big Cannons | `rbasamoyai/CreateBigCannons` | 🔴 High | Custom contraption physics + renderers. Optional / stretch. |
+| 7 | Steam 'n' Rails | `Layers-of-Railways/Railway` | 🔴🔴 stalled upstream | ⚠ Re-check 2026-07-04: newest build is **1.20.1** (not 1.21.x) → DOUBLE forward-port + deepest train coupling. Deprioritized below #8. |
+| 8 | Big Cannons | `rbasamoyai/CreateBigCannons` | 🔴 High | 1.21.1 neoforge+fabric upstream (re-checked 07-04). Custom contraption physics + renderers. Optional / stretch. |
 
 **Minimum viable pack (1, 3, 5 + AE2) is CODE-COMPLETE as of 2026-07-04** — all jars staged in
 `create26-ports/pack/mods-local/`. Remaining before pack assembly: the in-world **Prism pass**
@@ -167,21 +167,20 @@ checkpoint-committed per green gate (build → dedicated `runServer` → `runCli
 (`create26-ports/PRISM_TEST_CHECKLIST.md`) has NOT been run for Copycats+/Connected and only partially
 for Crafts & Additions — playtest bugs are expected, especially render fidelity and save/load round-trips.
 
-### Addon survey — what the AE2 proof unlocks (checked 2026-06-12)
+### Addon survey — candidates beyond the completed roadmap (re-checked 2026-07-04)
 
-AE2 proves the dual-loader recipe works for NeoForge-only mods on 26.1. Candidates beyond the Create roadmap, with verified upstream status:
-
-| Mod | Newest upstream (2026-06-12) | Port shape | Call |
+| Mod | Newest upstream (07-04) | Port shape | Call |
 |---|---|---|---|
-| Extended AE (`extended-ae`) | 1.21.1 | Needs MC forward-port first; compiles against our ae2-fabric | Wait for upstream 26.1 NeoForge — then the AE2 recipe applies directly |
-| MEGA Cells (`mega`) | 1.21.1 | same | same |
-| AE2WTLib wireless terminals | 1.21.1 | same; high pack value | medium priority once unblocked |
-| AppFlux (`appflux`) | 1.21.1 NeoForge | TR-Energy edge work we already mastered | wait for 26.1 upstream |
+| **REI** | ✅ **26.1.2 + 26.2 Fabric SHIPPED** | no port needed | **ACTION ITEM: activate ae2-fabric's dormant REI integration** (hours); JEI stays pack default (see UI table) |
+| **Enchantment Industry** (#4) | 1.21.1 NeoForge | exactly the Connected shape (NeoForge 1.21.1 + Create 6.x + Registrate) — the whole pipeline + cribs apply | **next port if porting continues** (~1–2 days by Connected precedent) |
+| Big Cannons (#8) | 1.21.1 neoforge+fabric | contraption physics + renderers — riskiest work type | stretch |
+| Steam 'n' Rails (#7) | ⚠ stuck on **1.20.1** | double forward-port + train internals | deprioritized; wait for upstream movement |
+| Supplementaries + Moonlight | 1.21.1 Fabric | pure MC forward-port (no loader work); big pack content value | medium — independent branch of work (vanilla-diff heavy, not Create skills) |
+| Extended AE / MEGA Cells / AppFlux | all 1.21.1 NeoForge | AE2 dual-loader recipe once upstream hits 26.1 | wait |
 | AE2 Things (`ae2things`) | 1.20.1 Fabric | oldest base, heaviest forward-port | low |
-| Supplementaries + Moonlight | 1.21.1 Fabric | pure MC forward-port (already Fabric, no loader work); big content value for the pack | medium — independent of Create/AE2 skills |
-| REI | 1.21.11 | do NOT port — upstream is active and will ship; ae2-fabric integration is ready | wait |
+| AE2WTLib | slug gone from Modrinth (renamed?) | — | re-locate the project before judging |
 
-Rules of thumb learned: upstream already on 26.1 NeoForge (like AE2 was) → dual-loader recipe, known cost. Upstream stuck on 1.21.x → a vanilla forward-port comes FIRST and dominates the cost. Recheck this table before starting anything (one Modrinth API call) — and note Create Fly already publishes 26.2-pre builds, so an MC 26.2 wave is on the horizon.
+Rules of thumb learned: upstream already on 26.1 NeoForge (like AE2 was) → dual-loader recipe, known cost. Upstream on 1.21.1 NeoForge + Create → the now-proven Connected pipeline (single-loader, ~1–2 days). Upstream stuck on 1.20.x → double forward-port dominates the cost. Recheck this table before starting anything (one Modrinth API call) — and note Create Fly already publishes 26.2-pre builds, so an MC 26.2 wave is on the horizon (the `refs/Create-Fly` checkout already tracks it).
 
 ---
 
