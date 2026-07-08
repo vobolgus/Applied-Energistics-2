@@ -216,9 +216,9 @@ public class AppEngFabric implements ModInitializer {
             return InteractionResult.PASS;
         });
 
-        // TODO (fabric): SkyStoneBreakSpeed has no Fabric event equivalent (NeoForge: PlayerEvent.BreakSpeed).
-        // Needs a small mixin into Player#getDestroySpeed in a later step. Impact: sky stone does not break
-        // faster with the appropriate tools until then.
+        // SkyStoneBreakSpeed has no Fabric event equivalent (NeoForge: PlayerEvent.BreakSpeed); it is wired
+        // instead by PlayerDestroySpeedMixin, which post-processes Player#getDestroySpeed at RETURN. No
+        // entrypoint registration is needed here (the mixin dispatches the shared hook directly).
 
         // Server-synced recipe push (NeoForge: OnDatapackSyncEvent#sendRecipes for
         // base.getServerSyncedRecipeTypes()): replicated with a chunked custom payload, GuideME precedent.
