@@ -302,6 +302,13 @@ src/client/java (item e). Net across both shared trees: 119 → 101.
     `InterfaceTestPlots` (4 pure-vanilla plots stay; the capability-asserting
     `interface_slot_filtering` plot moved to NEW overlay class
     `appeng.server.testplots.InterfaceCapabilityTestPlots`, same plot id).
+    **Fabric twin added 2026-07-09** (`loader/fabric/.../server/testplots/InterfaceCapabilityTestPlots.java`,
+    same package/class/plot id): asserts the same slot filtering through the Fabric transfer API
+    (`ItemStorage`/`FluidStorage.SIDED` + `SlottedStorage.getSlot` + a rolled-back simulated `insert`)
+    instead of NeoForge block capabilities, and registered on `FabricTestPlotPlatform.PLOT_CLASSES`
+    (Fabric has no annotation scan). Semantic gotcha: Fabric's `insert` depends on slot contents, so the
+    probe targets the configured slot 0 (stays empty) + a guaranteed-open high buffer slot rather than
+    the slot the plot's hopper has already loaded. Closes the fabric↔neoforge count gap → both at 70.
   - Shared posting sites de-neoforged: `SetupTestWorldCommand`, `SpawnExtraGridTestToolsChest`.
   - `PlotTestHelper.getCapability(BlockPos, BlockCapability, C)` REMOVED (public test-helper API);
     its only caller was the moved plot, which now has a private equivalent via
@@ -1095,7 +1102,7 @@ against the fabric-loom `minecraft-merged.jar`. New mixins live in `appeng.fabri
 | `RedstoneConnectHook` | — | NOT wired, deliberately: `canConnectRedstone` has ZERO call sites in NeoForge 26.1's patched vanilla AND in neoforge's own sources (only the extension declarations) — the hook is vestigial on 26.1; wiring it on Fabric would create NEW behavior NeoForge doesn't have. Revisit if Neo re-adds the RedStoneWireBlock patch |
 | `BlockCaughtFireHook` | `FireBlock#checkBurnOut` calls `state.onCaughtFire` for burned-out blocks | NOT wired, parity holds: fire spread only burns blocks with registered burn odds; AE2 registers no flammability anywhere (verified), so TinyTNT never burns on EITHER loader. Vanilla's TntBlock special case doesn't apply (TinyTNTBlock is not a TntBlock); flint&steel/fire charge ignition is TinyTNTBlock's own `useItemOn`; AE2's entropy-manipulator call site goes through `LoaderPlatform#onCaughtFire` (Phase 2a) |
 | `ReequipAnimationHook` | client-only (ItemInHandRenderer) | Phase 3 |
-| `SkyStoneBreakSpeed` (event shim, not an extension method) | NeoForge posts `PlayerEvent.BreakSpeed` inside its break-speed computation; a listener rewrites the returned speed | `PlayerDestroySpeedMixin`: cancellable @Inject at RETURN of `Player#getDestroySpeed(BlockState)` applying `SkyStoneBreakSpeed.getIncreasedBreakSpeed(player, state, current)` (×10 for a better-than-iron tool on sky stone; null = unchanged). **DONE 2026-07-09** — was the last deferred Fabric hook (the `AppEngFabric` TODO). Guarded by the new shared `sky_stone_break_speed` gametest (registered on the Fabric plot list; NeoForge auto-scans it), which asserts the ×10 as a ratio vs a plain-stone control so all player-state factors cancel: passes on both loaders (fabric 68→69, neoforge 69→70 tests) |
+| `SkyStoneBreakSpeed` (event shim, not an extension method) | NeoForge posts `PlayerEvent.BreakSpeed` inside its break-speed computation; a listener rewrites the returned speed | `PlayerDestroySpeedMixin`: cancellable @Inject at RETURN of `Player#getDestroySpeed(BlockState)` applying `SkyStoneBreakSpeed.getIncreasedBreakSpeed(player, state, current)` (×10 for a better-than-iron tool on sky stone; null = unchanged). **DONE 2026-07-09** — was the last deferred Fabric hook (the `AppEngFabric` TODO). Guarded by the new shared `sky_stone_break_speed` gametest (registered on the Fabric plot list; NeoForge auto-scans it), which asserts the ×10 as a ratio vs a plain-stone control so all player-state factors cancel: passes on both loaders (fabric 68→69, neoforge 69→70 tests). Fabric drew level at **70/70** on 2026-07-09 with the `interface_slot_filtering` Fabric twin (see Step 10b). |
 
 ### Boot incident log (symptom → root cause → fix)
 

@@ -34,6 +34,7 @@ import appeng.server.testplots.CrystalResonanceGeneratorTestPlots;
 import appeng.server.testplots.ExternalEnergyTestPlots;
 import appeng.server.testplots.GuidebookPlot;
 import appeng.server.testplots.InscriberTestPlots;
+import appeng.server.testplots.InterfaceCapabilityTestPlots;
 import appeng.server.testplots.InterfaceTestPlots;
 import appeng.server.testplots.InvalidPatternTestPlot;
 import appeng.server.testplots.ItemP2PTestPlots;
@@ -55,8 +56,9 @@ import appeng.server.testplots.TestPlots;
  * <p>
  * <strong>Behavior note (vs. NeoForge):</strong> Fabric has no annotation scan data, so the {@link TestPlotClass}
  * classes cannot be discovered automatically. AE2's own plot classes are listed explicitly; other mods can contribute
- * theirs via {@link #addTestPlotClass}. The NeoForge-only {@code InterfaceCapabilityTestPlots} plot
- * (interface_slot_filtering) has no Fabric twin yet (TODO for the runtime/test step).
+ * theirs via {@link #addTestPlotClass}. {@code InterfaceCapabilityTestPlots} (interface_slot_filtering)
+ * is a loader-specific plot with a Fabric twin under this source set (asserted via the Fabric transfer
+ * API instead of NeoForge capabilities) and the NeoForge original under {@code loader/neoforge}.
  */
 public class FabricTestPlotPlatform implements TestPlotPlatform {
     private static final List<Class<?>> PLOT_CLASSES = new CopyOnWriteArrayList<>(List.of(
@@ -68,6 +70,7 @@ public class FabricTestPlotPlatform implements TestPlotPlatform {
             ExternalEnergyTestPlots.class,
             GuidebookPlot.class,
             InscriberTestPlots.class,
+            InterfaceCapabilityTestPlots.class,
             InterfaceTestPlots.class,
             InvalidPatternTestPlot.class,
             ItemP2PTestPlots.class,
