@@ -571,6 +571,20 @@ shared trees: 101 → 82.
   `PartApiRegistry`; Internal iterates `registry.getRegistrations()` and registers
   `registration::find` per host type with RegisterCapabilitiesEvent. InitCapabilityProviders
   unchanged. **No addon API break on NeoForge for part capabilities.**
+- **Fabric addon entrypoint — DONE 2026-07-09** (closed the `InitApiLookup.java:98` TODO). Fabric twin
+  of the NeoForge event: `appeng.api.parts.RegisterPartApiEvent` (fabric overlay, same package as the
+  NeoForge `RegisterPartCapabilitiesEvent`) exposes `registerContext`/`register`/`addHostType` typed to
+  the Fabric `BlockApiLookup` (vs NeoForge's `BlockCapability`), delegating into the shared
+  `PartApiRegistry`. Addons implement `appeng.fabric.AE2FabricRegistration` (default method
+  `registerPartApis(RegisterPartApiEvent)`) and declare it under the `ae2:registration`
+  fabric.mod.json entrypoint — the server/common counterpart to the existing `ae2:client_registration`
+  entrypoint, dispatched with the identical `FabricLoader.getEntrypoints(...)` loop. `InitApiLookup.init()`
+  registers AE2's own part APIs first (direct call, deterministic), then runs the entrypoint loop, then
+  forwards everything via `registerPartForwarding` — so an addon re-registering an existing `(part, lookup)`
+  pair hits `PartApiRegistry`'s duplicate-throw, matching NeoForge's register-then-post ordering. AE2 does
+  NOT declare the entrypoint itself (it registers directly), so the loop runs empty in-repo; full addon
+  dispatch needs an external addon, same caveat as `ae2:client_registration`. Gates: compile + boot +
+  `:fabric:runGametest` 70/70 (the interface-part + P2P-tunnel plots exercise the forwarding path unchanged).
 
 ### Part 2 — transaction seam (option (a)-minus: opaque handle, NO open())
 
@@ -1911,9 +1925,9 @@ release its own (NeoForge-only) 26.1.10-alpha — the loader is disambiguated by
    for 1.21.11, intermediary-mapped on fabric). Integration is fully restored and compiles on both
    loaders; flip `runtime_itemlist_mod=rei` + bump `rei_version` + work the grep-able
    `TODO (REI 26.1)` markers when it ships (checklist in "REI restoration").
-2. **`ae2:interface_slot_filtering` gametest twin** — the capability-asserting plot is
-   NeoForge-only (`InterfaceCapabilityTestPlots` overlay); Fabric needs a BlockApiLookup-based twin
-   (`FabricTestPlotPlatform` TODO). Hence fabric 68 vs neoforge 69.
+2. ~~**`ae2:interface_slot_filtering` gametest twin**~~ — **DONE 2026-07-09**. Fabric twin
+   `InterfaceCapabilityTestPlots` (loader/fabric, BlockApiLookup-based, on `FabricTestPlotPlatform`)
+   now asserts the same slot filtering; both loaders at 70/70. (See Step 10b.)
 3. **Part LED emissive (fullbright) gap** — 33 handwritten part models carry per-face
    `neoforge_data` lightmaps that vanilla's parser ignores on Fabric; status LEDs render unlit.
    Fix direction: FRAPI emissive material re-emission in the part model baking path, together with
@@ -1931,7 +1945,7 @@ release its own (NeoForge-only) 26.1.10-alpha — the loader is disambiguated by
 8. **In-world visual checklist not yet executed** — the interactive items from the Phase 3a risk
    list (cable-bus FRAPI visuals, QuadColors paths, part renderers after F3+T, controls-screen
    category, scroll/key mixin behavior, block-outline depth) plus the JEI/Jade and REI user
-   checklists. Server-side behavior is covered by the 68 gametests; rendering is not.
+   checklists. Server-side behavior is covered by the 70 gametests; rendering is not.
 9. Minor: CableBusBlock break/run particles+sounds use vanilla fallback on Fabric
    (IClientBlockExtensions not twinned); no ModMenu config screen; `clientTickStart` ordering
    vs other mods is registration-order on Fabric (Neo used LOWEST priority).

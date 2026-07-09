@@ -23,6 +23,7 @@ import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage;
 import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -38,6 +39,7 @@ import appeng.api.implementations.items.IAEItemPowerStorage;
 import appeng.api.networking.IInWorldGridNodeHost;
 import appeng.api.parts.IPartHost;
 import appeng.api.parts.PartApiRegistry;
+import appeng.api.parts.RegisterPartApiEvent;
 import appeng.api.storage.MEStorage;
 import appeng.blockentity.AEBaseInvBlockEntity;
 import appeng.blockentity.misc.ChargerBlockEntity;
@@ -49,6 +51,7 @@ import appeng.blockentity.storage.MEChestFluidStorage;
 import appeng.core.definitions.AEBlockEntities;
 import appeng.core.definitions.AEItems;
 import appeng.core.definitions.ItemDefinition;
+import appeng.fabric.AE2FabricRegistration;
 import appeng.fabric.transfer.CondenserFluidStorage;
 import appeng.fabric.transfer.FabricResources;
 import appeng.fabric.transfer.GenericStackFluidStorage;
@@ -95,8 +98,16 @@ public final class InitApiLookup {
         var partRegistry = new PartApiRegistry();
         partRegistry.addHostType(AEBlockEntities.CABLE_BUS.get());
         registerPartApis(partRegistry);
-        // TODO (fabric): expose the part registry for addon part-API registrations (NeoForge addons use
-        // RegisterPartCapabilitiesEvent). Needs a Fabric-facing entrypoint in a later step.
+        // Let addon mods contribute their own part-API providers before we forward everything to the
+        // block lookups — the Fabric counterpart to NeoForge posting RegisterPartCapabilitiesEvent.
+        // Addons implement AE2FabricRegistration under the "ae2:registration" entrypoint. AE2's own
+        // registrations above run first, so an addon registering the same (part, lookup) pair is
+        // rejected by PartApiRegistry (matching NeoForge's register-then-post ordering).
+        var partApiEvent = new RegisterPartApiEvent(partRegistry);
+        for (var registration : FabricLoader.getInstance()
+                .getEntrypoints(AE2FabricRegistration.ENTRYPOINT, AE2FabricRegistration.class)) {
+            registration.registerPartApis(partApiEvent);
+        }
         registerPartForwarding(partRegistry);
 
         initInterface();
