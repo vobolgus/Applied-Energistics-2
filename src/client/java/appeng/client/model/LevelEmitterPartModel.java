@@ -12,7 +12,6 @@ import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.client.renderer.block.dispatch.ModelState;
 import net.minecraft.client.resources.model.ModelBaker;
-import net.minecraft.client.resources.model.SimpleModelWrapper;
 import net.minecraft.client.resources.model.sprite.Material;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
@@ -62,8 +61,8 @@ public record LevelEmitterPartModel(
 
         @Override
         public PartModel bake(ModelBaker baker, ModelState modelState) {
-            var onBaked = SimpleModelWrapper.bake(baker, on, modelState);
-            var offBaked = SimpleModelWrapper.bake(baker, off(), modelState);
+            var onBaked = PartModels.bake(baker, on, modelState);
+            var offBaked = PartModels.bake(baker, off(), modelState);
 
             return new LevelEmitterPartModel(
                     onBaked,

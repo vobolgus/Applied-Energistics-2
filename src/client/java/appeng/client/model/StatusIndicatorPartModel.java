@@ -11,7 +11,6 @@ import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.client.renderer.block.dispatch.ModelState;
 import net.minecraft.client.resources.model.ModelBaker;
-import net.minecraft.client.resources.model.SimpleModelWrapper;
 import net.minecraft.client.resources.model.sprite.Material;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
@@ -68,9 +67,9 @@ public record StatusIndicatorPartModel(
 
         @Override
         public PartModel bake(ModelBaker baker, ModelState modelState) {
-            var activeBaked = SimpleModelWrapper.bake(baker, active, modelState);
-            var poweredBaked = SimpleModelWrapper.bake(baker, powered(), modelState);
-            var unpoweredBaked = SimpleModelWrapper.bake(baker, unpowered(), modelState);
+            var activeBaked = PartModels.bake(baker, active, modelState);
+            var poweredBaked = PartModels.bake(baker, powered(), modelState);
+            var unpoweredBaked = PartModels.bake(baker, unpowered(), modelState);
 
             return new StatusIndicatorPartModel(
                     activeBaked,

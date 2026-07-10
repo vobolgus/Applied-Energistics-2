@@ -111,7 +111,7 @@ Create Fly deliberately diverges from the official Fabric fork's architecture:
 | 1 | Create Deco | talrey/CreateDeco | ✅ **DONE** 2026-06-15 (+CatwalkBlock fix 07-01) | `2.2.0-alpha.1`, CC0. Prism-verified. |
 | 2 | Copycats+ | `copycats-plus/copycats` | ✅ **DONE** 2026-07-03 (W1–W7) | `3.0.7-alpha.1`. ⚠ **ARR license — private use only**, no publish without authors' permission. Full-fidelity scope (kinetic copycats, feature-toggle, cat gag). Prism pass pending. |
 | 3 | Create: Connected | `hlysine/create_connected` | ✅ **DONE** 2026-07-04 (W1–W7) | `1.3.2-alpha.1`, AGPL-3.0 (publishable). Kinetics fear didn't materialize — all Create bases survive in CF. First menus/screens port. Prism pass pending. |
-| 4 | Enchantment Industry | DragonsPlusMinecraft org | 🟡 Med — next up | Fluid handling via **Fabric Transfer API**; integration with Create Fly fluid network. |
+| 4 | Enchantment Industry | DragonsPlusMinecraft org | ✅ **DONE** 2026-07-08 (W1–W7) | `enchantment-industry` port, LGPL. Fluid handling via **Fabric Transfer API**; CDP shim vendored. Code-complete + headless gates green; Prism pass pending. |
 | 5 | Crafts & Additions | `mrh0/createaddition` | ✅ **DONE** 2026-06-30 (code) | `1.6.0-alpha.2`, MIT. Energy chain Prism-verified 06-16; full Prism pass pending (accumulator merge/split is the high-risk item). |
 | 6 | **Applied Energistics 2** | `AppliedEnergistics/Applied-Energistics-2` | ✅ **DONE** 2026-06-12 | Shipped (incl. GuideME): dual-loader fork, CI fully green. See dedicated section below. |
 | 7 | Steam 'n' Rails | `Layers-of-Railways/Railway` | 🔴🔴 stalled upstream | ⚠ Re-check 2026-07-04: newest build is **1.20.1** (not 1.21.x) → DOUBLE forward-port + deepest train coupling. Deprioritized below #8. |
@@ -120,7 +120,7 @@ Create Fly deliberately diverges from the official Fabric fork's architecture:
 **Minimum viable pack (1, 3, 5 + AE2) is CODE-COMPLETE as of 2026-07-04** — all jars staged in
 `create26-ports/pack/mods-local/`. Remaining before pack assembly: the in-world **Prism pass**
 (`create26-ports/PRISM_TEST_CHECKLIST.md`, 8 sections covering Crafts & Additions + Copycats+ +
-Connected) and fixing whatever it finds. 7–8 are stretch goals; #4 is the next port if desired.
+Connected) and fixing whatever it finds. **#4 Enchantment Industry landed 2026-07-08** (code-complete); only 7–8 remain as stretch goals.
 
 **Structural note (learned from AE2):** the Create addon ports (1–5, 7–8) are **single-loader Fabric projects** — Create Fly is Fabric-only, so there is no NeoForge twin to keep green. The dual-loader recipe is only for NeoForge-upstream mods (the AE2 pattern). Also: these addons' upstream code is 1.20.x–1.21.x era, so each port = **MC forward-port + Create Fly adaptation at once** (AE2 was easier in this one respect — its upstream was already on 26.1). Use the vanilla-diff technique and Create Fly's source as the rosetta stone.
 
@@ -133,47 +133,56 @@ The planned strategy (Fabric platform layer on the current 26.1 branch, GuideME 
 **Outcome:**
 - **AE2**: fork `vobolgus/Applied-Energistics-2`, branch `fabric/phase-0`, version `26.1.10-alpha`. Kotlin DSL dual-loader build: `:neoforge` (ModDevGradle) + `:fabric` (loom 1.17.8) over shared root sources; NeoForge green at every commit (regression harness, upstream-rebaseable).
 - **GuideME**: fork `vobolgus/GuideME`, branch `fabric-26.1`, published to mavenLocal as `org.appliedenergistics:guideme-fabric:26.1.10-alpha`.
-- **CI** (AE2 fork): `build-neoforge` + `build-fabric` + `gametest-fabric` (68 tests) + `Export Guide` all green. Fabric jobs build GuideME from the fork via repo vars `GUIDEME_REPO`/`GUIDEME_REF`; jobs that don't touch `:fabric` pass `-Pae2.skipFabric=true` (loom resolves deps at configuration time).
+- **CI** (AE2 fork): `build-neoforge` + `build-fabric` + `gametest-fabric` (70 tests) + `Export Guide` all green. Fabric jobs build GuideME from the fork via repo vars `GUIDEME_REPO`/`GUIDEME_REF`; jobs that don't touch `:fabric` pass `-Pae2.skipFabric=true` (loom resolves deps at configuration time).
 - **Jars**: `dist/appliedenergistics2-fabric-26.1.10-alpha.jar` + `dist/guideme-fabric-26.1.10-alpha.jar`. Client needs fabric-loader ≥ 0.19.3 + fabric-api; TR Energy is bundled jar-in-jar. Verified in a real Prism instance.
-- **Deferred** (tracked in PORTING_NOTES "Status & remaining work"): REI runtime (REI has no 26.1 build — integration dormant), part LED fullbright emissive, spatial-storage custom sky, WTHIT runtime (needs badpackets), guideme-fabric un-ProGuard.
+- **Deferred** (tracked in PORTING_NOTES "Status & remaining work"): REI in-world/category verification and cosmetic overlays, spatial-storage custom sky, WTHIT runtime (needs badpackets), guideme-fabric un-ProGuard.
 
 **Maintenance:** rebase onto upstream alphas per the rebase playbook in PORTING_NOTES.md (AT↔AW sync checklist; the datagen-transform drift guard fails the build on new `neoforge:` keys automatically). Bump the `version=` pin in gradle.properties per release.
 
 **Licensing**: AE2 is open source under its own license stack ("Multiple" — LGPL core, art assets CC BY-NC-SA). The public Fabric fork keeps attribution, no asset rebranding. Upstreaming the platform layer as a PR remains the goal — check their issue tracker for "Fabric support" discussions before opening one.
 
-### Create addon ports — ✅ CODE-COMPLETE 2026-06-15 … 2026-07-04
+### Create addon ports — ✅ CODE-COMPLETE 2026-06-15 … 2026-07-08
 
-All four live in `~/IdeaProjects/create26-ports/ports/` (remote `vobolgus/create26-ports`, private);
+All five live in `~/IdeaProjects/create26-ports/ports/` (remote `vobolgus/create26-ports`, private);
 authoritative per-port state = each port's `PORTING_NOTES.md`. Wave structure everywhere:
 foundation → content → registration → mixins → datagen → client/render → config/network → ponder/polish,
 checkpoint-committed per green gate (build → dedicated `runServer` → `runClient`).
 
 - **Create Deco** `2.2.0-alpha.1` (CC0) — done 06-15, Prism-verified 06-15; post-completion review
-  found + fixed a stale M1-trim stub in CatwalkBlock (07-01). Deferred: placement helpers, pipe I/O check.
-- **Crafts & Additions** `1.6.0-alpha.2` (MIT) — done 06-30. Energy chain Prism-verified 06-16;
-  the rest of the in-world pass pending (accumulator merge/split = highest risk). Deferred: Tesla-coil
-  BE renderer (static model), item charging, wire cosmetics.
+  found + fixed a stale M1-trim stub in CatwalkBlock (07-01); catwalk/stair placement-helper items added
+  07-09. Deferred: pipe I/O check, orphaned warp_pipe asset cleanup (survey-flagged).
+- **Crafts & Additions** `1.6.0-alpha.2` (MIT) — done 06-30; item-battery charging 07-08; **comparator
+  output** for Battery + Modular Accumulator 07-09. Energy chain Prism-verified 06-16; the rest of the
+  in-world pass pending (accumulator merge/split = highest risk). Deferred: Tesla-coil BE renderer
+  (static model), wire cosmetics.
 - **Copycats+** `3.0.7-alpha.1` (⚠ ARR — private use until permission) — done 07-01→07-03, full-fidelity
   scope. Its PORTING_NOTES (§3, §11–§19) became the **drift encyclopedia** every later port cribs from:
   ValueInput/Output NBT, InteractionResult rework, BlockAndLightGetter CT surface, client/server
   behaviour splits, CF model pipeline (WrapperBlockStateModel + AllModels), kinetic rendering without
   Flywheel (SuperByteBuffer), fabric-api FabricBlock default-method diamond, getOcclusionShape
-  null-before-cache boot trap. Zero in-world hours yet.
+  null-before-cache boot trap. Characteristics tooltips added 07-09. Zero in-world hours yet.
 - **Create: Connected** `1.3.2-alpha.1` (AGPL-3.0, publishable) — done 07-03→07-04 in ~1 day (the cribs
   compound). Kinetics recon fear didn't materialize (all Create bases survive in CF). Firsts: container
   menus + screens on 26.1, reflective feature-toggle interop with the sibling Copycats+ port,
-  SequencerInstructions enum-extension CODEC rebuild. Zero in-world hours yet.
+  SequencerInstructions enum-extension CODEC rebuild. Copycat cuboid trio (beam/slab/vertical_step) +
+  board/stairs models added 07-09 (6 of 9 shapes done). Zero in-world hours yet.
+- **Enchantment Industry** `2.5.0-alpha.1` (LGPL, publishable) — done 07-08, W1–W7. Roadmap port #4;
+  the Connected pipeline + cribs applied cleanly (~the estimated 1–2 days). CDP shim vendored. Zero
+  in-world hours yet.
 
 **Verification honesty:** "done" above = code-complete + headless gates green. The in-world pass
-(`create26-ports/PRISM_TEST_CHECKLIST.md`) has NOT been run for Copycats+/Connected and only partially
-for Crafts & Additions — playtest bugs are expected, especially render fidelity and save/load round-trips.
+(`create26-ports/PRISM_TEST_CHECKLIST.md`) has NOT been run for Copycats+/Connected/Enchantment Industry
+and only partially for Crafts & Additions — playtest bugs are expected, especially render fidelity and
+save/load round-trips. **Also note:** create26-ports has **no gametest harness** (the survey's top code
+gap) — unlike AE2's fork (70/70), the five Create ports have zero automated tests, so their server-side
+behavior is only Prism-verifiable today.
 
 ### Addon survey — candidates beyond the completed roadmap (re-checked 2026-07-04)
 
 | Mod | Newest upstream (07-04) | Port shape | Call |
 |---|---|---|---|
 | **REI** | ✅ 26.1.819 shipped | no port needed | ✅ ae2-fabric integration ACTIVATED 07-04 (ctor-timing fix); JEI stays pack default; in-world check on Prism list |
-| **Enchantment Industry** (#4) | 1.21.1 NeoForge | exactly the Connected shape (NeoForge 1.21.1 + Create 6.x + Registrate) — the whole pipeline + cribs apply | **next port if porting continues** (~1–2 days by Connected precedent) |
+| **Enchantment Industry** (#4) | 1.21.1 NeoForge | exactly the Connected shape — the whole pipeline + cribs applied | ✅ **DONE 2026-07-08** (W1–W7; validated the ~1–2 day Connected estimate). Prism pass pending. |
 | Big Cannons (#8) | 1.21.1 neoforge+fabric | contraption physics + renderers — riskiest work type | stretch |
 | Steam 'n' Rails (#7) | ⚠ stuck on **1.20.1** | double forward-port + train internals | deprioritized; wait for upstream movement |
 | Supplementaries + Moonlight | 1.21.1 Fabric | pure MC forward-port (no loader work); big pack content value | medium — independent branch of work (vanilla-diff heavy, not Create skills) |
@@ -187,7 +196,7 @@ Rules of thumb learned: upstream already on 26.1 NeoForge (like AE2 was) → dua
 
 ## Repository Layout (porting workspace)
 
-**Reality (2026-07):** AE2 and GuideME live as standalone sibling forks (own history, upstream-rebaseable, own CI) — that proved right. The `create26-ports` workspace exists and holds the four completed Create-addon ports + the pack skeleton. Remote: `github.com/vobolgus/create26-ports` (private).
+**Reality (2026-07):** AE2 and GuideME live as standalone sibling forks (own history, upstream-rebaseable, own CI) — that proved right. The `create26-ports` workspace exists and holds the five completed Create-addon ports + the pack skeleton. Remote: `github.com/vobolgus/create26-ports` (private).
 
 ```
 ~/IdeaProjects/
@@ -208,7 +217,7 @@ Rules of thumb learned: upstream already on 26.1 NeoForge (like AE2 was) → dua
       create-addition/       # ✅ (upstream name of crafts-additions)
       copycats-plus/         # ✅ its PORTING_NOTES is the drift ENCYCLOPEDIA (§3/§11-§19) — the crib for every later port
       create-connected/      # ✅
-      enchantment-industry/  # next, if taken
+      enchantment-industry/  # ✅ code-complete 2026-07-08 (W1–W7); Prism pass pending
     pack/
       mods-local/            # staged alpha jars (gitignored — rebuild per HANDOFF §5)
       modrinth.index.json    # ✓ generated by tools/build_manifest.py (24 third-party mods pinned 07-04)
@@ -255,6 +264,6 @@ dependencies {
 
 1. Builds against MC 26.1.2 + Create Fly pin, Java 25.
 2. Dedicated server boots with the mod (no client classes on server path).
-3. Feature checklist passes in-world (per-port list in `PORTING_NOTES.md`; consolidated ladder in `create26-ports/PRISM_TEST_CHECKLIST.md`). ← the four Create ports are code-complete but this step is still OPEN for Crafts & Additions (partial), Copycats+ and Connected.
+3. Feature checklist passes in-world (per-port list in `PORTING_NOTES.md`; consolidated ladder in `create26-ports/PRISM_TEST_CHECKLIST.md`). ← the five Create ports are code-complete but this step is still OPEN for Crafts & Additions (partial), Copycats+, Connected, and Enchantment Industry.
 4. JEI shows recipes (REI too once it ships a 26.1 build); Jade shows block info where applicable.
 5. Published as alpha to a Modrinth project page (or kept as local jars in `pack/mods-local/`). ⚠ License-gated: Copycats+ is ARR (no publish without the authors' permission); Deco CC0 / C&A MIT / Connected AGPL are publishable.

@@ -3,6 +3,7 @@ package appeng.client.model;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -14,7 +15,11 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
+import net.minecraft.client.renderer.block.dispatch.ModelState;
+import net.minecraft.client.resources.model.ModelBaker;
 import net.minecraft.client.resources.model.ResolvableModel;
+import net.minecraft.client.resources.model.SimpleModelWrapper;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.FileToIdConverter;
 import net.minecraft.resources.Identifier;
@@ -37,6 +42,7 @@ public final class PartModels {
     public static final Codec<PartModel.Unbaked> CODEC = MAP_CODEC.codec();
 
     private Map<Identifier, ClientPart> clientParts = null;
+    private Map<Identifier, Set<Identifier>> emissiveTextures = Map.of();
 
     public PartModels() {
         ClientLoaderHooks.get().postRegisterPartModels(PART_MODEL_IDS);
@@ -52,10 +58,12 @@ public final class PartModels {
                     JsonOps.INSTANCE,
                     ClientPart.CODEC,
                     clientParts);
-            return clientParts;
+            return new ReloadResult(clientParts, loadEmissiveTextures(resourceManager));
         }, executor)
-                .thenAccept(clientParts -> {
-                    this.clientParts = clientParts;
+                .thenAccept(result -> {
+                    this.clientParts = result.clientParts;
+                    this.emissiveTextures = result.emissiveTextures;
+                    LOG.info("Loaded emissive face metadata for {} part models", emissiveTextures.size());
 
                     for (var entry : BuiltInRegistries.ITEM.entrySet()) {
                         var item = entry.getValue();
@@ -73,6 +81,22 @@ public final class PartModels {
                         }
                     }
                 });
+    }
+
+    public static BlockStateModelPart bake(ModelBaker baker, Identifier model, ModelState modelState) {
+        var bakedModel = SimpleModelWrapper.bake(baker, model, modelState);
+        var emissiveTextures = appeng.client.AppEngClient.instance().getPartModels().emissiveTextures
+                .getOrDefault(model, Set.of());
+        return ClientLoaderHooks.get().applyPartModelFaceMetadata(bakedModel, emissiveTextures);
+    }
+
+    private static Map<Identifier, Set<Identifier>> loadEmissiveTextures(ResourceManager resourceManager) {
+        return ModelFaceMetadata.loadEmissiveTextures(resourceManager,
+                modelId -> modelId.getPath().startsWith("part/"), LOG, "part");
+    }
+
+    private record ReloadResult(Map<Identifier, ClientPart> clientParts,
+            Map<Identifier, Set<Identifier>> emissiveTextures) {
     }
 
     @Nullable

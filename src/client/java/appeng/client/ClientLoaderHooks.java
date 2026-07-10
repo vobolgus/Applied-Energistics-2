@@ -20,6 +20,7 @@ package appeng.client;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.serialization.MapCodec;
@@ -29,6 +30,7 @@ import org.jetbrains.annotations.Nullable;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -61,6 +63,15 @@ public interface ClientLoaderHooks {
      * {@code RegisterPartRendererEvent}, dispatched in parallel per mod).
      */
     void collectPartRenderers(PartRendererCollector collector);
+
+    /**
+     * Applies loader-specific face metadata to a baked part model. NeoForge consumes its face metadata while baking;
+     * Fabric uses this hook to restore metadata that vanilla's model loader ignores.
+     */
+    default BlockStateModelPart applyPartModelFaceMetadata(BlockStateModelPart model,
+            Set<Identifier> emissiveTextures) {
+        return model;
+    }
 
     /**
      * Receives part renderer registrations, attributed to the mod that registered them.

@@ -10,7 +10,6 @@ import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.client.renderer.block.dispatch.ModelState;
 import net.minecraft.client.resources.model.ModelBaker;
-import net.minecraft.client.resources.model.SimpleModelWrapper;
 import net.minecraft.client.resources.model.sprite.Material;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
@@ -73,10 +72,10 @@ public record LockableMonitorPartModel(BlockStateModelPart unpoweredUnlockedMode
 
         @Override
         public PartModel bake(ModelBaker baker, ModelState modelState) {
-            var unpoweredUnlockedModel = SimpleModelWrapper.bake(baker, this.unpoweredUnlockedModel, modelState);
-            var poweredUnlockedModel = SimpleModelWrapper.bake(baker, this.poweredUnlockedModel, modelState);
-            var unpoweredLockedModel = SimpleModelWrapper.bake(baker, this.unpoweredLockedModel, modelState);
-            var poweredLockedModel = SimpleModelWrapper.bake(baker, this.poweredLockedModel, modelState);
+            var unpoweredUnlockedModel = PartModels.bake(baker, this.unpoweredUnlockedModel, modelState);
+            var poweredUnlockedModel = PartModels.bake(baker, this.poweredUnlockedModel, modelState);
+            var unpoweredLockedModel = PartModels.bake(baker, this.unpoweredLockedModel, modelState);
+            var poweredLockedModel = PartModels.bake(baker, this.poweredLockedModel, modelState);
 
             return new LockableMonitorPartModel(unpoweredUnlockedModel, poweredUnlockedModel, unpoweredLockedModel,
                     poweredLockedModel);

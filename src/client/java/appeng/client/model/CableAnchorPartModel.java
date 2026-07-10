@@ -10,7 +10,6 @@ import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.client.renderer.block.dispatch.ModelState;
 import net.minecraft.client.resources.model.ModelBaker;
-import net.minecraft.client.resources.model.SimpleModelWrapper;
 import net.minecraft.client.resources.model.sprite.Material;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
@@ -66,8 +65,8 @@ public class CableAnchorPartModel implements PartModel {
 
         @Override
         public PartModel bake(ModelBaker baker, ModelState modelState) {
-            var bakedModel = SimpleModelWrapper.bake(baker, model, modelState);
-            var shortBakedModel = SimpleModelWrapper.bake(baker, shortModel, modelState);
+            var bakedModel = PartModels.bake(baker, model, modelState);
+            var shortBakedModel = PartModels.bake(baker, shortModel, modelState);
 
             return new CableAnchorPartModel(bakedModel, shortBakedModel);
         }

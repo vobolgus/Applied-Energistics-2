@@ -119,6 +119,10 @@ public final class InitApiLookup {
         initCrankable();
 
         for (var type : AEBlockEntities.getSubclassesOf(AEBaseInvBlockEntity.class)) {
+            // The condenser exposes a deliberately restricted external inventory and is registered above.
+            if (type == AEBlockEntities.CONDENSER.get()) {
+                continue;
+            }
             ItemStorage.SIDED.registerForBlockEntities(InitApiLookup::getExposedItemStorage, type);
         }
         for (var type : AEBlockEntities.getSubclassesOf(AEBasePoweredBlockEntity.class)) {

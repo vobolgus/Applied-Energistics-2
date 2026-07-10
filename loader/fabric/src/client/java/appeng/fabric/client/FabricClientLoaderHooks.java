@@ -2,18 +2,27 @@ package appeng.fabric.client;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Predicate;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.serialization.MapCodec;
 
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadEmitter;
+import net.fabricmc.fabric.api.client.renderer.v1.mesh.ShadeMode;
+import net.fabricmc.fabric.api.client.renderer.v1.model.FabricBlockStateModelPart;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes;
+import net.fabricmc.fabric.api.util.TriState;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
+import net.minecraft.client.resources.model.sprite.Material;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.ExtraCodecs;
@@ -63,6 +72,15 @@ public class FabricClientLoaderHooks implements ClientLoaderHooks {
     }
 
     @Override
+    public BlockStateModelPart applyPartModelFaceMetadata(BlockStateModelPart model,
+            Set<Identifier> emissiveTextures) {
+        if (emissiveTextures.isEmpty()) {
+            return model;
+        }
+        return new EmissivePartModel(model, emissiveTextures);
+    }
+
+    @Override
     public InputConstants.Key getBoundKey(KeyMapping keyMapping) {
         return KeyMappingHelper.getBoundKeyOf(keyMapping);
     }
@@ -87,5 +105,49 @@ public class FabricClientLoaderHooks implements ClientLoaderHooks {
             Optional<TooltipComponent> image, ItemStack stack, int x, int y) {
         // The ItemStack-carrying overload is a NeoForge patch; use the vanilla overload here.
         guiGraphics.setTooltipForNextFrame(font, lines, image, x, y);
+    }
+
+    private record EmissivePartModel(BlockStateModelPart delegate,
+            Set<Identifier> emissiveTextures) implements BlockStateModelPart, FabricBlockStateModelPart {
+        @Override
+        public List<net.minecraft.client.resources.model.geometry.BakedQuad> getQuads(Direction direction) {
+            return delegate.getQuads(direction);
+        }
+
+        @Override
+        public boolean useAmbientOcclusion() {
+            return delegate.useAmbientOcclusion();
+        }
+
+        @Override
+        public Material.Baked particleMaterial() {
+            return delegate.particleMaterial();
+        }
+
+        @Override
+        public int materialFlags() {
+            return delegate.materialFlags();
+        }
+
+        @Override
+        public void emitQuads(QuadEmitter emitter, Predicate<Direction> cullTest) {
+            var ambientOcclusion = useAmbientOcclusion() ? TriState.DEFAULT : TriState.FALSE;
+            for (var cullFace : appeng.util.Platform.CULL_FACES) {
+                if (cullTest.test(cullFace)) {
+                    continue;
+                }
+                for (var quad : delegate.getQuads(cullFace)) {
+                    emitter.cullFace(cullFace);
+                    emitter.fromBakedQuad(quad);
+                    emitter.ambientOcclusion(ambientOcclusion);
+                    emitter.shadeMode(ShadeMode.VANILLA);
+                    var texture = quad.materialInfo().sprite().contents().name();
+                    if (emissiveTextures.contains(texture)) {
+                        emitter.emissive(true);
+                    }
+                    emitter.emit();
+                }
+            }
+        }
     }
 }

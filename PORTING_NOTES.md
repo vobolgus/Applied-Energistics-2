@@ -1525,10 +1525,9 @@ in `loader/fabric/run/saves/` before the run is hands-off (created once via the 
 
 ### Cosmetic-warning inventory (non-fatal, for the in-world checklist)
 
-- Part status-indicator models (`assets/ae2/models/part/*_has_channel.json` etc.) carry per-face
-  `"neoforge_data": {"block_light": 15, "sky_light": 15}` — vanilla's lenient parser ignores it on
-  Fabric: indicator LEDs render without fullbright glow. Candidate fix: FRAPI material emissive
-  re-emission in the part model baking path (goes with the Phase 3a risk-list item 3 color work).
+- Per-face `"neoforge_data": {"block_light": 15, "sky_light": 15}` is restored on Fabric for all
+  affected part overlays and ordinary block/item models through the FRAPI model-loading path (see
+  Phase 3a risk-list item 3).
 - `Encountered duplicate API provider registration for block: ae2:condenser` — pre-existing/expected
   (Phase 2b note: first registration wins, matches Neo priority).
 - `Failed to get system info for Render Extensions` + `Can't getDevice() before it was initialized`
@@ -1806,9 +1805,9 @@ transform (or the FilterReader class) changes.
 `grep -rl '"neoforge:' src/generated/resources` → exactly 73 files = 67 nuggets + 5 cables (both
 handled by transform 3) + 1 biome (handled by transform 1). No loot conditions, advancement
 triggers, or other condition carriers exist in the generated tree. Separately, 33 HANDWRITTEN part
-models (`src/main/resources/assets/ae2/models/part/*_has_channel.json` etc.) carry per-face
-`"neoforge_data"` lightmap values — NOT datagen output, ignored by vanilla's lenient model parser on
-Fabric (cosmetic fullbright-LED gap, already on the Phase 3a risk list); left as-is.
+models (`src/main/resources/assets/ae2/models/part/*_has_channel.json` etc.) and four handwritten
+ordinary block models carry per-face `"neoforge_data"` lightmap values — NOT datagen output. Fabric
+restores these through the model-loading path (Phase 3a risk-list item 3).
 
 ### Gate status (all green, 2026-06-12)
 
@@ -1914,30 +1913,38 @@ release its own (NeoForge-only) 26.1.10-alpha — the loader is disambiguated by
 | Phase 2b part 2: Fabric gametests (gate M2 complete) | `50753d14a` | 68/68; capability-invalidation registry bug found & fixed |
 | Phase 3a: Fabric client compiles (shared src/client + FRAPI quad pipeline) | `9171df845` | `:fabric:build` with client sources |
 | Phase 3b: Fabric client boots to gameplay | `4e851a221` | title screen + singleplayer world, 0 AE2 load errors |
-| REI integration restored (compiled, runtime blocked upstream) | `07801e764` | both loaders compile; entrypoints inert |
+| REI integration restored and activated | `22dcf6355` | 26.1.819 loads AE2 providers on both loaders; in-world category check pending |
 | Phase 4: JEI + Jade (+WTHIT plumbing) wired on Fabric | `4ffc830f1` | JEI categories + Jade plugin load at runtime |
 | Phase 4: datagen parity (conditions/ingredients/biome/blockstates) | `136b535a7` | runServer 0 ERROR, 2007 recipes |
 | Phase 5: CI matrix, version pin, release artifacts | (this commit) | gate-sweep table above |
 
 ### Deferred / known issues (consolidated)
 
-1. **REI runtime blocked upstream** — no REI build for MC 26.1 exists anywhere (newest: 21.11.814
-   for 1.21.11, intermediary-mapped on fabric). Integration is fully restored and compiles on both
-   loaders; flip `runtime_itemlist_mod=rei` + bump `rei_version` + work the grep-able
-   `TODO (REI 26.1)` markers when it ships (checklist in "REI restoration").
+1. **REI in-world verification / cosmetics** — REI `26.1.819` is active and both AE2 plugin providers
+   load on Fabric and NeoForge. Category/display callbacks run after world join, so complete the Prism
+   checklist before declaring recipe-viewer parity; the grep-able `TODO (REI 26.1)` markers track
+   optional slot-highlight overlays and icon textures.
 2. ~~**`ae2:interface_slot_filtering` gametest twin**~~ — **DONE 2026-07-09**. Fabric twin
    `InterfaceCapabilityTestPlots` (loader/fabric, BlockApiLookup-based, on `FabricTestPlotPlatform`)
    now asserts the same slot filtering; both loaders at 70/70. (See Step 10b.)
-3. **Part LED emissive (fullbright) gap** — 33 handwritten part models carry per-face
-   `neoforge_data` lightmaps that vanilla's parser ignores on Fabric; status LEDs render unlit.
-   Fix direction: FRAPI emissive material re-emission in the part model baking path, together with
-   the QuadColors per-vertex-color follow-ups (MemoryCardItemModel hashes, FacadeItemModel tints —
-   Phase 3a risk item 3).
+3. ~~**Emissive (fullbright) face metadata gap**~~ — **DONE 2026-07-09 for all 29 part overlay
+   models and the four ordinary block models.** `PartModels` now reads the effective resource-pack JSON during its existing reload,
+   resolves fullbright `neoforge_data` face texture references, and routes baked part overlays
+   through a Fabric FRAPI wrapper that sets `emissive(true)` only on matching quads. Mixed
+   transition-plane models retain normal lighting on their body faces. A preparable Fabric model
+   plugin uses the same inherited-model parser for `controller_{block,column}_lights`,
+   `molecular_assembler_lights`, and `mysterious_cube`; it marks matching block quads emissive and
+   restores baked-quad light emission for item rendering. The parser has unit coverage for direct,
+   inherited, ambiguous, cyclic, and mixed-lit models. Fabric client reload logs both metadata counts
+   and reaches the title screen cleanly. QuadColors item-model follow-ups remain separate.
 4. **Spatial storage sky/clouds/weather** — vanilla default sky on Fabric (Neo environment
    attributes stripped from the biome; no fabric-api 26.1 equivalent of the effect-renderer
    registration found — candidate: environment-attribute registry mixin).
-5. **`RenderBoundingBoxHook` not dispatched on Fabric** — SkyStoneChest lid may cull at screen
-   edges (client shim exists, needs a BER-dispatch mixin).
+5. ~~**`RenderBoundingBoxHook` not dispatched on Fabric**~~ — **NOT NEEDED on 26.1 (verified
+   2026-07-09).** Vanilla `LevelRenderer#extractVisibleBlockEntities` extracts block entities from
+   already-visible render sections and `BlockEntityRenderDispatcher#tryExtractRenderState` performs
+   no per-block-entity AABB/frustum check. NeoForge adds that extra check and therefore needs the
+   hook; adding it to Fabric would only make culling stricter, not fix a Fabric defect.
 6. **guideme-fabric is ProGuard-less** — the Fabric GuideME jar skips upstream's shrink step
    (bigger jar, functionally identical). Revisit if jar size matters for the modpack.
 7. **WTHIT runtime needs badpackets** — `runtime_tooltip_mod=wthit` is wired but badpackets is not

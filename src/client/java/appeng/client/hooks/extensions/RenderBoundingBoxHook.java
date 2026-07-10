@@ -26,9 +26,8 @@ import net.minecraft.world.phys.AABB;
  * injected {@code IBlockEntityRendererExtension#getRenderBoundingBox} with NeoForge's exact default body. On NeoForge,
  * an implementor's override simultaneously overrides the injected extension method, keeping behavior identical.
  * <p>
- * TODO (fabric, Phase 3b): nothing calls this hook on Fabric yet. Vanilla culls block entities by their block position
- * only, so renderers with an enlarged box (SkyStoneChestRenderer's open lid) may pop out at screen edges until a
- * dispatch mechanism (mixin into the block-entity culling check) is wired.
+ * Fabric does not dispatch this hook. Minecraft 26.1 extracts block entities from already-visible render sections and
+ * performs no per-block-entity bounding-box frustum test, so the larger SkyStoneChest box is not needed there.
  */
 public interface RenderBoundingBoxHook<T extends BlockEntity> {
     default AABB getRenderBoundingBox(T blockEntity) {

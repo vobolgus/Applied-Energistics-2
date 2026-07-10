@@ -9,13 +9,13 @@ import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.client.renderer.block.dispatch.ModelState;
 import net.minecraft.client.resources.model.ModelBaker;
-import net.minecraft.client.resources.model.SimpleModelWrapper;
 import net.minecraft.client.resources.model.sprite.Material;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.RandomSource;
 
 import appeng.api.util.AEColor;
+import appeng.client.model.PartModels;
 import appeng.core.AppEng;
 import appeng.util.render.AERenderData;
 
@@ -62,7 +62,7 @@ public class StaticPartModel implements PartModel {
 
         @Override
         public PartModel bake(ModelBaker baker, ModelState modelState) {
-            var bakedModel = SimpleModelWrapper.bake(baker, model, modelState);
+            var bakedModel = PartModels.bake(baker, model, modelState);
 
             return new StaticPartModel(bakedModel);
         }

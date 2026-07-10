@@ -21,9 +21,12 @@ package appeng.fabric.client;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import com.mojang.blaze3d.platform.InputConstants;
+
+import org.slf4j.LoggerFactory;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -32,11 +35,19 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.fabric.api.client.model.loading.v1.CustomUnbakedBlockStateModel;
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin;
+import net.fabricmc.fabric.api.client.model.loading.v1.ModelModifier;
+import net.fabricmc.fabric.api.client.model.loading.v1.PreparableModelLoadingPlugin;
 import net.fabricmc.fabric.api.client.model.loading.v1.SimpleUnbakedExtraModel;
+import net.fabricmc.fabric.api.client.model.loading.v1.wrapper.WrapperUnbakedModel;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.particle.v1.ParticleGroupRegistry;
 import net.fabricmc.fabric.api.client.particle.v1.ParticleProviderRegistry;
+import net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadAtlas;
+import net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadEmitter;
+import net.fabricmc.fabric.api.client.renderer.v1.model.FabricBlockStateModel;
+import net.fabricmc.fabric.api.client.renderer.v1.sprite.FabricMaterialBaker;
+import net.fabricmc.fabric.api.client.renderer.v1.sprite.SpriteFinder;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockColorRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.ClientTooltipComponentCallback;
@@ -47,20 +58,30 @@ import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.color.item.ItemTintSources;
 import net.minecraft.client.gui.screens.MenuScreens;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.renderer.block.dispatch.BlockModelRotation;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.item.ItemModels;
 import net.minecraft.client.renderer.item.properties.numeric.RangeSelectItemModelProperties;
 import net.minecraft.client.resources.model.SimpleModelWrapper;
+import net.minecraft.client.resources.model.UnbakedModel;
+import net.minecraft.client.resources.model.geometry.QuadCollection;
+import net.minecraft.client.resources.model.geometry.UnbakedGeometry;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.PackType;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeMap;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
 
 import appeng.api.client.StorageCellModels;
 import appeng.client.AppEngClient;
@@ -72,6 +93,7 @@ import appeng.client.gui.style.StyleManager;
 import appeng.client.hooks.BlockAttackHook;
 import appeng.client.hooks.RenderBlockOutlineHook;
 import appeng.client.integrations.itemlists.FluidBlockPictureInPictureRenderer;
+import appeng.client.model.ModelFaceMetadata;
 import appeng.client.model.PaintSplotchesModel;
 import appeng.client.model.QnbFormedModel;
 import appeng.client.model.SpatialPylonModel;
@@ -84,6 +106,7 @@ import appeng.client.renderer.blockentity.CrankRenderer;
 import appeng.client.renderer.parts.PartRendererDispatcher;
 import appeng.core.AEConfig;
 import appeng.core.AppEng;
+import appeng.core.definitions.AEBlocks;
 import appeng.fabric.AppEngFabric;
 import appeng.fabric.FabricLoaderPlatform;
 import appeng.fabric.network.SyncRecipesPayload;
@@ -99,6 +122,8 @@ import appeng.fabric.network.SyncRecipesPayload;
  * instantiates one object per entrypoint key, and this class must only be constructed once).
  */
 public class AppEngFabricClient extends AppEngClient implements ClientModInitializer {
+    private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(AppEngFabricClient.class);
+
     /**
      * This modifier key has to be held to activate mouse wheel items. (NeoForge attaches its IN_GAME key conflict
      * context here; Fabric key mappings have no conflict contexts.)
@@ -230,6 +255,7 @@ public class AppEngFabricClient extends AppEngClient implements ClientModInitial
 
         registerBlockStateModels();
         registerExtraModels();
+        registerEmissiveBlockModels();
 
         PictureInPictureRendererRegistry
                 .register(context -> new FluidBlockPictureInPictureRenderer(context.bufferSource()));
@@ -297,6 +323,134 @@ public class AppEngFabricClient extends AppEngClient implements ClientModInitial
             pluginContext.addModel(StorageCellModels.getDefaultStandaloneModel(),
                     SimpleUnbakedExtraModel.blockStateModel(StorageCellModels.getDefaultModel()));
         });
+    }
+
+    private void registerEmissiveBlockModels() {
+        var modelIdsByBlock = Map.of(
+                AEBlocks.CONTROLLER.block(), Set.of(
+                        AppEng.makeId("block/controller_block_online"),
+                        AppEng.makeId("block/controller_block_conflicted"),
+                        AppEng.makeId("block/controller_column_online"),
+                        AppEng.makeId("block/controller_column_conflicted"),
+                        AppEng.makeId("block/controllerinside_a_conflicted"),
+                        AppEng.makeId("block/controllerinside_b_conflicted")),
+                AEBlocks.MOLECULAR_ASSEMBLER.block(), Set.of(AppEng.makeId("block/molecular_assembler_lights")),
+                AEBlocks.MYSTERIOUS_CUBE.block(), Set.of(AppEng.makeId("block/mysterious_cube")),
+                AEBlocks.NOT_SO_MYSTERIOUS_CUBE.block(), Set.of(AppEng.makeId("block/mysterious_cube")));
+        var modelIds = modelIdsByBlock.values().stream().flatMap(Set::stream)
+                .collect(java.util.stream.Collectors.toSet());
+
+        PreparableModelLoadingPlugin.register((sharedState, executor) -> java.util.concurrent.CompletableFuture
+                .supplyAsync(() -> ModelFaceMetadata.loadEmissiveTextures(sharedState.resourceManager(),
+                        modelIds::contains, LOG, "emissive block"), executor),
+                (emissiveTexturesByModel, context) -> {
+                    LOG.info("Loaded emissive face metadata for {} block models", emissiveTexturesByModel.size());
+                    context.modifyModelOnLoad().register(ModelModifier.WRAP_PHASE, (model, modifierContext) -> {
+                        var emissiveTextures = emissiveTexturesByModel.get(modifierContext.id());
+                        if (emissiveTextures == null || emissiveTextures.isEmpty()) {
+                            return model;
+                        }
+                        return new EmissiveUnbakedModel(model, emissiveTextures);
+                    });
+                    context.modifyBlockModelAfterBake().register(ModelModifier.WRAP_PHASE, (model, modifierContext) -> {
+                        var modelIdsForBlock = modelIdsByBlock.get(modifierContext.state().getBlock());
+                        if (modelIdsForBlock == null) {
+                            return model;
+                        }
+                        var emissiveTextures = new HashSet<Identifier>();
+                        for (var modelId : modelIdsForBlock) {
+                            emissiveTextures.addAll(emissiveTexturesByModel.getOrDefault(modelId, Set.of()));
+                        }
+                        if (emissiveTextures.isEmpty()) {
+                            return model;
+                        }
+                        var spriteFinder = ((FabricMaterialBaker) modifierContext.baker().materials())
+                                .spriteFinder(QuadAtlas.BLOCK);
+                        return new EmissiveBlockStateModel(model, Set.copyOf(emissiveTextures), spriteFinder);
+                    });
+                });
+    }
+
+    private static final class EmissiveUnbakedModel extends WrapperUnbakedModel {
+        private final Set<Identifier> emissiveTextures;
+
+        private EmissiveUnbakedModel(UnbakedModel wrapped, Set<Identifier> emissiveTextures) {
+            super(wrapped);
+            this.emissiveTextures = emissiveTextures;
+        }
+
+        @Override
+        public UnbakedGeometry geometry() {
+            var geometry = wrapped.geometry();
+            if (geometry == null) {
+                return null;
+            }
+            return (textureSlots, baker, modelState, modelName) -> {
+                var baked = geometry.bake(textureSlots, baker, modelState, modelName);
+                var result = new QuadCollection.Builder();
+                for (var direction : Direction.values()) {
+                    for (var quad : baked.getQuads(direction)) {
+                        result.addCulledFace(direction, applyEmission(quad));
+                    }
+                }
+                for (var quad : baked.getQuads(null)) {
+                    result.addUnculledFace(applyEmission(quad));
+                }
+                return result.build();
+            };
+        }
+
+        private net.minecraft.client.resources.model.geometry.BakedQuad applyEmission(
+                net.minecraft.client.resources.model.geometry.BakedQuad quad) {
+            if (!emissiveTextures.contains(quad.materialInfo().sprite().contents().name())) {
+                return quad;
+            }
+            var material = quad.materialInfo();
+            return new net.minecraft.client.resources.model.geometry.BakedQuad(
+                    quad.position0(), quad.position1(), quad.position2(), quad.position3(),
+                    quad.packedUV0(), quad.packedUV1(), quad.packedUV2(), quad.packedUV3(), quad.direction(),
+                    new net.minecraft.client.resources.model.geometry.BakedQuad.MaterialInfo(
+                            material.sprite(), material.layer(), material.itemRenderType(), material.tintIndex(),
+                            material.shade(), 15));
+        }
+    }
+
+    private record EmissiveBlockStateModel(BlockStateModel delegate, Set<Identifier> emissiveTextures,
+            SpriteFinder spriteFinder)
+            implements
+                BlockStateModel,
+                FabricBlockStateModel {
+        @Override
+        public void collectParts(RandomSource random, List<BlockStateModelPart> parts) {
+            delegate.collectParts(random, parts);
+        }
+
+        @Override
+        public net.minecraft.client.resources.model.sprite.Material.Baked particleMaterial() {
+            return delegate.particleMaterial();
+        }
+
+        @Override
+        public int materialFlags() {
+            return delegate.materialFlags();
+        }
+
+        @Override
+        public void emitQuads(QuadEmitter emitter,
+                BlockAndTintGetter level, BlockPos pos, BlockState state, RandomSource random,
+                java.util.function.Predicate<@org.jspecify.annotations.Nullable Direction> cullTest) {
+            emitter.pushTransform(quad -> {
+                if (emissiveTextures.contains(spriteFinder.find(quad).contents().name())) {
+                    quad.emissive(true);
+                }
+                return true;
+            });
+            try {
+                ((FabricBlockStateModel) delegate).emitQuads(emitter, level, pos, state, random, cullTest);
+            } finally {
+                emitter.popTransform();
+            }
+        }
     }
 
     private void handleRecipeSync(SyncRecipesPayload payload) {
