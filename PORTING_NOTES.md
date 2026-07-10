@@ -1684,7 +1684,7 @@ verified at runtime via logs. The REI integration stays compiled-but-inert, unto
 |---|---|---|---|---|
 | JEI | `mezz.jei:jei-26.1.2-fabric-api:29.5.0.26` (pulls `jei-26.1.2-common-api` transitively) | `runtime_itemlist_mod=jei` → `mezz.jei:jei-26.1.2-fabric:29.5.0.26` | `jei-26.1.2-neoforge(-api):29.5.0.26` | maven.blamejared.com |
 | Jade | `maven.modrinth:jade:26.1.0+fabric` (full mod jar as API) | `runtime_tooltip_mod=jade` → same artifact | `curse.maven:jade-324717:7938398` | api.modrinth.com/maven (`includeGroup maven.modrinth`) |
-| WTHIT | `mcp.mobius.waila:wthit-api:fabric-19.0.1` | `runtime_tooltip_mod=wthit` → `wthit:fabric-19.0.1` (NOTE: needs badpackets at runtime, not wired — same gap as :neoforge) | `wthit-api:neo-19.0.1` | maven2.bai.lol |
+| WTHIT | `mcp.mobius.waila:wthit-api:fabric-19.0.1` | `runtime_tooltip_mod=wthit` → `wthit:fabric-19.0.1` + `lol.bai:badpackets:fabric-0.12.2` (wired 2026-07-10; gametest-verified) | `wthit-api:neo-19.0.1` (runtime badpackets gap remains, as upstream) | maven2.bai.lol |
 
 - **No jei_version bump needed**: blamejared publishes the SAME version (29.5.0.26) for both loaders of
   26.1.2, so both loaders compile the shared plugin against the identical common API. (Newest fabric
@@ -1739,8 +1739,9 @@ The `@JeiPlugin`/`@WailaPlugin` annotations stay on the shared classes (inert on
    e.g. stone appear; recipe transfer + button into crafting terminal works.
 2. Place a controller / drive / cable parts: Jade overlay shows AE2 names/icons/body lines
    (channel/power info via the ServerDataProviders).
-3. Optional: flip `runtime_tooltip_mod=wthit` (requires adding badpackets to the runtime) to check
-   the WTHIT overlay.
+3. Optional: flip `runtime_tooltip_mod=wthit` (badpackets is wired since 2026-07-10; just flip the
+   property or pass `-Pruntime_tooltip_mod=wthit`) to check the WTHIT overlay on an AE2 block —
+   still unverified in-world.
 
 ### Gate status (all green, 2026-06-12)
 
@@ -1957,8 +1958,14 @@ release its own (NeoForge-only) 26.1.10-alpha — the loader is disambiguated by
    hook; adding it to Fabric would only make culling stricter, not fix a Fabric defect.
 6. **guideme-fabric is ProGuard-less** — the Fabric GuideME jar skips upstream's shrink step
    (bigger jar, functionally identical). Revisit if jar size matters for the modpack.
-7. **WTHIT runtime needs badpackets** — `runtime_tooltip_mod=wthit` is wired but badpackets is not
-   on the dev runtime (same gap as :neoforge upstream).
+7. ~~**WTHIT runtime needs badpackets**~~ — DONE 2026-07-10: badpackets `fabric-0.12.2` + WTHIT
+   `fabric-19.0.1` shipped for 26.1.x (2026-04); the `"wthit"` branch of :fabric's
+   `runtime_tooltip_mod` switch now adds `lol.bai:badpackets:fabric-${badpackets_version}`
+   (maven2.bai.lol, same repo as wthit). Verified: `-Pruntime_tooltip_mod=wthit`
+   `:fabric:runGametest` 73/73 with `[WTHIT] Initializing plugin ae2:wthit at
+   appeng.integration.modules.wthit.WthitModule` in the server log (wthit_plugins.json side "*").
+   Remaining: in-world visual check of the WTHIT overlay on an AE2 block (runClient with the flag;
+   see user checklist item 3); :neoforge's runtime still has the upstream badpackets gap.
 8. **In-world visual checklist not yet executed** — the interactive items from the Phase 3a risk
    list (cable-bus FRAPI visuals, QuadColors paths, part renderers after F3+T, controls-screen
    category, scroll/key mixin behavior, block-outline depth) plus the JEI/Jade and REI user

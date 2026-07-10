@@ -241,8 +241,13 @@ dependencies {
 
     // Dev-runtime tooltip mod, mirroring :neoforge's runtime_tooltip_mod switch.
     when (prop("runtime_tooltip_mod")) {
-        // NOTE: wthit additionally requires badpackets at runtime (not wired; same gap as :neoforge).
-        "wthit" -> localRuntimeOnly("mcp.mobius.waila:wthit:fabric-${prop("wthit_version")}")
+        // WTHIT requires badpackets at runtime (fabric-0.12.2 / wthit fabric-19.0.1 shipped for
+        // 26.1.x 2026-04; both resolve from maven2.bai.lol). :neoforge still has the upstream gap
+        // (no badpackets on its runtime) - flip its switch only after wiring the neo flavor there.
+        "wthit" -> {
+            localRuntimeOnly("mcp.mobius.waila:wthit:fabric-${prop("wthit_version")}")
+            localRuntimeOnly("lol.bai:badpackets:fabric-${prop("badpackets_version")}")
+        }
         "jade" -> localRuntimeOnly("maven.modrinth:jade:${prop("jade_fabric_version")}")
     }
 
