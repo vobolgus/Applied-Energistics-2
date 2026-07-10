@@ -35,6 +35,8 @@ accessible method net/minecraft/data/worldgen/placement/OrePlacements commonOreP
 
 # Tests
 accessible field net/minecraft/gametest/framework/GameTestHelper testInfo Lnet/minecraft/gametest/framework/GameTestInfo;
+# SavedData save/reload gametests evict the cached instance to force a re-read from disk
+accessible field net/minecraft/world/level/storage/SavedDataStorage cache Ljava/util/Map;
 
 # Delay continued left clicks
 accessible field net/minecraft/client/multiplayer/MultiPlayerGameMode destroyDelay I
