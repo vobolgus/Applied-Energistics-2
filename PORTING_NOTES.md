@@ -1937,9 +1937,19 @@ release its own (NeoForge-only) 26.1.10-alpha — the loader is disambiguated by
    restores baked-quad light emission for item rendering. The parser has unit coverage for direct,
    inherited, ambiguous, cyclic, and mixed-lit models. Fabric client reload logs both metadata counts
    and reaches the title screen cleanly. QuadColors item-model follow-ups remain separate.
-4. **Spatial storage sky/clouds/weather** — vanilla default sky on Fabric (Neo environment
-   attributes stripped from the biome; no fabric-api 26.1 equivalent of the effect-renderer
-   registration found — candidate: environment-attribute registry mixin).
+4. ~~**Spatial storage sky/clouds/weather**~~ — **DONE 2026-07-10.** Recon: vanilla 26.1 gates the
+   sky frame pass on `DimensionType.Skybox` and renders sun+moon unconditionally on the OVERWORLD
+   path (star/sunrise alphas default to 0 via vanilla environment attributes), so Fabric showed
+   sun+moon in a black sky and no sparkles. Clouds and weather needed NO twin: the vanilla
+   `CLOUD_COLOR` attribute defaults to alpha 0 (cloud pass skipped) and precipitation visuals are
+   gated per-column on the biome (`hasPrecipitation(false)`) — Neo's clouds/weather renderers are
+   belt-and-braces only. fabric-api 0.151.0 has no dimension-effects registry (LevelRenderEvents
+   has no sky-stage event), so `LevelRendererSpatialSkyMixin` (client) cancels
+   `LevelRenderer#addSkyPass` for `ae2:spatial_storage`, mirrors the vanilla fog-type gating, and
+   schedules an equivalent frame pass that calls the same-FQN Fabric twin
+   `appeng.client.renderer.spatialstorage.SpatialStorageSkyRenderer` (rendering code identical to
+   the Neo version; model-view via `RenderSystem.getModelViewMatrix()`, exactly what vanilla
+   `SkyRenderer` uses at execute time). No data changes; NeoForge untouched.
 5. ~~**`RenderBoundingBoxHook` not dispatched on Fabric**~~ — **NOT NEEDED on 26.1 (verified
    2026-07-09).** Vanilla `LevelRenderer#extractVisibleBlockEntities` extracts block entities from
    already-visible render sections and `BlockEntityRenderDispatcher#tryExtractRenderState` performs
@@ -1953,6 +1963,9 @@ release its own (NeoForge-only) 26.1.10-alpha — the loader is disambiguated by
    list (cable-bus FRAPI visuals, QuadColors paths, part renderers after F3+T, controls-screen
    category, scroll/key mixin behavior, block-outline depth) plus the JEI/Jade and REI user
    checklists. Server-side behavior is covered by the 70 gametests; rendering is not.
+   - Spatial storage sky (added 2026-07-10): enter a spatial storage cell → sky is the custom
+     pitch-black void with faint pulsing sparkles; no sun/moon/stars, no clouds, no rain/snow —
+     must match NeoForge.
 9. Minor: CableBusBlock break/run particles+sounds use vanilla fallback on Fabric
    (IClientBlockExtensions not twinned); no ModMenu config screen; `clientTickStart` ordering
    vs other mods is registration-order on Fabric (Neo used LOWEST priority).
