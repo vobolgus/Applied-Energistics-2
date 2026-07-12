@@ -1,5 +1,8 @@
 package appeng.integration.modules.rei.transfer;
 
+import static appeng.integration.modules.itemlists.TransferHelper.BLUE_SLOT_HIGHLIGHT_COLOR;
+import static appeng.integration.modules.itemlists.TransferHelper.RED_SLOT_HIGHLIGHT_COLOR;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -18,7 +21,11 @@ import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.ShapedRecipePattern;
 import net.minecraft.world.level.block.Blocks;
 
+import me.shedaniel.math.Rectangle;
+import me.shedaniel.rei.api.client.gui.widgets.Slot;
 import me.shedaniel.rei.api.client.gui.widgets.Tooltip;
+import me.shedaniel.rei.api.client.gui.widgets.Widget;
+import me.shedaniel.rei.api.client.registry.transfer.TransferHandlerRenderer;
 import me.shedaniel.rei.api.common.display.Display;
 import me.shedaniel.rei.api.common.entry.type.VanillaEntryTypes;
 
@@ -74,11 +81,10 @@ public class UseCraftingRecipeTransfer<T extends CraftingTermMenu> extends Abstr
 
         if (missingSlots.missingSlots().size() == slotToIngredientMap.size()) {
             // All missing, can't do much...
-            // TODO (REI 26.1): the missing/craftable slot highlight overlays (Result#renderer /
-            // TransferHandlerRenderer) cannot be ported yet: REI 21.11's TransferHandlerRenderer signature uses the
-            // pre-26.1 net.minecraft.client.gui.GuiGraphics (renamed to GuiGraphicsExtractor in 26.1). Restore the
-            // overlays from git history once REI ships a 26.1 build.
-            return Result.createFailed(ItemModText.NO_ITEMS.text());
+            // Restored 2026-07-12: REI 26.1.819 ships GuiGraphics as its own compat subclass of
+            // GuiGraphicsExtractor, so the TransferHandlerRenderer signature is implementable again (red = missing,
+            // blue = craftable) — matches the JEI twin.
+            return Result.createFailed(ItemModText.NO_ITEMS.text()).renderer(createErrorRenderer(missingSlots));
         }
 
         if (!doTransfer) {
@@ -87,7 +93,8 @@ public class UseCraftingRecipeTransfer<T extends CraftingTermMenu> extends Abstr
                 int color = missingSlots.anyMissing() ? TransferHelper.ORANGE_PLUS_BUTTON_COLOR
                         : TransferHelper.BLUE_PLUS_BUTTON_COLOR;
                 var result = Result.createSuccessful()
-                        .color(color);
+                        .color(color)
+                        .renderer(createErrorRenderer(missingSlots));
 
                 var tooltip = TransferHelper.createCraftingTooltip(missingSlots, craftMissing, true);
                 result.overrideTooltipRenderer((point, sink) -> sink.accept(Tooltip.create(tooltip)));
@@ -155,5 +162,24 @@ public class UseCraftingRecipeTransfer<T extends CraftingTermMenu> extends Abstr
             result.put(guiSlot, ingredient);
         }
         return result;
+    }
+
+    private static TransferHandlerRenderer createErrorRenderer(CraftingTermMenu.MissingIngredientSlots indices) {
+        return (guiGraphics, mouseX, mouseY, delta, widgets, bounds, display) -> {
+            int i = 0;
+            for (Widget widget : widgets) {
+                if (widget instanceof Slot slot && slot.getNoticeMark() == Slot.INPUT) {
+                    boolean missing = indices.missingSlots().contains(i);
+                    boolean craftable = indices.craftableSlots().contains(i);
+                    i++;
+                    if (missing || craftable) {
+                        guiGraphics.nextStratum();
+                        Rectangle innerBounds = slot.getInnerBounds();
+                        guiGraphics.fill(innerBounds.x, innerBounds.y, innerBounds.getMaxX(),
+                                innerBounds.getMaxY(), missing ? RED_SLOT_HIGHLIGHT_COLOR : BLUE_SLOT_HIGHLIGHT_COLOR);
+                    }
+                }
+            }
+        };
     }
 }

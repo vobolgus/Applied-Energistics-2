@@ -1,5 +1,7 @@
 package appeng.integration.modules.rei.transfer;
 
+import static appeng.integration.modules.itemlists.TransferHelper.BLUE_SLOT_HIGHLIGHT_COLOR;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -11,8 +13,12 @@ import java.util.stream.Collectors;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeHolder;
 
+import me.shedaniel.math.Rectangle;
+import me.shedaniel.rei.api.client.gui.widgets.Slot;
 import me.shedaniel.rei.api.client.gui.widgets.Tooltip;
+import me.shedaniel.rei.api.client.gui.widgets.Widget;
 import me.shedaniel.rei.api.client.registry.entry.EntryRegistry;
+import me.shedaniel.rei.api.client.registry.transfer.TransferHandlerRenderer;
 import me.shedaniel.rei.api.common.display.Display;
 import me.shedaniel.rei.api.common.entry.EntryStack;
 import me.shedaniel.rei.api.common.entry.type.VanillaEntryTypes;
@@ -71,12 +77,12 @@ public class EncodePatternTransferHandler<T extends PatternEncodingTermMenu> ext
 
             var anyCraftable = display.getInputEntries().stream().anyMatch(ing -> isCraftable(craftableKeys, ing));
             var tooltip = TransferHelper.createEncodingTooltip(anyCraftable, true);
-            // TODO (REI 26.1): the craftable-slot highlight overlay (Result#renderer/TransferHandlerRenderer) is
-            // unportable right now - REI 21.11's TransferHandlerRenderer renders through the pre-26.1
-            // net.minecraft.client.gui.GuiGraphics class, which 26.1 renamed to GuiGraphicsExtractor. Restore the
-            // overlay (see git history) once REI ships a 26.1 build.
+            // Restored 2026-07-12: REI 26.1.819 ships GuiGraphics as its own compat subclass of
+            // GuiGraphicsExtractor, so the TransferHandlerRenderer signature is implementable again. Matches the JEI
+            // twin, which highlights craftable slots blue.
             return Result.createSuccessful()
                     .blocksFurtherHandling()
+                    .renderer(createErrorRenderer(craftableKeys))
                     .overrideTooltipRenderer((point, sink) -> sink.accept(Tooltip.create(tooltip)));
         }
 
@@ -141,5 +147,20 @@ public class EncodePatternTransferHandler<T extends PatternEncodingTermMenu> ext
             var stack = GenericEntryStackHelper.ingredientToStack(entryStack);
             return stack != null && craftableKeys.contains(stack.what());
         });
+    }
+
+    private static TransferHandlerRenderer createErrorRenderer(Set<AEKey> craftableKeys) {
+        return (guiGraphics, mouseX, mouseY, delta, widgets, bounds, display) -> {
+            for (Widget widget : widgets) {
+                if (widget instanceof Slot slot && slot.getNoticeMark() == Slot.INPUT) {
+                    if (isCraftable(craftableKeys, slot.getEntries())) {
+                        guiGraphics.nextStratum();
+                        Rectangle innerBounds = slot.getInnerBounds();
+                        guiGraphics.fill(innerBounds.x, innerBounds.y, innerBounds.getMaxX(),
+                                innerBounds.getMaxY(), BLUE_SLOT_HIGHLIGHT_COLOR);
+                    }
+                }
+            }
+        };
     }
 }

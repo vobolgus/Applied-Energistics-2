@@ -123,9 +123,8 @@ public class TransformCategory implements DisplayCategory<TransformRecipeWrapper
         TransformCircumstance circumstance = display.getTransformCircumstance();
         if (circumstance.isFluid()) {
             // was: each fluid wrapped with a custom EntryRenderer (FluidBlockRenderer) drawing the fluid as a
-            // 3d block. TODO (REI 26.1): EntryRenderer#render uses the pre-26.1 GuiGraphics class and cannot be
-            // implemented on 26.1 - the stock fluid entry renderer is used instead (flowing variants are
-            // filtered to sources, like the JEI integration does).
+            // 3d block. Deliberately NOT restored on REI 26.1: the JEI twin (the reference) renders catalyst fluids
+            // with the stock fluid entry renderer, so REI matches it here — flowing variants filtered to sources.
             return circumstance.getFluidsForRendering().stream()
                     .filter(fluid -> fluid.isSource(fluid.defaultFluidState()))
                     .map(EntryStacks::of)

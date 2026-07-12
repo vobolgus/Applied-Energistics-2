@@ -33,9 +33,9 @@ public class EntropyRecipeCategory implements DisplayCategory<EntropyRecipeDispl
 
     @Override
     public Renderer getIcon() {
-        // was: a custom Renderer lambda blitting textures/item/entropy_manipulator.png - REI 21.11's Renderer
-        // interface renders through the pre-26.1 GuiGraphics class and cannot be implemented on 26.1; the item
-        // entry renderer is equivalent. TODO (REI 26.1): restore the texture icon if desired.
+        // was: a custom Renderer lambda blitting textures/item/entropy_manipulator.png. REI 26.1.819's Renderer now
+        // takes its own compat.GuiGraphics (a GuiGraphicsExtractor subclass), so the texture icon is implementable
+        // again — but the item entry renderer is visually equivalent, so it is kept deliberately (no functional gain).
         return EntryStacks.of(AEItems.ENTROPY_MANIPULATOR.stack());
     }
 
@@ -48,10 +48,11 @@ public class EntropyRecipeCategory implements DisplayCategory<EntropyRecipeDispl
     public List<Widget> setupDisplay(EntropyRecipeDisplay recipe, Rectangle bounds) {
         for (var ingredient : recipe.getConsumed()) {
             for (EntryStack<?> entryStack : ingredient) {
-                // TODO (REI 26.1): the pre-26.1 code additionally overlaid a "consumed" cross texture via a
-                // custom EntryRenderer; EntryRenderer#render uses the pre-26.1 GuiGraphics class and cannot be
-                // implemented on 26.1 - only the tooltip marker remains (restore the overlay from git history
-                // once REI ships a 26.1 build).
+                // The pre-26.1 code additionally overlaid a "consumed" cross texture via a custom EntryRenderer.
+                // EntryRenderer#render is implementable again on REI 26.1.819 (compat.GuiGraphics), BUT the original
+                // blit sprite coordinates (0,0,0,52,16,16 with textureW/H=16) map to uWidth=0 under the 26.1 blit
+                // signature — malformed/no-op — so the historic coords cannot be restored verbatim. Only the tooltip
+                // marker remains. PRISM: to restore the cross, verify the sprite's (u,v,w,h) in jei.png in-world.
                 entryStack.tooltip(ItemModText.CONSUMED.text().withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
             }
         }

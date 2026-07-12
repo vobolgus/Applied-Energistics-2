@@ -1624,6 +1624,12 @@ grep-able), boot, verify visually.
 
 ### Unportable until REI ships a 26.1 build — `TODO (REI 26.1)` markers in code
 
+> **UPDATE 2026-07-12:** REI shipped `26.1.819` and exposes its render interfaces against its own
+> `me.shedaniel.rei.api.client.gui.compat.GuiGraphics` (a `GuiGraphicsExtractor` subclass), so this whole
+> class of markers is unblocked. The transfer-handler slot highlights below were RESTORED (see Deferred
+> item #1). The fluid-block renderer stays dropped (JEI-parity), and the entropy consumed-cross overlay
+> stays Prism-noted (malformed historic blit coords). Text below is the original 2026-06-12 context.
+
 `net.minecraft.client.gui.GuiGraphics` was RENAMED to `GuiGraphicsExtractor` in 26.1, and REI 21.11's
 render-callback interfaces (`Renderer#render`, `EntryRenderer#render`, `DrawableConsumer`,
 `TransferHandlerRenderer`) take the OLD class in their abstract signatures → cannot be implemented on
@@ -1923,8 +1929,19 @@ release its own (NeoForge-only) 26.1.10-alpha — the loader is disambiguated by
 
 1. **REI in-world verification / cosmetics** — REI `26.1.819` is active and both AE2 plugin providers
    load on Fabric and NeoForge. Category/display callbacks run after world join, so complete the Prism
-   checklist before declaring recipe-viewer parity; the grep-able `TODO (REI 26.1)` markers track
-   optional slot-highlight overlays and icon textures.
+   checklist before declaring recipe-viewer parity.
+   - **Cosmetic overlays RESTORED 2026-07-12.** REI 26.1.819 ships its render interfaces against its own
+     `me.shedaniel.rei.api.client.gui.compat.GuiGraphics` (a `GuiGraphicsExtractor` subclass), which
+     removed the blocker the old `TODO (REI 26.1)` markers described (REI 21.11 took pre-26.1
+     `net.minecraft.client.gui.GuiGraphics`). The transfer-handler red/blue missing+craftable slot
+     highlights (`EncodePatternTransferHandler`, `UseCraftingRecipeTransfer`) are restored verbatim from
+     git `1555ce7ff` (pure `guiGraphics.fill(...)`, no texture coords) and mirror the JEI twin
+     (`drawHighlight`). Both loaders 73/73 with the change.
+   - **Still Prism-noted:** the `EntropyRecipeCategory` "consumed" red-cross overlay — the historic blit
+     coords `(0,0,0,52,16,16)` map to `uWidth=0` under the 26.1 blit signature (malformed/no-op), so the
+     sprite `(u,v,w,h)` in `jei.png` must be verified in-world before restoring. The icon stays as the item
+     entry (visually equivalent). `TransformCategory` fluid catalysts deliberately use the stock fluid
+     renderer to match the JEI reference (NOT a limitation).
 2. ~~**`ae2:interface_slot_filtering` gametest twin**~~ — **DONE 2026-07-09**. Fabric twin
    `InterfaceCapabilityTestPlots` (loader/fabric, BlockApiLookup-based, on `FabricTestPlotPlatform`)
    now asserts the same slot filtering; both loaders at 70/70. (See Step 10b.)
@@ -1956,8 +1973,12 @@ release its own (NeoForge-only) 26.1.10-alpha — the loader is disambiguated by
    already-visible render sections and `BlockEntityRenderDispatcher#tryExtractRenderState` performs
    no per-block-entity AABB/frustum check. NeoForge adds that extra check and therefore needs the
    hook; adding it to Fabric would only make culling stricter, not fix a Fabric defect.
-6. **guideme-fabric is ProGuard-less** — the Fabric GuideME jar skips upstream's shrink step
-   (bigger jar, functionally identical). Revisit if jar size matters for the modpack.
+6. **guideme-fabric is ProGuard-less** — VERIFIED 2026-07-12: the deferred "un-ProGuard" item was already
+   satisfied. `proguard.conf` uses `-dontobfuscate -dontoptimize` (pure shrink, never obfuscation), and the
+   `proguardJar` task is wired ONLY into `loader/neoforge/build.gradle`; the Fabric build skips it entirely
+   ("published unshrunk"). The shipped `dist/guideme-fabric-26.1.10-alpha.jar` has 5317 `.class` with fully
+   readable names — stack traces are already legible. Nothing to change (bigger jar, functionally
+   identical). Revisit only if jar size matters for the modpack.
 7. ~~**WTHIT runtime needs badpackets**~~ — DONE 2026-07-10: badpackets `fabric-0.12.2` + WTHIT
    `fabric-19.0.1` shipped for 26.1.x (2026-04); the `"wthit"` branch of :fabric's
    `runtime_tooltip_mod` switch now adds `lol.bai:badpackets:fabric-${badpackets_version}`
