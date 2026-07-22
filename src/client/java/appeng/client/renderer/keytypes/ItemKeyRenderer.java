@@ -26,10 +26,15 @@ import appeng.api.stacks.AEItemKey;
 import appeng.client.api.AEKeyRenderer;
 
 public class ItemKeyRenderer implements AEKeyRenderer<AEItemKey, ItemStackRenderState> {
-    private final ItemModelResolver itemModelResolver;
+    // Resolved lazily: at clientSetup() time Minecraft.getItemModelResolver() is still null on 26.1,
+    // which NPE'd the first in-world monitor render (live crash report 2026-07-22).
+    private ItemModelResolver itemModelResolver;
 
-    public ItemKeyRenderer() {
-        itemModelResolver = Minecraft.getInstance().getItemModelResolver();
+    private ItemModelResolver itemModelResolver() {
+        if (itemModelResolver == null) {
+            itemModelResolver = Minecraft.getInstance().getItemModelResolver();
+        }
+        return itemModelResolver;
     }
 
     @Override
@@ -56,7 +61,7 @@ public class ItemKeyRenderer implements AEKeyRenderer<AEItemKey, ItemStackRender
 
     @Override
     public void extract(ItemStackRenderState state, AEItemKey what, @Nullable Level level, int seed) {
-        itemModelResolver.updateForTopItem(
+        itemModelResolver().updateForTopItem(
                 state,
                 what.getReadOnlyStack(),
                 ItemDisplayContext.GUI,
