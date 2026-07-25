@@ -36,6 +36,8 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.context.UseOnContext;
 
+import guideme.GuidesCommon;
+
 import appeng.api.lookup.AEApiLookups;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypesInternal;
@@ -223,6 +225,15 @@ public class AppEngFabric implements ModInitializer {
         // Server-synced recipe push (NeoForge: OnDatapackSyncEvent#sendRecipes for
         // base.getServerSyncedRecipeTypes()): replicated with a chunked custom payload, GuideME precedent.
         appeng.fabric.network.RecipeSync.init(base);
+
+        // ...and the same types have to be requested from GuideME as well. On NeoForge a single
+        // OnDatapackSyncEvent collects every mod's sendRecipes request into ONE packet, so the guide's client-side
+        // recipe map (GuideMEClient, what <RecipeFor/> resolves against) incidentally contains our types because we
+        // asked for them. On Fabric each mod runs its own payload into its own client-side map: the map above is
+        // AppEngClient's, and GuideME never sees ae2:transform & co. — every guide page with a non-vanilla
+        // <RecipeFor/> then renders "Couldn't find recipe for ...". Registering here makes GuideME's own sync carry
+        // them (duplicates are ignored, so the vanilla types in the array are free).
+        GuidesCommon.addSyncedRecipeTypes(base.getServerSyncedRecipeTypes());
 
         HotkeyActions.init();
     }

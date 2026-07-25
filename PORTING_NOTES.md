@@ -2075,3 +2075,43 @@ only REI's 26.1 lazy-reload behavior could expose.
 the plugin RELOAD (category/display callbacks) to world join — the "REI shows AE2 recipes/categories
 in-world" check is on the Prism checklist. The 5 cosmetic `TODO (REI 26.1)` markers (slot-highlight
 overlays, icon textures) remain open — assess against the live 26.1 REI API after the in-world pass.
+
+## Guidebook recipe tags on Fabric — GuideME syncs its OWN map (live bug 2026-07-25)
+
+**Symptom** (dedicated server, player screenshot): the "Getting Started" page rendered
+`Couldn't find recipe for ae2:damaged_budding_quartz mdxJsxFlowElement (51:1)` in place of
+`<RecipeFor id="damaged_budding_quartz" />`. The rest of the page (vanilla crafting recipes) was fine.
+
+**Root cause — a loader-behavior divergence, not a packet bug.** `<RecipeFor id="..."/>` resolves by
+RESULT ITEM against `guideme.internal.util.Platform#getRecipeMap()`, i.e. **GuideME's own** client-side
+map (`GuideMEClient#onRecipesReceived`) — never AE2's (`AppEngClient#receiveRecipes`). On NeoForge that
+distinction is invisible: `OnDatapackSyncEvent` accumulates EVERY mod's `sendRecipes(...)` request into
+one `ReferenceSet`, sends one packet, and fires ONE `RecipesReceivedEvent` that both mods' listeners
+receive — so the AE2 types we request "for GuideME" in `AppEngBase#getServerSyncedRecipeTypes` land in
+GuideME's map as a side effect. Fabric has no such aggregation: `ae2:sync_recipes` and
+`guideme:sync_recipes` are separate payloads feeding separate maps, so GuideME's map only ever held its
+four built-in types (crafting/smelting/blasting/smithing). Every non-vanilla `<RecipeFor/>` in the
+guidebook was therefore broken — `ae2:transform` (reported), plus `inscriber`, `charger`, `entropy`,
+`matter_cannon_ammo`, `quartz_cutting` and `minecraft:stonecutting`.
+
+**Not multiplayer-specific** (unlike the DFU-codec desync of 61c88e68f): the integrated server runs the
+same sync, so singleplayer was equally broken. It was invisible to CI because the **guide export has no
+server** — `Platform#getRecipeMap` then falls back to `Platform.fallbackClientRecipeMap`, which
+`GuideOnStartup` builds from the COMPLETE server recipe manager. `exportGuide` can never see this class
+of bug; only a client connected to a (integrated or dedicated) server can.
+
+**Fix (two repos).** GuideME gained a loader-neutral extension point —
+`GuidesCommon.addSyncedRecipeTypes(RecipeType<?>...)` → `GuideME#getSyncedRecipeTypes()` (a
+`LinkedHashSet` seeded with the built-ins, deduplicating) — consumed by both its NeoForge listener and
+its Fabric `RecipeSync`. AE2 calls it from `AppEngFabric#init` with `getServerSyncedRecipeTypes()`.
+Fabric-only on purpose: on NeoForge the union is already identical, so nothing changes there and the
+shared/NeoForge sources stay untouched for rebases.
+
+**Regression guard:** `guideme_recipe_sync_types` (fabric-only plot,
+`loader/fabric/.../testplots/GuideRecipeSyncTestPlots.java`, registered in `FabricTestPlotPlatform`;
+73 → 74 gametests). It asserts every type in `getServerSyncedRecipeTypes()` is in
+`GuideME.getSyncedRecipeTypes()` and that `ae2:transform` actually has loaded recipes. Negative control
+run: with the registration commented out the plot fails (first on `minecraft:stonecutting`).
+
+**Deploy note:** needs BOTH new jars (`appliedenergistics2-fabric` and `guideme-fabric`) — the fix is
+half in each.
