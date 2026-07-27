@@ -345,12 +345,37 @@ public class AppEngClient extends AppEngBase {
 
             if (player != null) {
                 var isDown = action == InputConstants.PRESS || action == InputConstants.REPEAT;
-                var previousIsDown = PlayerCtrlAttachment.get().isHoldingCtrl(player);
-                if (previousIsDown != isDown) {
-                    PlayerCtrlAttachment.get().setHoldingCtrl(player, isDown);
-                    NetworkAdapter.get().sendToServer(new UpdateHoldingCtrlPacket(isDown));
-                }
+                syncHoldingCtrl(player, isDown);
             }
+        }
+    }
+
+    /**
+     * Key events alone are not stuck-proof: both loaders fire the raw key event from the tail of
+     * {@code KeyboardHandler#keyPress}, which screen-consumed keys never reach — press Ctrl in-world (Ctrl is also
+     * SPRINT), release it with chat/inventory open, and the release is lost, leaving the flag stuck and EVERY part
+     * placement mirrored ("кабель ставится с противоположной стороны", live report 2026-07-27). Poll the physical key
+     * state once per tick as the authoritative source; the event path above just makes updates same-frame.
+     */
+    private void pollHoldingCtrl() {
+        var minecraft = Minecraft.getInstance();
+        var player = minecraft.player;
+        if (player == null) {
+            return;
+        }
+        var boundKey = ClientLoaderHooks.get().getBoundKey(partPlacementOpposite);
+        if (boundKey.getType() != InputConstants.Type.KEYSYM || boundKey.getValue() == InputConstants.UNKNOWN.getValue()) {
+            return; // mouse-bound or unbound: leave the event path in charge
+        }
+        var isDown = InputConstants.isKeyDown(minecraft.getWindow(), boundKey.getValue());
+        syncHoldingCtrl(player, isDown);
+    }
+
+    private void syncHoldingCtrl(Player player, boolean isDown) {
+        var previousIsDown = PlayerCtrlAttachment.get().isHoldingCtrl(player);
+        if (previousIsDown != isDown) {
+            PlayerCtrlAttachment.get().setHoldingCtrl(player, isDown);
+            NetworkAdapter.get().sendToServer(new UpdateHoldingCtrlPacket(isDown));
         }
     }
 
@@ -359,6 +384,7 @@ public class AppEngClient extends AppEngBase {
      */
     public void clientTickStart() {
         updateCableRenderMode();
+        pollHoldingCtrl();
     }
 
     /**
