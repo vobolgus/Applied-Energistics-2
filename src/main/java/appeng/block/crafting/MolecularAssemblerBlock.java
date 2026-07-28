@@ -69,4 +69,18 @@ public class MolecularAssemblerBlock extends AEBaseEntityBlock<MolecularAssemble
         return InteractionResult.PASS;
     }
 
+
+    /**
+     * MoreCulling derives cull shapes via getOcclusionShape without re-checking canOcclude; with no
+     * shape override this defaults to a full cube and every neighbouring face gets culled — players
+     * see through the world at the block's recessed edges (live report 2026-07-28, same class as
+     * the Create-ports sweep of 07-27). Saying explicitly what noOcclusion() already promises.
+     * Public, not protected: MoreCulling's classTweaker widens the vanilla method and an override
+     * may not narrow access. Zero vanilla behaviour change (vanilla consults this only when
+     * canOcclude).
+     */
+    @Override
+    public net.minecraft.world.phys.shapes.VoxelShape getOcclusionShape(net.minecraft.world.level.block.state.BlockState state) {
+        return net.minecraft.world.phys.shapes.Shapes.empty();
+    }
 }
