@@ -20,18 +20,34 @@ package appeng.fabric;
 
 import org.jetbrains.annotations.Nullable;
 
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.world.entity.player.Player;
 
+import appeng.fabric.integration.trinkets.TrinketsAccessorySupport;
 import appeng.integration.modules.curios.CuriosSupport;
 
 /**
- * Fabric implementation of the {@link CuriosSupport} seam. There is no Curios on Fabric; returning null makes the
- * shared consumers skip the accessory inventory entirely (a Trinkets integration could replace this later).
+ * Fabric implementation of the {@link CuriosSupport} seam. There is no Curios on Fabric; the equivalent accessory mod
+ * is <em>Trinkets</em>, so the lookup is delegated to {@link TrinketsAccessorySupport} when it is installed and returns
+ * null otherwise (which makes the shared consumers skip the accessory inventory entirely, as before).
+ * <p>
+ * The mod id checked is {@code trinkets_updated}, Patbox's actively maintained fork, and deliberately <em>not</em> the
+ * {@code trinkets} alias it {@code provides}: the API package moved from {@code dev.emi.trinkets.api} to
+ * {@code eu.pb4.trinkets.api} in that fork, so another mod providing the {@code trinkets} id would not satisfy the
+ * classes {@link TrinketsAccessorySupport} compiles against. The delegate is only class-loaded behind this guard —
+ * Trinkets is a {@code compileOnly} dependency and is absent from most runtimes.
  */
 public class FabricCuriosSupport implements CuriosSupport {
+    private static final String TRINKETS_MOD_ID = "trinkets_updated";
+
+    private final boolean trinketsLoaded = FabricLoader.getInstance().isModLoaded(TRINKETS_MOD_ID);
+
     @Override
     @Nullable
     public Inventory getCuriosInventory(Player player) {
-        return null;
+        if (!trinketsLoaded) {
+            return null;
+        }
+        return TrinketsAccessorySupport.getInventory(player);
     }
 }

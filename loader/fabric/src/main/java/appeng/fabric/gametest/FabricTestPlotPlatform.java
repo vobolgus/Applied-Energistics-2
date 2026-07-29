@@ -52,15 +52,16 @@ import appeng.server.testplots.TestPlotClass;
 import appeng.server.testplots.TestPlotEvents;
 import appeng.server.testplots.TestPlotPlatform;
 import appeng.server.testplots.TestPlots;
+import appeng.server.testplots.TrinketsIntegrationTestPlots;
 
 /**
  * Fabric implementation of the {@link TestPlotPlatform} seam.
  * <p>
  * <strong>Behavior note (vs. NeoForge):</strong> Fabric has no annotation scan data, so the {@link TestPlotClass}
  * classes cannot be discovered automatically. AE2's own plot classes are listed explicitly; other mods can contribute
- * theirs via {@link #addTestPlotClass}. {@code InterfaceCapabilityTestPlots} (interface_slot_filtering)
- * is a loader-specific plot with a Fabric twin under this source set (asserted via the Fabric transfer
- * API instead of NeoForge capabilities) and the NeoForge original under {@code loader/neoforge}.
+ * theirs via {@link #addTestPlotClass}. {@code InterfaceCapabilityTestPlots} (interface_slot_filtering) is a
+ * loader-specific plot with a Fabric twin under this source set (asserted via the Fabric transfer API instead of
+ * NeoForge capabilities) and the NeoForge original under {@code loader/neoforge}.
  */
 public class FabricTestPlotPlatform implements TestPlotPlatform {
     private static final List<Class<?>> PLOT_CLASSES = new CopyOnWriteArrayList<>(List.of(
@@ -85,7 +86,8 @@ public class FabricTestPlotPlatform implements TestPlotPlatform {
             SavedDataTestPlots.class,
             SkyStoneTestPlots.class,
             SpatialTestPlots.class,
-            SubnetPlots.class));
+            SubnetPlots.class,
+            TrinketsIntegrationTestPlots.class));
 
     /**
      * Allows other mods (or the AE2 client/test sources) to contribute additional {@link TestPlotClass} classes, since

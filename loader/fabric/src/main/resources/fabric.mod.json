@@ -35,5 +35,8 @@
     "minecraft": "~${minecraft_version}",
     "team_reborn_energy": "*",
     "guideme": "*"
+  },
+  "suggests": {
+    "trinkets_updated": "*"
   }
 }

@@ -230,6 +230,12 @@ dependencies {
     // WTHIT compile-time API (Phase 4), Fabric edition of the same wthit-api the :neoforge build uses.
     compileOnly("mcp.mobius.waila:wthit-api:fabric-${prop("wthit_version")}")
 
+    // Trinkets compile-time API: the Fabric counterpart of the :neoforge Curios integration. The Modrinth maven
+    // ships the full Fabric mod jar; only appeng/fabric/integration/trinkets compiles against eu.pb4.trinkets.api,
+    // and that package is class-loaded exclusively behind FabricCuriosSupport's isModLoaded guard, so the mod
+    // stays optional at runtime.
+    compileOnly("maven.modrinth:trinkets-updated:${prop("trinkets_fabric_version")}")
+
     // Dev-runtime item-list mod, mirroring :neoforge's runtime_itemlist_mod switch. REI is the primary recipe
     // viewer for the Fabric port. ACTIVATED 2026-07-04: REI shipped 26.1.819 for MC 26.1.2 (fabric+neoforge),
     // rei_version bumped and runtime_itemlist_mod flipped to "rei"; both AE2 plugin providers register at boot
@@ -250,6 +256,13 @@ dependencies {
             localRuntimeOnly("lol.bai:badpackets:fabric-${prop("badpackets_version")}")
         }
         "jade" -> localRuntimeOnly("maven.modrinth:jade:${prop("jade_fabric_version")}")
+    }
+
+    // Dev-runtime Trinkets, mirroring :neoforge's runtime_curio switch. Off by default: with the mod absent the
+    // integration is dormant (FabricCuriosSupport returns null, exactly as before this was wired), which is what
+    // the standing gates run against.
+    if (prop("runtime_trinkets") == "true") {
+        localRuntimeOnly("maven.modrinth:trinkets-updated:${prop("trinkets_fabric_version")}")
     }
 
     if (includeSharedSources) {
