@@ -14,6 +14,7 @@ import appengbuild.NeoForgeToFabricRecipeTransform
 
 plugins {
     id("net.fabricmc.fabric-loom")
+    `maven-publish`
 }
 
 apply<appengbuild.ProjectDefaultsPlugin>()
@@ -339,4 +340,18 @@ tasks.named<Jar>("sourcesJar") {
     // fabric-loom adds the main sources to the sources jar on top of withSourcesJar()'s own configuration,
     // producing identical duplicate entries; excluding the second copy is lossless.
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// mavenLocal publication for downstream dual-loader ports (AE2WTLib consumes
+// org.appliedenergistics:appliedenergistics2-fabric — same shape as GuideME's fabric module).
+// Re-run :fabric:publishToMavenLocal after every rebase/version bump.
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            groupId = "org.appliedenergistics"
+            artifactId = "appliedenergistics2-fabric"
+            version = project.version.toString()
+            from(components["java"])
+        }
+    }
 }
