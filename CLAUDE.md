@@ -115,7 +115,7 @@ Create Fly deliberately diverges from the official Fabric fork's architecture:
 | 5 | Crafts & Additions | `mrh0/createaddition` | ✅ **DONE** 2026-06-30 (code) | `1.6.0-alpha.2`, MIT. Energy chain Prism-verified 06-16; full Prism pass pending (accumulator merge/split is the high-risk item). |
 | 6 | **Applied Energistics 2** | `AppliedEnergistics/Applied-Energistics-2` | ✅ **DONE** 2026-06-12 | Shipped (incl. GuideME): dual-loader fork, CI fully green. See dedicated section below. |
 | 7 | Steam 'n' Rails | `Layers-of-Railways/Railway` | 🔴🔴 stalled upstream | ⚠ Re-check 2026-07-04: newest build is **1.20.1** (not 1.21.x) → DOUBLE forward-port + deepest train coupling. Deprioritized below #8. |
-| 8 | Big Cannons | `rbasamoyai/CreateBigCannons` | 🔴 High | 1.21.1 neoforge+fabric upstream (re-checked 07-04). Custom contraption physics + renderers. Optional / stretch. |
+| 8 | Big Cannons | `rbasamoyai/CreateBigCannons` | ✅ **DONE** 2026-07-12 | 1.21.1 neoforge+fabric upstream. Custom contraption physics + renderers — the riskiest work type, done anyway: 90 gametests, pack-integrated. |
 
 **Minimum viable pack (1, 3, 5 + AE2) is CODE-COMPLETE as of 2026-07-04** — all jars staged in
 `create26-ports/pack/mods-local/`. Remaining before pack assembly: the in-world **Prism pass**
@@ -125,6 +125,12 @@ Connected) and fixing whatever it finds. **#4 Enchantment Industry landed 2026-0
 **Structural note (learned from AE2):** the Create addon ports (1–5, 7–8) are **single-loader Fabric projects** — Create Fly is Fabric-only, so there is no NeoForge twin to keep green. The dual-loader recipe is only for NeoForge-upstream mods (the AE2 pattern). Also: these addons' upstream code is 1.20.x–1.21.x era, so each port = **MC forward-port + Create Fly adaptation at once** (AE2 was easier in this one respect — its upstream was already on 26.1). Use the vanilla-diff technique and Create Fly's source as the rosetta stone.
 
 ### AE2 port — ✅ COMPLETED 2026-06-12
+
+> **📌 Open items for this fork (and every sibling port) live in
+> `~/IdeaProjects/create26-ports/BACKLOG.md`** — the canonical open-work index (est. 2026-07-29,
+> bucketed HEAVY / MEDIUM / QUICK / BLOCKED-EXTERNAL / ORGANIC / STRATEGIC). The AE2-fork rows sit
+> under MEDIUM and QUICK; the fork's own `PORTING_NOTES.md` §"Status & remaining work" carries the
+> per-item detail and a 2026-07-29 state header.
 
 **Repos:** upstream `github.com/AppliedEnergistics/Applied-Energistics-2` + `github.com/AppliedEnergistics/GuideME`. ⚠ Do NOT confuse with the fake `Applied-Energistics-2` (hyphenated) GitHub org distributing "premium tools/clients" — likely malware.
 
@@ -188,7 +194,7 @@ behavior is only Prism-verifiable today.
 | Supplementaries + Moonlight | 1.21.1 Fabric | pure MC forward-port (no loader work); big pack content value | medium — independent branch of work (vanilla-diff heavy, not Create skills) |
 | Extended AE / MEGA Cells / AppFlux | all 1.21.1 NeoForge | AE2 dual-loader recipe once upstream hits 26.1 | wait |
 | AE2 Things (`ae2things`) | 1.20.1 Fabric | oldest base, heaviest forward-port | low |
-| AE2WTLib | slug = `applied-energistics-2-wireless-terminals` (19.5.0, 1.21.1 NeoForge; upstream has an active NeoForge 26.1 branch, no release/fabric yet — 07-10 audit) | dual-loader recipe when it ships | watch |
+| **AE2WTLib** | slug = `applied-energistics-2-wireless-terminals`; upstream ships **NeoForge-only** on 26.1 (no Fabric release) | ported directly off upstream's 26.1 branch against **this** fork — no waiting required | ✅ **DONE 2026-07-29** (W1–W7). Fork `vobolgus/AE2WirelessTerminalLibrary` (`~/IdeaProjects/AE2WTLib`), `ae2wtlib-fabric-26.1.0-alpha.1.jar`, 39 gametests + a real-network MP gate, in the pack. Depends on this fork's maven publication (`3d6ebedc0`) and rides a fork-private TAIL mixin for ordered content registration — **re-verify that seam on every AE2 rebase**. Upstream bug filed: [#381](https://github.com/Mari023/AE2WirelessTerminalLibrary/issues/381). |
 
 Rules of thumb learned: upstream already on 26.1 NeoForge (like AE2 was) → dual-loader recipe, known cost. Upstream on 1.21.1 NeoForge + Create → the now-proven Connected pipeline (single-loader, ~1–2 days). Upstream stuck on 1.20.x → double forward-port dominates the cost. Recheck this table before starting anything (one Modrinth API call) — and note Create Fly already publishes 26.2-pre builds, so an MC 26.2 wave is on the horizon (the `refs/Create-Fly` checkout already tracks it).
 

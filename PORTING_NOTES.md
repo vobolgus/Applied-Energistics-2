@@ -1911,6 +1911,40 @@ release its own (NeoForge-only) 26.1.10-alpha — the loader is disambiguated by
 
 ## Status & remaining work (wrap-up)
 
+### 📌 State header — refreshed 2026-07-29
+
+**Where the fork actually is today.** The phase table below is the original 06-12 completion record;
+this header is the current state. Open items are indexed in
+**`~/IdeaProjects/create26-ports/BACKLOG.md`** (the canonical cross-repo open-work list — AE2 fork
+rows live under MEDIUM and QUICK); per-item detail stays in the numbered list below.
+
+| | |
+|---|---|
+| **Version / branch** | `26.1.10-beta` on `fabric/phase-0`; **pushed and in sync with `origin`** |
+| **Jars** | `dist/appliedenergistics2-fabric-26.1.10-beta.jar` + `dist/guideme-fabric-26.1.12-beta.jar` — both staged in the pack and running on the live whitelisted server |
+| **GuideME** | fork rebased onto upstream **`v26.1.12-beta`** (2026-07-29, zero conflicts) and **pushed**; AE2 bumped to it in `9c35d226e`. `:fabric` resolves it from mavenLocal / the fork via `GUIDEME_REPO`/`GUIDEME_REF` |
+| **Maven publishing** | since `3d6ebedc0` the fork **publishes `appliedenergistics2-fabric`** so downstream dual-loader ports can depend on it |
+| **Downstream** | **AE2WTLib now exists** as a Fabric port (`vobolgus/AE2WirelessTerminalLibrary`, `~/IdeaProjects/AE2WTLib`, done 2026-07-29) and **depends on this fork**. It rides a *fork-private TAIL mixin* for ordered content registration — re-verify that seam on every rebase. |
+| **Testing model** | scheduled Prism sessions **retired 2026-07-29**; verification is organic (live play → report → fix) |
+
+**Shipped since the wrap-up below was written** (each one a live-report fix, so the pack is the
+regression suite these came from): recipe sync via DFU codec (raw registry ids are NOT synced on
+26.1 — the MP desync class); lazy `ItemModelResolver` in `ItemKeyRenderer` (first monitor-part render
+NPE'd, live crash 07-22); our recipe types registered with GuideME (the guide reads GuideME's map);
+**stuck Ctrl** — the flag was mirrored on every part placement, now polled per tick (`3eaa58ba0`);
+**Inscriber + Molecular Assembler no longer x-ray neighbours under MoreCulling** (`92c4a463b`, and
+the root cause was filed upstream as MoreCulling#464); REI slot-highlight overlays restored; spatial
+storage custom sky; WTHIT dev runtime unblocked.
+
+**The two follow-ups below now have a second consumer** — they are no longer AE2-only polish:
+
+1. **`ae2:registration` entrypoint covers only part-APIs.** There is no ordered hook for addon
+   *content*. AE2WTLib works around it with a fork-private TAIL mixin (WTLib notes §8.3). A proper
+   ordered content hook would remove that workaround — and would be the natural thing to upstream.
+2. **`FabricCuriosSupport` returns null** (item 9's neighbourhood). Wiring it to **Trinkets** fixes
+   AE2's own curio slots *and* unblocks AE2WTLib's Trinkets support, which is currently listed as
+   blocked-external on our side.
+
 ### Done — phases & gates
 
 | Phase / gate | Commit | Evidence |
