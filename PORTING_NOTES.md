@@ -1924,7 +1924,7 @@ rows live under MEDIUM and QUICK); per-item detail stays in the numbered list be
 | **Jars** | `dist/appliedenergistics2-fabric-26.1.10-beta.jar` + `dist/guideme-fabric-26.1.12-beta.jar` — both staged in the pack and running on the live whitelisted server |
 | **GuideME** | fork rebased onto upstream **`v26.1.12-beta`** (2026-07-29, zero conflicts) and **pushed**; AE2 bumped to it in `9c35d226e`. `:fabric` resolves it from mavenLocal / the fork via `GUIDEME_REPO`/`GUIDEME_REF` |
 | **Maven publishing** | since `3d6ebedc0` the fork **publishes `appliedenergistics2-fabric`** so downstream dual-loader ports can depend on it |
-| **Downstream** | **AE2WTLib now exists** as a Fabric port (`vobolgus/AE2WirelessTerminalLibrary`, `~/IdeaProjects/AE2WTLib`, done 2026-07-29) and **depends on this fork**. It rides a *fork-private TAIL mixin* for ordered content registration — re-verify that seam on every rebase. |
+| **Downstream** | **AE2WTLib now exists** as a Fabric port (`vobolgus/AE2WirelessTerminalLibrary`, `~/IdeaProjects/AE2WTLib`, done 2026-07-29) and **depends on this fork**. It rode a *fork-private TAIL mixin* for ordered content registration until 2026-07-29; it now uses the **`ae2:registration` addon entrypoint** this fork exposes (see "Addon entrypoint + Trinkets" at the end of this file), so there is no fork-private mixin target left to re-verify on rebase. |
 | **Testing model** | scheduled Prism sessions **retired 2026-07-29**; verification is organic (live play → report → fix) |
 
 **Shipped since the wrap-up below was written** (each one a live-report fix, so the pack is the
@@ -1936,14 +1936,17 @@ NPE'd, live crash 07-22); our recipe types registered with GuideME (the guide re
 the root cause was filed upstream as MoreCulling#464); REI slot-highlight overlays restored; spatial
 storage custom sky; WTHIT dev runtime unblocked.
 
-**The two follow-ups below now have a second consumer** — they are no longer AE2-only polish:
+**Both follow-ups below are ✅ DONE (2026-07-29) — see the new "Addon entrypoint + Trinkets" section
+at the end of this file.** They had a second consumer (AE2WTLib), and both of its corresponding rows
+are closed too.
 
-1. **`ae2:registration` entrypoint covers only part-APIs.** There is no ordered hook for addon
-   *content*. AE2WTLib works around it with a fork-private TAIL mixin (WTLib notes §8.3). A proper
-   ordered content hook would remove that workaround — and would be the natural thing to upstream.
-2. **`FabricCuriosSupport` returns null** (item 9's neighbourhood). Wiring it to **Trinkets** fixes
-   AE2's own curio slots *and* unblocks AE2WTLib's Trinkets support, which is currently listed as
-   blocked-external on our side.
+1. ~~**`ae2:registration` entrypoint covers only part-APIs.**~~ ✅ It now also carries
+   `registerContent()`, dispatched at the very end of `AppEngFabric.init(AppEngBase)` — the one point
+   that is provably identical on both dists. AE2WTLib deleted its fork-private TAIL mixin (WTLib
+   notes §13.1). This is the natural thing to upstream.
+2. ~~**`FabricCuriosSupport` returns null**~~ ✅ Implemented over **Trinkets Updated**
+   (`trinkets_updated`, `eu.pb4.trinkets.api`), plus the two data files Trinkets needs. AE2's own 12
+   wearables work in a trinket slot, and AE2WTLib's Trinkets support is unblocked and landed.
 
 ### Done — phases & gates
 
@@ -2031,6 +2034,8 @@ storage custom sky; WTHIT dev runtime unblocked.
 9. Minor: CableBusBlock break/run particles+sounds use vanilla fallback on Fabric
    (IClientBlockExtensions not twinned); no ModMenu config screen; `clientTickStart` ordering
    vs other mods is registration-order on Fabric (Neo used LOWEST priority).
+10. ~~**`FabricCuriosSupport` returns null**~~ — **DONE 2026-07-29**, see "Addon entrypoint +
+   Trinkets" at the end of this file.
 
 ### Rebase playbook (upstream-alpha rebases)
 
@@ -2149,3 +2154,141 @@ run: with the registration commented out the plot fails (first on `minecraft:sto
 
 **Deploy note:** needs BOTH new jars (`appliedenergistics2-fabric` and `guideme-fabric`) — the fix is
 half in each.
+
+
+---
+
+## Addon entrypoint + Trinkets (2026-07-29)
+
+Two fabric-layer changes; `:neoforge` is untouched by both (`git status` after them shows only
+`loader/fabric/**` + `gradle.properties`).
+
+### 1. `ae2:registration` gains an ordered addon-CONTENT hook
+
+**The problem.** Fabric Loader does not order entrypoint invocation by mod dependency — `depends`
+gates load *resolution*, not call order. Worse, AE2 is asymmetric across dists: `AppEngFabric.init`
+runs from the **`main`** entrypoint on a dedicated server (guarded by `EnvType.SERVER`) but from the
+**`client`** entrypoint on a client, because the dist-specific `AppEngBase` subclass must exist
+first. Fabric runs *every* `main` entrypoint before *any* `client` entrypoint, so an addon that
+registers content from its own `ModInitializer` lands **before** AE2's content on a client and
+**after** it on a dedicated server. 26.1 no longer syncs static-registry raw ids (playbook Part 10),
+so that asymmetry is silent `ItemStack` corruption over a real connection — invisible to
+singleplayer and to gametests, which never serialize. AE2WTLib had been working around it with a
+fork-private TAIL mixin on `AppEngFabric#init` (WTLib notes §8.3), which had to be re-verified on
+every rebase because `AppEngFabric` exists only in this fork.
+
+**The fix.** `AE2FabricRegistration` (already the `ae2:registration` entrypoint interface, until now
+part-APIs only) gained a second default method:
+
+```java
+default void registerContent() {}
+```
+
+dispatched with `FabricLoader.getEntrypointContainers` from the **last statement of
+`AppEngFabric.init(AppEngBase)`**, with any throwable rewrapped carrying the offending mod id.
+
+**Why that call site is dist-identical — the ordering guarantee.** `init(AppEngBase)` is a single
+static method with exactly two callers (`AppEngFabric.onInitialize` on the server dist,
+`AppEngFabricClient.onInitializeClient` on the client). **Nothing inside it is dist-conditional** —
+the dist-specific parts live in the *callers*, and the only per-dist input is which `AppEngBase`
+subclass is passed in. So both dists execute the identical statement sequence, and a hook at its tail
+fires at the identical position relative to every AE2 registration on both. Hence: "all AE2 content,
+then addon content", on both sides of a connection, always.
+
+**Why the TAIL specifically** (rather than, say, straight after `FabricRegistrar.registerAll()`,
+which is where AE2's item instances first exist):
+- it is exactly where the WTLib mixin injected, so migrating an addon is behaviour-preserving —
+  no re-verification of anything downstream;
+- it matches NeoForge, where the mod bus orders an addon's construction **and** its
+  `FMLCommonSetupEvent` after AE2's; an earlier hook would run an addon's
+  `postRegistrationInitialization` equivalent before AE2's, which NeoForge never does;
+- it preserves `HotkeyActions.register`'s `addFirst` semantics (an addon registering into an
+  existing hotkey id is tried *before* AE2's action, as with the mixin).
+
+**Known ordering wart, documented on the interface:** `registerPartApis` still runs *earlier*, from
+`InitApiLookup.init()` — it has to, because the part-API forwarding is installed immediately after.
+Same entrypoint key, so it is the same instance, which means **the entrypoint class is constructed
+during AE2's own init**: keep its constructor empty, and do not create a custom part-host
+`BlockEntityType` inside `registerContent()` (`RegisterPartApiEvent#addHostType` would already have
+run). No change here — this is the pre-existing shape of the part-API hook, now written down.
+
+### 2. `FabricCuriosSupport` over Trinkets
+
+`FabricCuriosSupport.getCuriosInventory` returned `null`, so three shared consumers were dead on
+Fabric: all 12 `CuriosHotkeyAction`s that `HotkeyActions.init()` registers (`return false`
+immediately), `CuriosItemLocator#locateItem` (always `EMPTY`), and `SearchInventoryEvent`'s accessory
+source — the last of which feeds `PendingCraftingJobs`, i.e. crafting-finished toasts from a worn
+terminal.
+
+**The mod.** Trinkets is the Fabric counterpart of Curios; the pack pin is Patbox's maintained fork
+**Trinkets Updated** — `maven.modrinth:trinkets-updated:4.0.0-beta.3+26.1`, mod id
+**`trinkets_updated`**, API package **`eu.pb4.trinkets.api`** (⚠ *not* the old `dev.emi.trinkets.api`;
+`TrinketItem`/`getTrinketComponent` are gone, the model is component + tag driven). The guard checks
+the concrete mod id and deliberately **not** the `trinkets` alias it `provides` — another mod
+providing that alias would not carry the `eu.pb4` classes.
+
+**Wiring.** `compileOnly("maven.modrinth:trinkets-updated:${trinkets_fabric_version}")` +
+a `runtime_trinkets` dev toggle (off by default, mirroring `runtime_curio`), and
+`"suggests": {"trinkets_updated": "*"}` in `fabric.mod.json`. Only
+`appeng/fabric/integration/trinkets/TrinketsAccessorySupport` touches `eu.pb4`, and it is
+class-loaded exclusively behind `FabricCuriosSupport`'s `isModLoaded` guard, so the mod stays
+optional. `TrinketsSlots` (the constants) is deliberately `eu.pb4`-free so the data guards can load
+it with Trinkets absent.
+
+**The flattening, and why it has to be deterministic.** `CuriosSupport.Inventory` is a *flat*
+slot-indexed view; Trinkets keys its inventories by `group/slot`
+(`TrinketAttachment#getInventories()` → `Map<String, TrinketInventory>`, each a vanilla `Container`).
+The index is written to the wire by `CuriosItemLocator#writeToPacket` — the client picks it on a
+hotkey, the server resolves it — so client and server must flatten identically: **sorted by the
+`group/slot` key, then by index within the slot.** The slot set itself is datapack-driven and synced
+by Trinkets. (Curios has the same property; this is not a new assumption.) `TrinketInventory#getItem`
+returns the **live** stack, which satisfies `ItemMenuHostLocator`'s in-place-mutation contract better
+than the NeoForge twin, which returns `cap.getResource(slot).toStack()` — a copy.
+
+**Slot mapping — a documented deviation.** On NeoForge the wearables opt into Curios' generic
+`curios:curio` slot. Trinkets Updated has **no generic slot**; its twelve built-ins are
+`head/{face,hat}`, `chest/{back,cape,necklace}`, `hand|offhand/{glove,ring}`, `legs/belt`,
+`feet/{shoes,aglet}`. Defining a custom `curio` group would need a hand-picked numeric `slot_id`
+(collision-prone across mods) plus a `trinkets:container/slots/curio` icon AE2 does not ship, so the
+items are remapped onto **`legs/belt`**: a wireless terminal or portable cell is a gadget clipped to
+a belt, the icon and validator already exist, and it leaves `chest/necklace` — where amulet-style
+items from other pack mods go (iceandfire-ce's hydra heart is already there) — uncontended. One slot,
+size 1, matching a single Curios `curio` slot. Adding further slot tags later needs no code change.
+
+**Equippability is DATA, not code** — this is the part that fails silently. Verified against the jar:
+slots live at `data/trinkets/slots/<group>/<slot>.json`, entity attachment at
+`data/trinkets/entities/*.json`, and item opt-in is a plain item tag at
+`data/trinkets/tags/item/<group>/<slot>.json`. Shipped, **Fabric jar only**
+(`loader/fabric/src/main/resources`, so the NeoForge jar and the datagen'd curios tag are untouched):
+- `data/trinkets/tags/item/legs/belt.json` — the same 12 ids as `data/curios/tags/item/curio.json`;
+- `data/trinkets/entities/ae2.json` — `{"entities":["player"],"slots":["legs/belt"]}`. **Trinkets'
+  own jar ships no `entities` file**, so without this the belt slot never exists on a player and the
+  tag is inert. (Same trap iceandfire-ce hit; its notes' §"Silent-failures wave" is the crib.)
+
+**Gametests — 2 new, Fabric-only** (`TrinketsIntegrationTestPlots`, on `FabricTestPlotPlatform`;
+`:fabric:runGametest` **74 → 76**, deliberately breaking loader parity because the resources are
+Fabric-only). Trinkets is absent from the dev runtime so the equip flow itself is not headlessly
+drivable, but the half that rots silently is: vanilla builds item tags for every namespace in the
+loaded packs regardless of which mods are installed, so `trinkets_slot_tag` asserts the Trinkets tag
+holds **exactly** the item set of the datagen'd Curios tag (the drift guard — an upstream rebase
+adding a wearable must not leave the hand-written twin behind), and `trinkets_entity_slots` asserts
+the entities file attaches `legs/belt` to `player`. Negative control run: trimming the tag file fails
+`trinkets_slot_tag` with both diffs named.
+
+**In-world checklist (needs `trinkets_updated` installed):** the trinkets screen shows a **belt**
+slot; a wireless terminal / portable cell can be socketed into it; the terminal and portable-cell
+**hotkeys open it from that slot** with nothing in the inventory; a crafting-job-finished **toast**
+appears while only the worn terminal is linked and powered; and — the multiplayer-specific one —
+opening a worn terminal on a **dedicated server** resolves the right item (the flat slot index
+crosses the wire and is recomputed on the other side).
+
+### Gates (all green, 2026-07-29)
+
+| Gate | Result |
+|---|---|
+| `:neoforge:build` | SUCCESS (module byte-untouched — only `loader/fabric/**` + `gradle.properties` changed) |
+| `:fabric:build` | SUCCESS |
+| `:fabric:runGametest` | **76/76** (74 + 2 new) |
+| `:fabric:runServer` | `Done (0.250s)!`, **0 ERROR** |
+| `:fabric:publishToMavenLocal` | `appliedenergistics2-fabric-26.1.10-beta` republished (AE2WTLib builds against it) |
+| `spotlessCheck` | ⚠ **red at baseline** — 14 files were already drifted at `HEAD` before this work (`SpatialStorageSkyRenderer`, `RegisterPartApiEvent`, `AppEngClient`, `InscriberBlock`, …). Not fixed here: a dozen of them are shared `src/**` files, and reformatting those diverges from upstream and buys rebase conflicts. Every file touched by this work **is** spotless-clean (`spotlessApply` was run, then the pre-drifted files reverted). Cleaning the baseline is a separate, deliberate commit. |
