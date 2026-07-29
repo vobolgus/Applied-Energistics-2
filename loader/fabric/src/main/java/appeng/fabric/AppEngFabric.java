@@ -236,5 +236,29 @@ public class AppEngFabric implements ModInitializer {
         GuidesCommon.addSyncedRecipeTypes(base.getServerSyncedRecipeTypes());
 
         HotkeyActions.init();
+
+        // Ordered addon content registration — the LAST thing init() does, on both dists.
+        //
+        // NeoForge orders an addon's mod construction and FMLCommonSetupEvent after AE2's via the mod bus and
+        // the declared dependency. Fabric Loader has no such ordering: `depends` gates load resolution, not
+        // entrypoint invocation order, and AE2 additionally runs this method from the `main` entrypoint on a
+        // dedicated server but from the `client` entrypoint on a client (the dist-specific AppEngBase subclass
+        // has to exist first). Since every `main` entrypoint runs before any `client` entrypoint, an addon that
+        // registers from its own ModInitializer ends up BEFORE AE2 on a client and AFTER it on a server —
+        // different raw registry ids on the two sides, which 26.1 no longer syncs for static registries, i.e.
+        // silent ItemStack corruption that only shows up over a real network connection (playbook Part 10).
+        //
+        // init(AppEngBase) is the single static method both dists funnel through and nothing in it is
+        // dist-conditional, so a hook here fires at the identical position in the identical statement sequence
+        // on both sides: "all AE2 content, then addon content", always.
+        for (var container : FabricLoader.getInstance()
+                .getEntrypointContainers(AE2FabricRegistration.ENTRYPOINT, AE2FabricRegistration.class)) {
+            var modId = container.getProvider().getMetadata().getId();
+            try {
+                container.getEntrypoint().registerContent();
+            } catch (Throwable e) {
+                throw new IllegalStateException("Mod '" + modId + "' failed in its ae2:registration entrypoint", e);
+            }
+        }
     }
 }
