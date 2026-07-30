@@ -2292,3 +2292,102 @@ crosses the wire and is recomputed on the other side).
 | `:fabric:runServer` | `Done (0.250s)!`, **0 ERROR** |
 | `:fabric:publishToMavenLocal` | `appliedenergistics2-fabric-26.1.10-beta` republished (AE2WTLib builds against it) |
 | `spotlessCheck` | ⚠ **red at baseline** — 14 files were already drifted at `HEAD` before this work (`SpatialStorageSkyRenderer`, `RegisterPartApiEvent`, `AppEngClient`, `InscriberBlock`, …). Not fixed here: a dozen of them are shared `src/**` files, and reformatting those diverges from upstream and buys rebase conflicts. Every file touched by this work **is** spotless-clean (`spotlessApply` was run, then the pre-drifted files reverted). Cleaning the baseline is a separate, deliberate commit. |
+
+---
+
+## Live report 2026-07-30: cable anchor JEI — fabric-api recipe sync is opt-in PER SERIALIZER
+
+**Symptom** (pack owner, Fabric 26.1 + JEI 29.5.0.26): `ae2:cable_anchor` shows **no recipe** in JEI.
+Works on NeoForge. The AE2-owned JEI categories (inscriber/charger/transform/entropy) were fine, and so
+was every ordinary AE2 crafting recipe — only the AE2-serializer crafting recipes were missing.
+
+**Root cause — a third recipe channel nobody had wired.** Since 1.21.2 vanilla no longer ships recipes
+to the client, and the two loaders replace that differently:
+
+| | how the client gets recipes | granularity |
+|---|---|---|
+| NeoForge | `OnDatapackSyncEvent#sendRecipes(types…)` → `RecipesReceivedEvent` | per recipe **type**; AE2 asks for all of `RecipeType.CRAFTING` |
+| Fabric, AE2's own payload (`ae2:sync_recipes`) | `RecipeSync` → `AppEngClient` map | per recipe **type**, same list — but into **AE2's private map** |
+| Fabric, what viewers read | fabric-api `RecipeSynchronization` → `SynchronizedRecipes` | per recipe **SERIALIZER**, opt-in |
+
+`mezz.jei.fabric.JustEnoughItems#onInitialize` (verified with `javap`) walks
+`BuiltInRegistries.RECIPE_SERIALIZER` and calls `RecipeSynchronization.synchronizeRecipeSerializer` for
+**`minecraft:`-namespace serializers only**, then feeds `SynchronizedRecipes#recipes()` into the
+`RecipeMap` behind its vanilla categories (`mezz.jei.library.plugins.vanilla.crafting.VanillaRecipes`).
+So a modded crafting-table recipe with a **custom serializer** is absent from JEI unless its own mod
+opts in. AE2 never called `synchronizeRecipeSerializer` — none of its 12 serializers were synced.
+
+`ae2:quartz_cutting` is exactly that shape: `QuartzCuttingRecipe extends NormalCraftingRecipe`, so it is
+a `RecipeType.CRAFTING` recipe (covered on NeoForge by the type-level request) carried by an AE2
+serializer (not covered on Fabric). `ae2:cable_anchor` is its **only** recipe — hence "the knife family"
+is a family of one.
+
+Ruled out on the way: the result count (4) is under `cable_anchor`'s max stack, so the 26.1
+display-drop rule is not involved (and JEI reads full recipes, not `RecipeDisplay`s anyway); the AE2
+payload does sync `AERecipeTypes.QUARTZ_CUTTING` — into the map JEI cannot see.
+
+**Family in the sync, one recipe in the UI.** All 12 AE2 serializers were missing from the sync, but the
+*visible* delta is only the cable anchor — JEI's default `CraftingCategoryExtension` (javap'd) accepts a
+`CraftingRecipe` only when its `display()` is a `ShapelessCraftingRecipeDisplay` or
+`ShapedCraftingRecipeDisplay`:
+
+| serializer | recipes in the datapack | JEI-visible after the fix |
+|---|---|---|
+| `ae2:quartz_cutting` | 1 (`network/parts/cable_anchor`) | **yes — the reported bug**; `display()` is a `ShapelessCraftingRecipeDisplay` |
+| `ae2:storage_cell_upgrade` | 40 (cell housing upgrades) | no — bespoke `StorageCellUpgradeDisplay`, which JEI's crafting extension does not accept (identical on NeoForge; not a Fabric gap) |
+| `ae2:add_item_upgrade` / `ae2:remove_item_upgrade` / `ae2:facade` | 1 / 1 / dynamic | no — `CustomRecipe` with the default empty `display()` (same on NeoForge) |
+| `ae2:inscriber`, `charger`, `transform`, `entropy`, `matter_cannon` | 15/3/8/10/68 | own JEI categories, fed by AE2's own map — were never broken |
+| `ae2:crafting_unit_transform`, `ae2:storage_cell_disassembly` | 7 / 20 | not a viewer type either way |
+
+Syncing the whole set anyway is deliberate: it costs ~100 recipes of traffic, removes the class of bug
+rather than the instance, and any AE2 recipe that later gains a shapeless/shaped display is correct by
+construction.
+
+**Fix** (`loader/fabric/.../fabric/network/RecipeSync.java`, `registerFabricApiSyncedSerializers()`,
+called from `RecipeSync#init` = the one funnel both dists run): opt **every** AE2 recipe serializer into
+fabric-api's sync, iterating `AERegistries.entries(Registries.RECIPE_SERIALIZER)` rather than a
+hand-written list, so serializers added later are covered by construction. The registration must happen
+on both sides — the server needs the set to *group* recipes (`RecipeMapMixin` only builds lists for
+globally-registered synced serializers), the client to *request* them
+(`ServerboundSupportedRecipeSerializersPayload`, sent during configuration).
+
+Fabric-only; `:neoforge` and the shared sources are untouched (there the type-level request already
+covers all of this).
+
+**Not the raw-id desync class** (cf. 61c88e68f): fabric-api's `ClientboundRecipeSyncPayload.Entry`
+writes the serializer as an **Identifier**, not a raw registry id, and an unknown/unsynced serializer
+raises `SkipPacketDecoderException` instead of corrupting the stream. Duplication with AE2's own payload
+for the six shared types is ~100 extra recipes — noise next to the thousands of vanilla crafting recipes
+that payload already carries. AE2's payload cannot simply be dropped in favour of fabric-api's: without
+JEI installed nobody opts in the `minecraft:` serializers, and GuideME/the crafting terminals need those.
+
+**Regression guards** (fabric-only plots,
+`loader/fabric/.../testplots/RecipeSerializerSyncTestPlots.java`, registered in
+`FabricTestPlotPlatform`; 76 → 78 gametests):
+
+- `fabricapi_synced_recipe_serializers` — **the census**: every serializer collected into
+  `AERegistries` must satisfy `RecipeSyncImpl.isSynced`. Written against the collector, so a new
+  serializer fails the test until it is opted in.
+- `fabricapi_synced_quartz_cutting` — the sync path really carries the reported recipe:
+  `RecipeMap#fabric_getRecipesBySyncedSerializer(QuartzCuttingRecipe.SERIALIZER)` (exactly what
+  `RecipeSyncImpl#sendRecipes` transmits) is non-null, non-empty, and contains
+  `ae2:network/parts/cable_anchor`.
+
+Negative control run (registration commented out): both plots fail —
+`ae2:quartz_cutting was not opted into fabric-api's recipe sync` and
+`recipe serializer ae2:inscriber is not opted into fabric-api's recipe sync`.
+
+### Gates (all green, 2026-07-30)
+
+| Gate | Result |
+|---|---|
+| `:neoforge:build` | SUCCESS (module byte-untouched — only `loader/fabric/**` changed) |
+| `:neoforge:runGametest` | 73/73 (unchanged) |
+| `:fabric:build` | SUCCESS |
+| `:fabric:runGametest` | **78/78** (76 + 2 new); negative control red |
+| `spotlessCheck` | ⚠ still red at baseline (same 14 pre-drifted files as 2026-07-29). All three files touched here are spotless-clean. |
+
+**Still needs eyes-on** (owner's client was live, so no `runClient` from this session): open JEI in-world
+and confirm cable anchor now shows its quartz-knife crafting recipe (knife + metal ingot → 4), that the
+knife renders with its durability/remainder, and that nothing is double-listed. Needs the rebuilt
+`dist/` jar deployed.
