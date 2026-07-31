@@ -30,6 +30,7 @@ import appeng.api.networking.IGrid;
 import appeng.server.testplots.AnnihilationPlaneTests;
 import appeng.server.testplots.AutoCraftingTestPlots;
 import appeng.server.testplots.ChannelTests;
+import appeng.server.testplots.CreativeTabTestPlots;
 import appeng.server.testplots.CrystalResonanceGeneratorTestPlots;
 import appeng.server.testplots.ExternalEnergyTestPlots;
 import appeng.server.testplots.GuideRecipeSyncTestPlots;
@@ -71,6 +72,7 @@ public class FabricTestPlotPlatform implements TestPlotPlatform {
             AnnihilationPlaneTests.class,
             AutoCraftingTestPlots.class,
             ChannelTests.class,
+            CreativeTabTestPlots.class,
             CrystalResonanceGeneratorTestPlots.class,
             ExternalEnergyTestPlots.class,
             GuideRecipeSyncTestPlots.class,
