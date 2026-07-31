@@ -15,7 +15,11 @@
     "SneakBypassUseMixin",
     "WitherBossEntityDestroyMixin"
   ],
-  "client": ["client.KeyInputMixin", "client.LevelRendererSpatialSkyMixin", "client.MouseScrollMixin"],
+  "client": [
+    "client.KeyInputMixin",
+    "client.LevelRendererSpatialSkyMixin",
+    "client.MouseScrollMixin"
+  ],
   "server": [],
   "injectors": {
     "defaultRequire": 1

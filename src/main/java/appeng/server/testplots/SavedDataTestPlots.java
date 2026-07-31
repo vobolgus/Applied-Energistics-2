@@ -105,8 +105,8 @@ public final class SavedDataTestPlots {
     }
 
     /**
-     * Registers a profile UUID with the player registry and asserts that the UUID↔ME-player-id mapping and the
-     * next-id continuation survive a save/reload of the {@code ae2:players} data attached to the overworld.
+     * Registers a profile UUID with the player registry and asserts that the UUID↔ME-player-id mapping and the next-id
+     * continuation survive a save/reload of the {@code ae2:players} data attached to the overworld.
      */
     @TestPlot("player_registry_saved_data")
     public static void playerRegistrySavedData(PlotBuilder plot) {

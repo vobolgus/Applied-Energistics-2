@@ -23,10 +23,10 @@ import appeng.spatial.SpatialStorageDimensionIds;
 /**
  * Replaces the vanilla sky frame pass with AE2's spatial storage skybox (pitch black + sparkles) while inside the
  * spatial storage dimension. NeoForge does this via {@code RegisterCustomEnvironmentEffectRendererEvent} + a
- * {@code CUSTOM_SKYBOX} environment attribute on the spatial storage biome; fabric-api 26.1 has no equivalent
- * registry, so this mixin cancels {@code LevelRenderer#addSkyPass} for the spatial dimension and schedules an
- * equivalent pass. Clouds and weather need no twin: vanilla already skips clouds (the {@code CLOUD_COLOR} attribute
- * defaults to alpha 0) and precipitation visuals (the biome has no precipitation).
+ * {@code CUSTOM_SKYBOX} environment attribute on the spatial storage biome; fabric-api 26.1 has no equivalent registry,
+ * so this mixin cancels {@code LevelRenderer#addSkyPass} for the spatial dimension and schedules an equivalent pass.
+ * Clouds and weather need no twin: vanilla already skips clouds (the {@code CLOUD_COLOR} attribute defaults to alpha 0)
+ * and precipitation visuals (the biome has no precipitation).
  */
 @Mixin(LevelRenderer.class)
 public abstract class LevelRendererSpatialSkyMixin {

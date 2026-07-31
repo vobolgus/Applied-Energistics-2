@@ -364,7 +364,8 @@ public class AppEngClient extends AppEngBase {
             return;
         }
         var boundKey = ClientLoaderHooks.get().getBoundKey(partPlacementOpposite);
-        if (boundKey.getType() != InputConstants.Type.KEYSYM || boundKey.getValue() == InputConstants.UNKNOWN.getValue()) {
+        if (boundKey.getType() != InputConstants.Type.KEYSYM
+                || boundKey.getValue() == InputConstants.UNKNOWN.getValue()) {
             return; // mouse-bound or unbound: leave the event path in charge
         }
         var isDown = InputConstants.isKeyDown(minecraft.getWindow(), boundKey.getValue());

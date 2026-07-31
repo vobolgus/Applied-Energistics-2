@@ -45,11 +45,11 @@ import appeng.client.render.AERenderPipelines;
 import appeng.client.render.AERenderTypes;
 
 /**
- * Fabric twin of the NeoForge class with the same FQN. NeoForge registers it as a
- * {@code CustomSkyboxRenderer} keyed by the spatial-storage biome's environment attribute; on Fabric there is no such
- * registry (fabric-api 26.1 has no dimension-effects API), so {@code LevelRendererSpatialSkyMixin} replaces the
- * vanilla sky frame pass for the spatial storage dimension and calls {@link #render(Matrix4fc)} directly. The
- * rendering code is identical to the NeoForge version.
+ * Fabric twin of the NeoForge class with the same FQN. NeoForge registers it as a {@code CustomSkyboxRenderer} keyed by
+ * the spatial-storage biome's environment attribute; on Fabric there is no such registry (fabric-api 26.1 has no
+ * dimension-effects API), so {@code LevelRendererSpatialSkyMixin} replaces the vanilla sky frame pass for the spatial
+ * storage dimension and calls {@link #render(Matrix4fc)} directly. The rendering code is identical to the NeoForge
+ * version.
  */
 public class SpatialStorageSkyRenderer implements AutoCloseable {
 

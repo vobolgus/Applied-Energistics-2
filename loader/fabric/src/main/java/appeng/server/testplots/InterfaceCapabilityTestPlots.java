@@ -26,7 +26,6 @@ import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.storage.SlottedStorage;
 import net.fabricmc.fabric.api.transfer.v1.storage.base.SingleSlotStorage;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.Items;
@@ -42,28 +41,29 @@ import appeng.server.testworld.PlotBuilder;
 import appeng.server.testworld.PlotTestHelper;
 
 /**
- * Fabric twin of the NeoForge {@code InterfaceCapabilityTestPlots}: the same
- * {@code interface_slot_filtering} plot, asserted through the Fabric transfer API
- * ({@link ItemStorage#SIDED}/{@link FluidStorage#SIDED}) instead of NeoForge block capabilities.
+ * Fabric twin of the NeoForge {@code InterfaceCapabilityTestPlots}: the same {@code interface_slot_filtering} plot,
+ * asserted through the Fabric transfer API ({@link ItemStorage#SIDED}/{@link FluidStorage#SIDED}) instead of NeoForge
+ * block capabilities.
  *
- * <p>NeoForge probes each slot with {@code capability.isValid(slot, resource)} — a pure <em>filter</em>
- * query independent of the slot's current contents. Fabric's {@link SingleSlotStorage} has no
- * {@code isValid}; the equivalent is a <em>simulated</em> {@code insert} inside a rolled-back
- * transaction. That distinction matters here: by the time the plot's test sequence starts, the hopper
- * has already fed its brick into the first open buffer slot, so we cannot probe that slot as if it were
- * empty. Instead we probe:
+ * <p>
+ * NeoForge probes each slot with {@code capability.isValid(slot, resource)} — a pure <em>filter</em> query independent
+ * of the slot's current contents. Fabric's {@link SingleSlotStorage} has no {@code isValid}; the equivalent is a
+ * <em>simulated</em> {@code insert} inside a rolled-back transaction. That distinction matters here: by the time the
+ * plot's test sequence starts, the hopper has already fed its brick into the first open buffer slot, so we cannot probe
+ * that slot as if it were empty. Instead we probe:
  * <ul>
- *   <li>the configured slot 0 (which stays empty — nothing on the grid stocks it) to prove the config
- *       filter accepts its item and rejects everything else, including fluids;</li>
- *   <li>a guaranteed-empty high buffer slot (the plot's single brick + stick only ever route to slots
- *       0/1) to prove an open slot accepts otherwise-filtered resources.</li>
+ * <li>the configured slot 0 (which stays empty — nothing on the grid stocks it) to prove the config filter accepts its
+ * item and rejects everything else, including fluids;</li>
+ * <li>a guaranteed-empty high buffer slot (the plot's single brick + stick only ever route to slots 0/1) to prove an
+ * open slot accepts otherwise-filtered resources.</li>
  * </ul>
- * The hopper-driven routing (brick → first open slot, then stick → the configured slot) is asserted
- * afterwards exactly as NeoForge does, against AE2's own storage view.
+ * The hopper-driven routing (brick → first open slot, then stick → the configured slot) is asserted afterwards exactly
+ * as NeoForge does, against AE2's own storage view.
  *
- * <p>Split out of {@link InterfaceTestPlots} because it depends on loader-specific transfer APIs, and
- * registered on the Fabric plot list by {@code FabricTestPlotPlatform} (Fabric has no annotation scan).
- * Closes the fabric↔neoforge gametest-count gap — both loaders now exercise {@code interface_slot_filtering}.
+ * <p>
+ * Split out of {@link InterfaceTestPlots} because it depends on loader-specific transfer APIs, and registered on the
+ * Fabric plot list by {@code FabricTestPlotPlatform} (Fabric has no annotation scan). Closes the fabric↔neoforge
+ * gametest-count gap — both loaders now exercise {@code interface_slot_filtering}.
  */
 @TestPlotClass
 public final class InterfaceCapabilityTestPlots {
@@ -96,15 +96,20 @@ public final class InterfaceCapabilityTestPlots {
                         helper.check(simulateInsert(itemStorage.getSlot(0), ItemVariant.of(Blocks.BRICKS), 1) == 0,
                                 "bricks should be filtered out of stick-configured slot 0");
                         // an open buffer slot accepts anything
-                        helper.check(simulateInsert(itemStorage.getSlot(openSlot), ItemVariant.of(Blocks.BRICKS), 1) > 0,
+                        helper.check(
+                                simulateInsert(itemStorage.getSlot(openSlot), ItemVariant.of(Blocks.BRICKS), 1) > 0,
                                 "bricks should be insertable into an open slot");
 
                         var fluidStorage = fluidStorage(helper, o);
                         // the item filter on slot 0 also excludes fluids
-                        helper.check(simulateInsert(fluidStorage.getSlot(0), FluidVariant.of(Fluids.WATER), FluidConstants.BUCKET) == 0,
+                        helper.check(
+                                simulateInsert(fluidStorage.getSlot(0), FluidVariant.of(Fluids.WATER),
+                                        FluidConstants.BUCKET) == 0,
                                 "water should be filtered out of item-configured slot 0");
                         // an open buffer slot accepts fluid
-                        helper.check(simulateInsert(fluidStorage.getSlot(openSlot), FluidVariant.of(Fluids.WATER), FluidConstants.BUCKET) > 0,
+                        helper.check(
+                                simulateInsert(fluidStorage.getSlot(openSlot), FluidVariant.of(Fluids.WATER),
+                                        FluidConstants.BUCKET) > 0,
                                 "water should be insertable into an open slot");
                     })
                     .thenWaitUntil(() -> {
@@ -138,10 +143,9 @@ public final class InterfaceCapabilityTestPlots {
     }
 
     /**
-     * Simulated per-slot insertion: opens an outer transaction, attempts the insert, and rolls it back
-     * (the transaction is never committed). Returns the amount that <em>would</em> be accepted, so a
-     * return of 0 means the slot's config filter (or a fluid-into-item-slot mismatch) rejected the
-     * resource.
+     * Simulated per-slot insertion: opens an outer transaction, attempts the insert, and rolls it back (the transaction
+     * is never committed). Returns the amount that <em>would</em> be accepted, so a return of 0 means the slot's config
+     * filter (or a fluid-into-item-slot mismatch) rejected the resource.
      */
     private static <V> long simulateInsert(SingleSlotStorage<V> slot, V resource, long amount) {
         try (var tx = Transaction.openOuter()) {

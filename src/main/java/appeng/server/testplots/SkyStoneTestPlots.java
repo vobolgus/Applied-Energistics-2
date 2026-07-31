@@ -41,11 +41,11 @@ public final class SkyStoneTestPlots {
      * Loader-agnostic on purpose — it passes through NeoForge's {@code PlayerEvent.BreakSpeed} and Fabric's
      * {@code PlayerDestroySpeedMixin} alike, so it guards the whole feature from either loader.
      * <p>
-     * The assertion is a <em>ratio</em> between sky stone and a plain-stone control mined with the same tool.
-     * A diamond pickaxe reports the same tool speed on any {@code mineable/pickaxe} block, so every player-state
-     * factor in {@code Player#getDestroySpeed} (on-ground, in-fluid, attribute modifiers) cancels between the two
-     * calls and only the hook's multiplier survives — making the check deterministic regardless of where the mock
-     * player happens to stand.
+     * The assertion is a <em>ratio</em> between sky stone and a plain-stone control mined with the same tool. A diamond
+     * pickaxe reports the same tool speed on any {@code mineable/pickaxe} block, so every player-state factor in
+     * {@code Player#getDestroySpeed} (on-ground, in-fluid, attribute modifiers) cancels between the two calls and only
+     * the hook's multiplier survives — making the check deterministic regardless of where the mock player happens to
+     * stand.
      */
     @TestPlot("sky_stone_break_speed")
     public static void skyStoneBreakSpeed(PlotBuilder plot) {

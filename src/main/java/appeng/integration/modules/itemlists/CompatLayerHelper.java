@@ -9,11 +9,11 @@ import appeng.util.LoaderPlatform;
  * <li>We change crafting transfer handler behavior because REI doesn't center shaped recipes unlike JEI.</li>
  * </ul>
  * <p>
- * Lazy on purpose: REI instantiates the {@code rei_common}/{@code rei_client} entrypoints during ITS OWN
- * loader entrypoint, which can (on the client: always does) run before AE2's initializer has called
- * {@link LoaderPlatform#init} — a static-final field here crashed plugin construction (found when REI
- * shipped 26.1 and the dormant integration was first booted). Callers must only query this from REI
- * registration callbacks (post-init), never from plugin constructors.
+ * Lazy on purpose: REI instantiates the {@code rei_common}/{@code rei_client} entrypoints during ITS OWN loader
+ * entrypoint, which can (on the client: always does) run before AE2's initializer has called
+ * {@link LoaderPlatform#init} — a static-final field here crashed plugin construction (found when REI shipped 26.1 and
+ * the dormant integration was first booted). Callers must only query this from REI registration callbacks (post-init),
+ * never from plugin constructors.
  */
 public class CompatLayerHelper {
     private static Boolean isLoaded;
