@@ -754,7 +754,9 @@ group; flagged for Phase 2.
   @EventBusSubscriber, no register call — verified across history & whole repo) i.e. dead code.
   Converted to loader-neutral `onServerStarted()` / `createCacheInvalidationReloadListener()` +
   `CACHE_INVALIDATION_RELOAD_LISTENER_ID`, deliberately NOT wired by the entrypoint (bug-for-bug;
-  upstream-report candidate). NeoForge `OrHolderSet` → private `unionOf` building
+  upstream report **drafted 2026-07-31** as `create26-ports/upstream-reports/09-…`: dead since
+  Forge 1.19.2, still true at upstream HEAD; consequence = `/reload` ignored + singleplayer
+  cross-world cache leak). NeoForge `OrHolderSet` → private `unionOf` building
   `HolderSet.direct(flatMap distinct)` — equivalent: CompositeHolderSet also flattens into a cached
   union set, holder equality is identity in both, and the caches rebuild whenever recipes change.
 - **hooks/WrenchHook**: NeoForge RightClickBlock wrapper (isCanceled guard + setCancellationResult)
