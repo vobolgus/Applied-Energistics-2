@@ -24,10 +24,8 @@ import com.google.common.base.Preconditions;
 
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Nameable;
@@ -36,6 +34,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.MenuConstructor;
 import net.minecraft.world.inventory.MenuType;
 
+import appeng.client.ClientConnectionHelper;
 import appeng.core.AppEng;
 import appeng.init.InitMenuTypes;
 import appeng.menu.AEBaseMenu;
@@ -115,10 +114,9 @@ public final class MenuTypeBuilder<M extends AEBaseMenu, I> {
         var locator = MenuLocators.readFromPacket(packetBuf);
         I host = locator.locate(inv.player, hostInterface);
         if (host == null) {
-            var connection = Minecraft.getInstance().getConnection();
-            if (connection != null) {
-                connection.send(new ServerboundContainerClosePacket(containerId));
-            }
+            // fromNetwork only ever runs on the client; the client-class access is behind
+            // ClientConnectionHelper so this (server-loaded) class carries no client references
+            ClientConnectionHelper.sendContainerClose(containerId);
             throw new IllegalStateException("Couldn't find menu host at " + locator + " for " + this.id
                     + " on client. Closing menu.");
         }

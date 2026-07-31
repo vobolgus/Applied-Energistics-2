@@ -18,7 +18,6 @@
 
 package appeng.menu.me.networktool;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
@@ -28,6 +27,7 @@ import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IInWorldGridNodeHost;
 import appeng.blockentity.networking.ControllerBlockEntity;
+import appeng.client.ClientConnectionHelper;
 import appeng.core.network.clientbound.NetworkStatusPacket;
 import appeng.items.contents.NetworkToolMenuHost;
 import appeng.me.Grid;
@@ -120,14 +120,8 @@ public class NetworkStatusMenu extends AEBaseMenu {
     }
 
     public boolean canExportGrid() {
-        var connection = Minecraft.getInstance().getConnection();
-        if (connection == null) {
-            return false;
-        }
-        var commands = connection.getCommands();
-        var command = GridsCommand.buildExportCommand(1);
-        var parseResult = commands.parse(command.substring(1), connection.getSuggestionsProvider());
-        // See JavaDoc for explanation as to why this is checking for a valid parse result
-        return !parseResult.getReader().canRead();
+        // Only called from the client-side screen; the client-class access is behind
+        // ClientConnectionHelper so this (server-loaded) class carries no client references
+        return ClientConnectionHelper.canRunCommand(GridsCommand.buildExportCommand(1));
     }
 }
