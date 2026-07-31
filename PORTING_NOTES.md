@@ -2212,6 +2212,19 @@ during AE2's own init**: keep its constructor empty, and do not create a custom 
 `BlockEntityType` inside `registerContent()` (`RegisterPartApiEvent#addHostType` would already have
 run). No change here — this is the pre-existing shape of the part-API hook, now written down.
 
+**The construction window is a CONTRACT (documented on the interface 2026-07-31, ExtendedAE
+follow-up).** Fabric Loader's load order — and with it `main`-entrypoint invocation order — is
+alphabetical by mod id (`ModPrioSorter.compare`, javap-verified on fabric-loader 0.19.3: root mods
+first, then `getId().compareTo`). `ae2` sorts before virtually every addon id, so **on a dedicated
+server the addon's `ae2:registration` object is constructed and BOTH hooks run before the addon's
+own `ModInitializer`**; on a client (AE2 inits from its `client` entrypoint) they run after it.
+This exposure hits every AE2 addon: an implementation that reads state its own `onInitialize` sets
+up (config, static caches, its own registrations) works on the client and breaks — or worse,
+silently mis-registers — on the server. The contract: the entrypoint implementation must be fully
+self-contained; the instance is created at the FIRST dispatch (`registerPartApis`, inside
+`InitApiLookup.init()`), i.e. mid-init — after AE2's content is flushed, before
+`postRegistrationInitialization()` and before `registerContent()`.
+
 ### 2. `FabricCuriosSupport` over Trinkets
 
 `FabricCuriosSupport.getCuriosInventory` returned `null`, so three shared consumers were dead on

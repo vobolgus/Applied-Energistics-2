@@ -53,6 +53,22 @@ import appeng.api.parts.RegisterPartApiEvent;
  * funnel through, so they fire at the identical position in the identical statement sequence on the client and on the
  * dedicated server. Registering content from {@link #registerContent()} therefore guarantees the order "all AE2
  * content, then this addon's content" on both sides of a connection.
+ *
+ * <h2>The construction window — the implementation must be self-contained</h2>
+ *
+ * The same dist asymmetry cuts the other way, and it is part of the contract. On a dedicated server AE2 initializes
+ * from its own {@code main} entrypoint, and Fabric Loader invokes {@code main} entrypoints in its load order, which is
+ * sorted alphabetically by mod id ({@code ModPrioSorter}: root mods first, then {@code getId().compareTo}) — {@code
+ * ae2} sorts before virtually every addon id. So on the server this entrypoint object's constructor and <em>both</em>
+ * hooks typically run <strong>before the addon's own {@code ModInitializer}</strong>, while on a client (where AE2
+ * initializes from its {@code client} entrypoint, after all {@code main} entrypoints) they run after it.
+ * <p>
+ * An implementation therefore must not rely on anything the addon's own initializer sets up — no config loaded by
+ * {@code onInitialize}, no static caches it fills, no registrations it performs — and its class/static initializers
+ * must not touch such state either; anything {@link #registerContent()} needs has to be created by this entrypoint
+ * itself. The instance is created when the first hook is dispatched ({@link #registerPartApis}, from AE2's
+ * {@code InitApiLookup.init()}), i.e. in the middle of AE2's init: after AE2's content has been flushed to the game
+ * registries, but before {@code postRegistrationInitialization()} and before {@link #registerContent()}.
  */
 public interface AE2FabricRegistration {
     /**
