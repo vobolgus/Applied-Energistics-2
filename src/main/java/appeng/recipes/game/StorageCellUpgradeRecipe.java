@@ -13,10 +13,12 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.CustomRecipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.display.RecipeDisplay;
+import net.minecraft.world.item.crafting.display.ShapelessCraftingRecipeDisplay;
 import net.minecraft.world.item.crafting.display.SlotDisplay;
 import net.minecraft.world.level.Level;
 
@@ -153,13 +155,32 @@ public class StorageCellUpgradeRecipe extends CustomRecipe {
         return SERIALIZER;
     }
 
+    /**
+     * Reported as a plain shapeless crafting display so that recipe viewers can actually show it.
+     * <p>
+     * This used to return {@link StorageCellUpgradeDisplay}, a bespoke {@link RecipeDisplay} carrying a fourth slot for
+     * the component handed back by {@link #getRemainingItems}. Nothing consumes it: JEI's built-in crafting category
+     * extension accepts a {@link net.minecraft.world.item.crafting.CraftingRecipe} only when its display is a
+     * {@code ShapelessCraftingRecipeDisplay} or a {@code ShapedCraftingRecipeDisplay}, and REI's built-in crafting
+     * plugin behaves the same way, so all 40 {@code ae2:storage_cell_upgrade} recipes were silently absent from both
+     * viewers on both loaders. (The bespoke display type is also never registered in {@code Registries.RECIPE_DISPLAY},
+     * so it could not survive the vanilla display stream codec either — it is only ever built viewer-side, which is why
+     * this never surfaced as an error.)
+     * <p>
+     * A shapeless display is the honest shape here: {@link #matches} accepts exactly one cell plus one component in any
+     * arrangement, which is what shapeless means. The one thing it cannot express is the returned old component — the
+     * same information the pre-26.1 REI integration also dropped when it registered these into the vanilla crafting
+     * category via a recipe filler. Recovering it needs a dedicated AE2 viewer category, which is a larger change than
+     * making the recipes visible at all.
+     */
     @Override
     public List<RecipeDisplay> display() {
         return List.of(
-                new StorageCellUpgradeDisplay(
-                        new SlotDisplay.ItemSlotDisplay(inputCell),
-                        new SlotDisplay.ItemSlotDisplay(inputComponent),
+                new ShapelessCraftingRecipeDisplay(
+                        List.of(
+                                new SlotDisplay.ItemSlotDisplay(inputCell),
+                                new SlotDisplay.ItemSlotDisplay(inputComponent)),
                         new SlotDisplay.ItemSlotDisplay(resultCell),
-                        new SlotDisplay.ItemSlotDisplay(resultComponent)));
+                        new SlotDisplay.ItemSlotDisplay(Items.CRAFTING_TABLE)));
     }
 }

@@ -44,6 +44,7 @@ import appeng.server.testplots.P2PTestPlots;
 import appeng.server.testplots.PatternProviderLockModePlots;
 import appeng.server.testplots.PatternProviderPlots;
 import appeng.server.testplots.QnbTestPlots;
+import appeng.server.testplots.RecipeDisplayTestPlots;
 import appeng.server.testplots.RecipeSerializerSyncTestPlots;
 import appeng.server.testplots.SavedDataTestPlots;
 import appeng.server.testplots.SkyStoneTestPlots;
@@ -84,6 +85,7 @@ public class FabricTestPlotPlatform implements TestPlotPlatform {
             PatternProviderLockModePlots.class,
             PatternProviderPlots.class,
             QnbTestPlots.class,
+            RecipeDisplayTestPlots.class,
             RecipeSerializerSyncTestPlots.class,
             SavedDataTestPlots.class,
             SkyStoneTestPlots.class,
