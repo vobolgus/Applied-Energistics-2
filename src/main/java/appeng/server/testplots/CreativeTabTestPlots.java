@@ -32,22 +32,21 @@ import appeng.server.testworld.PlotBuilder;
 import appeng.server.testworld.PlotTestHelper;
 
 /**
- * Creative-tab build gate. Nothing else in the test suite, on either loader, ever runs a tab's display-items
- * generator: a dedicated server does not build tab contents, and the only caller of
- * {@link CreativeModeTabs#tryRebuildTabContents} in normal play is the creative inventory screen. That makes every
- * failure mode of a tab generator — a throw, or a silently empty tab — invisible until a player presses E in
- * creative.
+ * Creative-tab build gate. Nothing else in the test suite, on either loader, ever runs a tab's display-items generator:
+ * a dedicated server does not build tab contents, and the only caller of {@link CreativeModeTabs#tryRebuildTabContents}
+ * in normal play is the creative inventory screen. That makes every failure mode of a tab generator — a throw, or a
+ * silently empty tab — invisible until a player presses E in creative.
  * <p>
  * The specific failure this pins is the <b>duplicate-accept</b> class (found in ExtendedAE, 2026-07-31, and swept
- * across the Fabric ports): a generator that walks two registration collections which overlap (block registration
- * also puts a {@code BlockItem} into the item collection) accepts the same stack twice. NeoForge's tab builder
- * tolerates that; <b>vanilla throws</b> {@code IllegalStateException: Accidentally adding the same item stack twice}
- * out of {@code CreativeModeTab$ItemDisplayBuilder#accept}, and neither {@code tryRebuildTabContents} nor
+ * across the Fabric ports): a generator that walks two registration collections which overlap (block registration also
+ * puts a {@code BlockItem} into the item collection) accepts the same stack twice. NeoForge's tab builder tolerates
+ * that; <b>vanilla throws</b> {@code IllegalStateException: Accidentally adding the same item stack twice} out of
+ * {@code CreativeModeTab$ItemDisplayBuilder#accept}, and neither {@code tryRebuildTabContents} nor
  * {@code buildAllTabContents} catches it (26.1.2 disassembly), so the client dies on open.
  * <p>
- * AE2's own {@code MainCreativeTab} fills from a single {@code itemDefs} list, so it is structurally safe today —
- * this keeps it that way, and additionally covers the per-item {@code addToMainCreativeTab} overrides (charged
- * variants, encoded patterns, wrapped generic stacks) that <em>do</em> emit several stacks per item.
+ * AE2's own {@code MainCreativeTab} fills from a single {@code itemDefs} list, so it is structurally safe today — this
+ * keeps it that way, and additionally covers the per-item {@code addToMainCreativeTab} overrides (charged variants,
+ * encoded patterns, wrapped generic stacks) that <em>do</em> emit several stacks per item.
  */
 @TestPlotClass
 public final class CreativeTabTestPlots {
