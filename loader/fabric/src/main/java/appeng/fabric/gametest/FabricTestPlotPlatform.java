@@ -32,6 +32,7 @@ import appeng.server.testplots.AutoCraftingTestPlots;
 import appeng.server.testplots.ChannelTests;
 import appeng.server.testplots.CreativeTabTestPlots;
 import appeng.server.testplots.CrystalResonanceGeneratorTestPlots;
+import appeng.server.testplots.DriveCellSyncTestPlots;
 import appeng.server.testplots.ExternalEnergyTestPlots;
 import appeng.server.testplots.GuideRecipeSyncTestPlots;
 import appeng.server.testplots.GuidebookPlot;
@@ -74,6 +75,7 @@ public class FabricTestPlotPlatform implements TestPlotPlatform {
             ChannelTests.class,
             CreativeTabTestPlots.class,
             CrystalResonanceGeneratorTestPlots.class,
+            DriveCellSyncTestPlots.class,
             ExternalEnergyTestPlots.class,
             GuideRecipeSyncTestPlots.class,
             GuidebookPlot.class,

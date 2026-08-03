@@ -2406,3 +2406,93 @@ Negative control run (registration commented out): both plots fail —
 and confirm cable anchor now shows its quartz-knife crafting recipe (knife + metal ingot → 4), that the
 knife renders with its durability/remainder, and that nothing is double-listed. Needs the rebuilt
 `dist/` jar deployed.
+
+---
+
+## Live report 2026-08-03: drive cell items were still on the raw-id wire (P0 #1 + #2)
+
+Second instance of the class fixed in `61c88e68f` (recipe serializers), found on the live server:
+16× `WARN Received unknown item id from server for disk drive ...: 9`. Drives render the wrong cells,
+or none.
+
+`DriveBlockEntity#writeToStream` sends each cell as `BuiltInRegistries.ITEM.getId(item)` — a **static
+registry raw id** — and `readFromStream` resolves it with `byId`. NeoForge aligns static-registry raw
+ids across a connection, so upstream is correct *there*. Fabric 26.1 does not (playbook Part 10):
+vanilla stopped shipping registry-id remaps for the static registries, so the two sides only agree by
+coincidence, and stop agreeing as soon as their mod sets differ at all.
+
+### Fix shape — Fabric layer only, shared sources untouched
+
+`appeng.fabric.network.CellItemIdSync` (new) + `appeng.fabric.mixins.DriveCellItemIdMixin` (new,
+registered in `ae2-fabric.mixins.json`). Two `@Redirect`s on the drive's own methods:
+
+| | before (still what `:neoforge` ships) | after (Fabric only) |
+|---|---|---|
+| per cell, write | `writeVarInt(BuiltInRegistries.ITEM.getId(item))` | `writeUtf(<item registry key>, 256)`, `""` for an empty cell |
+| per cell, read | `readVarInt()` → `byId(id)` | `readUtf(256)` → `Identifier` → registry lookup, re-encoded as this side's raw id so the shared code's `byId` still lands on the right item |
+
+Everything else in the packet (the packed cell-state int, the online bit) is unchanged.
+
+**Why a redirect and not a shared-code change.** The raw-id form is correct on NeoForge, so this is a
+platform divergence, not a bug fix, and the fork stays rebaseable if the shared file keeps upstream's
+bytes. The two call sites are unique inside their methods (`writeToStream` uses `writeInt` for the
+packed state, `readFromStream` uses `readInt`), and with `defaultRequire: 1` an upstream edit to
+either loop fails the build rather than silently reverting the fix.
+
+**The wire divergence is safe and deliberate**: a block-entity update packet never crosses loaders —
+both ends of any connection run the same jar. It is not backward compatible with pre-2026-08-03
+Fabric builds of this fork, *by design*: `CellItemIdSync.readItem` throws a named `DecoderException`
+on anything that is not an identifier, so an old client/server pair fails loudly instead of decoding
+a varint into whatever item sits at that index locally. Client and server jars must be updated
+together. Unknown-but-well-formed ids (server has a mod the client does not) still degrade to an
+empty cell with a warning, which is what the raw-id form was trying to do.
+
+**Downstream:** `CellItemIdSync` is public API of the Fabric jar on purpose — ExtendedAE's
+`TileExDrive` overrides `writeToStream`/`readFromStream` wholesale (so the mixin above does not reach
+it) and its own Fabric overlay calls into this class, keeping one implementation of the format. That
+makes the two jars a matched pair: **republish `:fabric:publishToMavenLocal` before rebuilding
+ExtendedAE**, and ship them together.
+
+### P0 #2 — the `CellState` unpack was unguarded (shared-code hardening)
+
+`readFromStream` did `CellState.values()[(packedState >> (i * 3)) & 0b111]`: a **3-bit** field, so
+ordinals 0..7, against **5** constants. A corrupt or differently-versioned packet indexed past the end
+of the array; `AEBaseBlockEntity#readUpdateData` swallows the `ArrayIndexOutOfBoundsException`, so the
+rest of the packet — including every cell item after it — was silently dropped.
+
+Fixed in the **shared** sources (`DriveBlockEntity#cellStateFromOrdinal`, marked `// fork:`): unknown
+ordinals degrade to `CellState.ABSENT` and warn once per session. Deliberately not Fabric-only — the
+unpack is unguarded upstream on both loaders and `:neoforge` is this fork's regression harness. Drafted
+for upstream as `create26-ports/upstream-reports/12-ae2-drive-cellstate-unguarded.md`.
+
+### Regression guards
+
+`loader/fabric/.../testplots/DriveCellSyncTestPlots.java` (Fabric-only, registered in
+`FabricTestPlotPlatform`; **81 → 84** gametests):
+
+- `drive_cell_sync_identifier_wire` — a populated drive's `getUpdateTag` payload literally contains
+  `ae2:item_storage_cell_64k` / `ae2:fluid_storage_cell_64k`, and a **detached** `DriveBlockEntity`
+  fed that tag through `loadWithComponents` (the client's exact path) reconstructs both cells, their
+  states, and the empty slots. A detached BE reports `isClientSide()`, so its public getters return
+  the synced arrays — i.e. what the drive model would render.
+- `drive_cell_sync_rejects_raw_ids` — a buffer written in the old `writeVarInt` form must throw
+  `DecoderException` out of `CellItemIdSync.readItem`. Pins the *loud* half of the fix: a varint
+  decoded as a varint always "succeeds".
+- `drive_cell_sync_bad_cell_state_ordinal` — ordinal `0b111` in slot 0, `FULL` in slot 1: both slot 1
+  and the cell items after it must still decode, which only holds if the unpack did not throw.
+
+Negative controls run: with `DriveCellItemIdMixin` unregistered, `identifier_wire` and
+`bad_cell_state_ordinal` go red; with the `CellState` guard reverted, `bad_cell_state_ordinal` goes red
+on exactly the "decoding stopped at the bad ordinal" assertion.
+
+### Gates (all green, 2026-08-03)
+
+| Gate | Result |
+|---|---|
+| `:fabric:build` | SUCCESS |
+| `:fabric:runGametest` | **84/84** (81 + 3 new); negative controls red |
+| `:neoforge:build` | SUCCESS (behaviour change limited to the new `CellState` guard) |
+| `spotlessCheck` | green after re-applying to `CreativeTabTestPlots` (drifted since `e5c8f53fe`) |
+
+**Rebuild + redeploy required**: the drive wire format changed, so the server jar and every client jar
+must be swapped in the same maintenance window.

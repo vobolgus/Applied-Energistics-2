@@ -140,7 +140,7 @@ public class DriveBlockEntity extends AENetworkedInvBlockEntity
         var packedState = data.readInt();
         for (int i = 0; i < getCellCount(); i++) {
             var cellStateOrdinal = (packedState >> (i * 3)) & 0b111;
-            var cellState = CellState.values()[cellStateOrdinal];
+            var cellState = cellStateFromOrdinal(cellStateOrdinal);
             if (clientSideCellState[i] != cellState) {
                 clientSideCellState[i] = cellState;
                 changed = true;
@@ -166,6 +166,32 @@ public class DriveBlockEntity extends AENetworkedInvBlockEntity
         }
 
         return changed;
+    }
+
+    /**
+     * fork: the packed cell state is a 3-bit field, so it carries 0..7, but {@link CellState} defines 5 constants -
+     * {@code CellState.values()[ordinal]} therefore indexes past the end of the array for a corrupt or
+     * differently-versioned update packet and kills the connection with an {@link ArrayIndexOutOfBoundsException} on
+     * the netty read. Unknown ordinals degrade to {@link CellState#ABSENT} (the "no cell" state, which is also what a
+     * never-written slot holds) and warn once per session instead.
+     * <p>
+     * Loader-neutral on purpose: the unpack is unguarded upstream too, on both loaders. Kept in the shared sources so
+     * {@code :neoforge} - this fork's regression harness - gets the same guard.
+     */
+    private static boolean warnedAboutCellStateOrdinal = false;
+
+    private static CellState cellStateFromOrdinal(int ordinal) {
+        var values = CellState.values();
+        if (ordinal < 0 || ordinal >= values.length) {
+            if (!warnedAboutCellStateOrdinal) {
+                warnedAboutCellStateOrdinal = true;
+                AELog.warn("Received an out-of-range cell state ordinal (%d, but only %d states are defined) in a "
+                        + "drive update packet; treating the cell as absent. Further occurrences are not logged.",
+                        ordinal, values.length);
+            }
+            return CellState.ABSENT;
+        }
+        return values[ordinal];
     }
 
     @Override

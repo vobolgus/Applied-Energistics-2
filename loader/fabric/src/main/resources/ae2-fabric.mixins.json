@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_11",
   "mixins": [
     "BlockExplodedMixin",
+    "DriveCellItemIdMixin",
     "EnderDragonEntityDestroyMixin",
     "GameTestRegistryLoadTaskMixin",
     "LevelNeighborChangeMixin",
